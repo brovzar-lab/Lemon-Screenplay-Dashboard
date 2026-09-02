@@ -87,6 +87,9 @@ FORMATS = ("feature", "tv_pilot")
 MAX_AUDIT_CLAIMS = 25
 MIN_AUDIT_CLAIMS = 6
 MAX_DETAIL_AUDIT_ROWS = 43
+MAX_COUNT_DETAIL_RETRY_ROWS = 3
+MAX_COUNT_DETAIL_RETRY_TOTAL_ROWS = 9
+DETAIL_AUDIT_CONTRACT_VERSION = "coverage-v1.2-detail-4"
 AUDIT_CLASSIFICATIONS = (
     "supported",
     "partially_supported",
@@ -726,6 +729,88 @@ def build_detail_audit_tool(rows: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
     return tool
 
 
+def build_count_detail_retry_tool(
+    rows: Sequence[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Give malformed count slots one typed, bounded retry."""
+    if not rows or len(rows) > MAX_COUNT_DETAIL_RETRY_ROWS or any(
+        row.get("kind") != "existing_evidence"
+        or not isinstance(row.get("subject"), dict)
+        or row["subject"].get("trigger") != "counting_claim"
+        for row in rows
+    ):
+        raise CoverageContractError(
+            "Count detail retry must contain 1-"
+            f"{MAX_COUNT_DETAIL_RETRY_ROWS} counting claims"
+        )
+    slots = [str(row.get("slot", "")) for row in rows]
+    if any(not slot for slot in slots) or len(slots) != len(set(slots)):
+        raise CoverageContractError(
+            "Count detail retry slots must be unique and non-empty"
+        )
+    result = {
+        "type": "object",
+        "properties": {
+            "classification": {
+                "type": "string",
+                "enum": list(AUDIT_CLASSIFICATIONS),
+            },
+            "claimed_total": {"type": "integer"},
+            "observed_total": {"type": "integer", "minimum": 0},
+            "claimed_universe_total": {"type": "integer", "minimum": 0},
+            "observed_universe_total": {"type": "integer", "minimum": 0},
+            "instances": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "label": {"type": "string"},
+                        "page": {"type": "integer"},
+                        "excerpt": {"type": "string"},
+                        "matches_claim": {"type": "boolean"},
+                        "multiplicity": {"type": "integer", "minimum": 1},
+                    },
+                    "required": [
+                        "label", "page", "excerpt", "matches_claim",
+                        "multiplicity",
+                    ],
+                },
+            },
+            "note": {"type": "string"},
+        },
+        "required": [
+            "classification", "claimed_total", "observed_total",
+            "claimed_universe_total", "observed_universe_total",
+            "instances", "note",
+        ],
+    }
+    tool = {
+        "name": "submit_count_detail_retry_v1_2",
+        "description": "Retry only malformed count ledgers with typed fields.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "results": {
+                    "type": "object",
+                    "properties": {
+                        slot: copy.deepcopy(result) for slot in slots
+                    },
+                    "required": slots,
+                },
+            },
+            "required": ["results"],
+        },
+    }
+    stats = strict_schema_complexity(tool["input_schema"])
+    for metric, ceiling in STRICT_BUDGET.items():
+        if stats[metric] > ceiling:
+            raise CoverageContractError(
+                f"{tool['name']} exceeds strict budget: "
+                f"{metric}={stats[metric]} > {ceiling}"
+            )
+    return tool
+
+
 def decode_detail_audit_payload(
     payload: Any,
     rows: Sequence[Dict[str, Any]],
@@ -775,7 +860,116 @@ def decode_detail_audit_payload(
             evidence.append({"field_path": identifier, **decoded})
         else:
             citations.append({"owner": identifier, **decoded})
-    return evidence, citations
+    return _enforce_count_ledger_uniqueness(
+        evidence, rows, source_text
+    ), citations
+
+
+def _invalid_count_audit_result(reason: str) -> Dict[str, Any]:
+    return {
+        "classification": "unsupported",
+        "note": "COUNT_LEDGER_INVALID: " + reason,
+        "count_ledger": {"valid": False, "reason": reason},
+    }
+
+
+def _canonical_excerpt_span(
+    page_text: str,
+    excerpt: str,
+) -> Optional[Tuple[int, int]]:
+    """Locate an excerpt in one normalized source coordinate for overlap checks."""
+    normalized_page = re.sub(
+        r"(?<=\w)-\s+(?=\w)",
+        "",
+        _revision_safe_evidence_text(page_text).replace("*", ""),
+    )
+    for candidate, _suffix in _excerpt_variants(excerpt):
+        normalized_candidate = re.sub(
+            r"(?<=\w)-\s+(?=\w)",
+            "",
+            _revision_safe_evidence_text(candidate).replace("*", ""),
+        )
+        start = 0
+        while (
+            index := normalized_page.find(normalized_candidate, start)
+        ) >= 0:
+            end = index + len(normalized_candidate)
+            before = normalized_page[index - 1] if index else ""
+            after = normalized_page[end] if end < len(normalized_page) else ""
+            if (
+                (not before or not (before.isalnum() or before == "_"))
+                and (not after or not (after.isalnum() or after == "_"))
+            ):
+                return index, end
+            start = index + 1
+    return None
+
+
+def _enforce_count_ledger_uniqueness(
+    evidence: Sequence[Dict[str, Any]],
+    rows: Sequence[Dict[str, Any]],
+    source_text: str,
+) -> List[Dict[str, Any]]:
+    """Reject overlapping source events across sibling count rows."""
+    _numbers, pages = _marked_page_contents(source_text)
+    subjects = {
+        str(row.get("identifier", "")): row.get("subject", {})
+        for row in rows
+    }
+    seen: Dict[str, List[Tuple[int, int, int, str, str]]] = {}
+    normalized: List[Dict[str, Any]] = []
+    for original in evidence:
+        row = copy.deepcopy(original)
+        field_path = str(row.get("field_path", ""))
+        subject = subjects.get(field_path, {})
+        ledger = row.get("count_ledger")
+        if not isinstance(subject, dict) or not (
+            isinstance(ledger, dict) and ledger.get("valid") is True
+        ):
+            normalized.append(row)
+            continue
+        source_path = str(subject.get("source_field_path", field_path))
+        entity = str(subject.get("count_entity", ""))
+        row_spans: List[Tuple[int, int, int, str, str]] = []
+        invalid_reason = ""
+        for instance in ledger.get("instances", []):
+            page = instance.get("page")
+            excerpt = str(instance.get("excerpt", ""))
+            span = (
+                _canonical_excerpt_span(pages.get(page, ""), excerpt)
+                if type(page) is int
+                else None
+            )
+            if span is None:
+                invalid_reason = "an evidence anchor has no canonical source span"
+                break
+            current = (page, span[0], span[1], field_path, entity)
+            overlap = next(
+                (
+                    previous for previous in [*seen.get(source_path, []), *row_spans]
+                    if previous[0] == page
+                    and previous[4] != entity
+                    and span[0] < previous[2]
+                    and previous[1] < span[1]
+                ),
+                None,
+            )
+            if overlap is not None:
+                invalid_reason = (
+                    "evidence overlaps an instance already used by count row "
+                    + overlap[3]
+                )
+                break
+            row_spans.append(current)
+        if invalid_reason:
+            row = {
+                "field_path": field_path,
+                **_invalid_count_audit_result(invalid_reason),
+            }
+        else:
+            seen.setdefault(source_path, []).extend(row_spans)
+        normalized.append(row)
+    return normalized
 
 
 def _decode_count_audit_result(
@@ -786,67 +980,130 @@ def _decode_count_audit_result(
     """Require a source-backed instance ledger before a count can pass."""
 
     def invalid(reason: str) -> Dict[str, Any]:
-        return {
-            "classification": "unsupported",
-            "note": "COUNT_LEDGER_INVALID: " + reason,
-            "count_ledger": {"valid": False, "reason": reason},
-        }
+        return _invalid_count_audit_result(reason)
 
-    if not isinstance(value, str):
-        return invalid("the detailed auditor returned no JSON ledger")
-    try:
-        decoded = json.loads(value)
-    except (json.JSONDecodeError, TypeError):
+    if isinstance(value, dict):
+        decoded = value
+    elif isinstance(value, str):
+        try:
+            decoded = json.loads(value)
+        except (json.JSONDecodeError, TypeError):
+            return invalid("the detailed auditor returned no JSON ledger")
+    else:
         return invalid("the detailed auditor returned no JSON ledger")
     if not isinstance(decoded, dict) or set(decoded) != {
-        "classification", "claimed_total", "observed_total", "instances", "note"
+        "classification", "claimed_total", "observed_total",
+        "claimed_universe_total", "observed_universe_total", "instances",
+        "note",
     }:
         return invalid("the ledger fields are incomplete")
 
     classification = decoded.get("classification")
     claimed_total = decoded.get("claimed_total")
     observed_total = decoded.get("observed_total")
+    claimed_universe_total = decoded.get("claimed_universe_total")
+    observed_universe_total = decoded.get("observed_universe_total")
     instances = decoded.get("instances")
     note = " ".join(str(decoded.get("note", "")).split())
-    expected_total = _material_count_claimed_total(
-        str(subject.get("claim", ""))
-    )
+    expected_total = subject.get("claimed_total")
+    if type(expected_total) is not int:
+        expected_total = _material_count_claimed_total(
+            str(subject.get("claim", ""))
+        )
+    expected_universe_total = subject.get("claimed_universe_total", 0)
+    quantifier = str(subject.get("count_quantifier", "exact"))
     if classification not in AUDIT_CLASSIFICATIONS or not note:
         return invalid("classification or note is invalid")
+    if quantifier not in {"exact", "minimum", "maximum"}:
+        return invalid("count_quantifier is invalid")
     if type(claimed_total) is not int or claimed_total != expected_total:
         return invalid("claimed_total does not match the coverage claim")
+    if (
+        type(claimed_universe_total) is not int
+        or claimed_universe_total != expected_universe_total
+    ):
+        return invalid(
+            "claimed_universe_total does not match the coverage claim"
+        )
     if type(observed_total) is not int or observed_total < 0:
         return invalid("observed_total is invalid")
-    if not isinstance(instances, list) or len(instances) != observed_total:
-        return invalid("observed_total does not match the instance list")
-    if classification == "supported" and observed_total != claimed_total:
-        return invalid("a mismatched observed total cannot be supported")
+    if (
+        type(observed_universe_total) is not int
+        or observed_universe_total < 0
+    ):
+        return invalid("observed_universe_total is invalid")
+    if not isinstance(instances, list):
+        return invalid("instances is not a list")
 
     _numbers, pages = _marked_page_contents(source_text)
     labels: set[str] = set()
+    evidence_spans: Dict[int, List[Tuple[int, int]]] = {}
     normalized_instances: List[Dict[str, Any]] = []
     for index, instance in enumerate(instances):
-        if not isinstance(instance, dict) or set(instance) != {
-            "label", "page", "excerpt"
-        }:
+        if not isinstance(instance, dict) or set(instance) not in ({
+            "label", "page", "excerpt", "matches_claim"
+        }, {
+            "label", "page", "excerpt", "matches_claim", "multiplicity"
+        }):
             return invalid(f"instance {index + 1} fields are incomplete")
         label = " ".join(str(instance.get("label", "")).split())
         page = instance.get("page")
         excerpt = " ".join(str(instance.get("excerpt", "")).split())
+        matches_claim = instance.get("matches_claim")
+        multiplicity = instance.get("multiplicity", 1)
         if not label or label.casefold() in labels:
             return invalid(f"instance {index + 1} label is empty or duplicated")
         labels.add(label.casefold())
+        if type(matches_claim) is not bool:
+            return invalid(f"instance {index + 1} matches_claim is invalid")
+        if type(multiplicity) is not int or multiplicity < 1:
+            return invalid(f"instance {index + 1} multiplicity is invalid")
         if type(page) is not int or page not in pages:
             return invalid(f"instance {index + 1} page is invalid")
         if not MIN_CITATION_EXCERPT_WORDS <= len(excerpt.split()) <= 12:
             return invalid(f"instance {index + 1} excerpt must be 3-12 words")
         if _lenient_excerpt_match_kind(pages[page], excerpt) is None:
             return invalid(f"instance {index + 1} excerpt is not on its page")
+        source_span = _canonical_excerpt_span(pages[page], excerpt)
+        if source_span is None:
+            return invalid(f"instance {index + 1} has no canonical source span")
+        if any(
+            source_span[0] < previous[1] and previous[0] < source_span[1]
+            for previous in evidence_spans.setdefault(page, [])
+        ):
+            return invalid(f"instance {index + 1} overlaps an evidence anchor")
+        evidence_spans[page].append(source_span)
         normalized_instances.append({
             "label": label,
             "page": page,
             "excerpt": excerpt,
+            "matches_claim": matches_claim,
+            "multiplicity": multiplicity,
         })
+    universe_total = sum(
+        int(instance["multiplicity"]) for instance in normalized_instances
+    )
+    if observed_universe_total != universe_total:
+        return invalid("observed_universe_total does not match instance multiplicity")
+    matched_total = sum(
+        int(instance["multiplicity"])
+        for instance in normalized_instances
+        if instance["matches_claim"]
+    )
+    if observed_total != matched_total:
+        return invalid("observed_total does not match the marked instances")
+    if classification == "supported":
+        if quantifier == "minimum" and observed_total < claimed_total:
+            return invalid("the observed total is below the claimed minimum")
+        if quantifier == "maximum" and observed_total > claimed_total:
+            return invalid("the observed total is above the claimed maximum")
+        if quantifier == "exact" and observed_total != claimed_total:
+            return invalid("a mismatched observed total cannot be supported")
+        if (
+            expected_universe_total
+            and observed_universe_total != expected_universe_total
+        ):
+            return invalid("the claimed universe total is not supported")
 
     return {
         "classification": classification,
@@ -855,6 +1112,9 @@ def _decode_count_audit_result(
             "valid": True,
             "claimed_total": claimed_total,
             "observed_total": observed_total,
+            "count_quantifier": quantifier,
+            "claimed_universe_total": claimed_universe_total,
+            "observed_universe_total": observed_universe_total,
             "instances": normalized_instances,
         },
     }
@@ -1033,9 +1293,11 @@ The five `guard.*` claims are mandatory whole-report gates:
   physical action, setup, payoff, and aftermath. If relevant evidence already
   exists, a recommendation may ask to sharpen or relocate it but may not call
   it absent or ask for the same beat as new.
-- Canonical facts: compare the registry against the synopsis, every lens,
-  genre failures, concerns, priorities, uncertainties, champion case, and pass
-  case. Opposite accounts of the same material fact fail the guard.
+- Canonical facts: compare the registry against the logline, synopsis, every
+  lens, genre failures, strengths, concerns, priorities, uncertainties,
+  champion case, pass case, and any story facts repeated inside the commercial
+  hypothesis. Keep market judgment out of fact checking, but opposite accounts
+  of the same material story fact fail the guard wherever they appear.
 - Sequence: privately list the literal climax and ending beats in order. For
   each, track actor, action, result, character knowledge, audience knowledge,
   citable page, full final scene, tag, and aftermath. Preserve every material
@@ -1063,11 +1325,27 @@ ONLY the auditor's notes provided. Return the complete corrected report with
 the submit_fact_corrections_v1_2 tool. Keep everything the notes do not dispute
 and never introduce new facts, interpretation, praise, or criticism.
 
+Factual repair must never change the producer judgment: keep verdict,
+confidence, primary genre, lens identities and grades, and whether the genre
+contract is met exactly as submitted. Those qualitative decisions require a
+separate human or coverage judgment, not this correction pass.
+
 The story spine is the canonical fact registry. Propagate each correction
-through every place that repeats or depends on it: synopsis, lens analyses,
-genre failures, strengths, concerns, development priorities, uncertainties,
-champion_reason, pass_reason, and commercial_hypothesis. Remove the obsolete
-wording; do not preserve two incompatible versions or duplicate field prefixes.
+through every place that repeats or depends on it: logline, synopsis, lens
+analyses, genre failures, strengths, concerns, development priorities,
+uncertainties, champion_reason, pass_reason, and commercial_hypothesis. Remove
+the obsolete wording; do not preserve two incompatible versions or duplicate
+field prefixes.
+
+Treat the validated sequence ledger as authoritative. Every material climax
+beat must appear in story_spine.climax and synopsis in the ledger's order;
+story_spine.ending begins only after the last climax beat, and every dependent
+field must preserve that order. When reveal evidence establishes source or
+possession and motive but not activation or delivery, preserve the existing
+evidence, narrow the uncertainty to activation or delivery, and never recommend
+creating a new recording or plant. A citation attached to a global absence
+claim is not relevant merely because it quotes the local reveal; rewrite the
+claim so the quote supports the complete proposition.
 """
 
 
@@ -1214,22 +1492,110 @@ _COUNT_VALUES = {
     "seven": 7, "siete": 7,
     "eight": 8, "ocho": 8,
     "nine": 9, "nueve": 9,
-    "ten": 10, "diez": 10, "dozen": 12, "docena": 12,
+    "ten": 10, "diez": 10, "eleven": 11,
+    "twelve": 12, "doce": 12, "dozen": 12, "docena": 12,
 }
-_COUNT_TOKEN_PATTERN = r"(?:\d+|" + "|".join(_COUNT_VALUES) + r")"
+_COUNT_TOKEN_PATTERN = (
+    r"(?:\d+|" + "|".join(_COUNT_VALUES) + r"|once)"
+)
+_QUANTITATIVE_ABSOLUTE = re.compile(
+    rf"\b(?:first|only|primera?|solo|solamente|s[oó]lo|"
+    rf"no\s+(?:fewer|less|more)\s+than|no\s+(?:menos|m[aá]s)\s+de)\s+"
+    rf"(?={_COUNT_TOKEN_PATTERN}\b)",
+    re.IGNORECASE,
+)
 _MATERIAL_COUNT_RATIO = re.compile(
     rf"\b(?P<count>{_COUNT_TOKEN_PATTERN})\s*(?:"
     rf"(?:out\s+of|of|de)\s+(?:(?:the|los|las|a|un|una)\s+)?"
-    rf"(?:total\s+(?:of|de)\s+)?|/)\s*{_COUNT_TOKEN_PATTERN}\b",
+    rf"(?:total\s+(?:of|de)\s+)?|/)\s*"
+    rf"(?P<universe>{_COUNT_TOKEN_PATTERN})\b",
+    re.IGNORECASE,
+)
+_NON_STORY_RATIO_CONTEXT = re.compile(
+    r"\b(?:checklist|criteria|methodology|rubric|viral)\b",
+    re.IGNORECASE,
+)
+_COUNT_MINIMUM = re.compile(
+    r"\b(?:at\s+least|no\s+(?:fewer|less)\s+than|al\s+menos|"
+    r"por\s+lo\s+menos|no\s+menos\s+de)\s*$",
+    re.IGNORECASE,
+)
+_COUNT_MAXIMUM = re.compile(
+    r"\b(?:at\s+most|no\s+more\s+than|a\s+lo\s+sumo|"
+    r"como\s+m[aá]ximo|no\s+m[aá]s\s+de)\s*$",
+    re.IGNORECASE,
+)
+_COUNT_EXCLUSIVE_MINIMUM = re.compile(
+    r"\b(?:more\s+than|m[aá]s\s+de)\s*$",
+    re.IGNORECASE,
+)
+_COUNT_EXCLUSIVE_MAXIMUM = re.compile(
+    r"\b(?:fewer\s+than|less\s+than|menos\s+de)\s*$",
     re.IGNORECASE,
 )
 _MATERIAL_COUNT_ENTITIES = frozenset(
     """
     ammunition balas bullets characters deaths disparos events eventos
-    instances intentos items judges jueces kills members miembros muertes
-    municiones panel panelists personajes reveals revelaciones rituals rituales
-    rounds tiros victims víctimas
+    contestants concursantes intentos items judge judges juez jueces
+    chistes joke jokes kills laugh laughs members miembros muertes
+    municiones panel panelists payoff payoffs personajes reveals revelaciones
+    resolution resolutions resolución resoluciones risa ritual rituals rituales
+    risas rounds runner runners times tiros vez veces victim victims víctima víctimas
     """.split()
+)
+_COUNT_SCORE_WORDS = frozenset(
+    """
+    award awarded awards da dan dieron dio give gave gives giving
+    califica califican calificó calificaron puntua puntuan puntúa puntúan
+    otorga otorgan otorgaron otorgó score scored scores scoring
+    """.split()
+)
+_COLLECTIVE_COUNT_TOKENS = frozenset(
+    {"couple", "cuarteto", "pair", "pareja", "quartet", "trio", "trío"}
+)
+_COUNT_FILLER_STOPWORDS = frozenset(
+    {
+        "and", "comes", "come", "de", "del", "from", "of", "out",
+        "viene", "vienen", "y", *_COUNT_SCORE_WORDS,
+    }
+)
+_OCCURRENCE_COUNT_VERBS = frozenset(
+    """
+    appear appears appeared break breaks broke broken cut cuts happen happens
+    happened interrupt interrupts interrupted occur occurs occurred perform
+    performs performed repeat repeats repeated return returns returned reveal
+    reveals revealed show shows showed shown stop stops stopped use uses used
+    """.split()
+)
+_ANAPHORIC_COUNT_PREDICATES = frozenset(
+    """
+    appear appears appeared are advance advances advanced die dies died era
+    eran es esta estaba estaban estan está están fue fueron is
+    leave leaves left lose loses lost perform performs performed queda quedan
+    remain remains remained return returns returned reveal reveals revealed
+    son survive survives survived vote votes voted was were win wins won
+    """.split()
+)
+_ANAPHORIC_COUNT_LINK = re.compile(
+    r"(?:[,;]\s*(?:(?:and|but|pero|y)\s+)?|"
+    r"(?:\band\b|\bbut\b|\bpero\b|\by\b)\s*)$",
+    re.IGNORECASE,
+)
+_COUNT_MEASUREMENT = re.compile(
+    rf"\b{_COUNT_TOKEN_PATTERN}(?:"
+    r"\s*[-–—]\s*(?:page|p[aá]gina|month|mes|minute|minuto|year|a[nñ]o)|"
+    r"\s+(?:pages|p[aá]ginas|acts?|actos?|months?|mes(?:es)?|"
+    r"minutes?|minutos?|years?|a[nñ]os?|days?|d[ií]as?|weeks?|semanas?))\b",
+    re.IGNORECASE,
+)
+_NUMBERED_RUBRIC_ITEM = re.compile(
+    rf"(?:\(\s*{_COUNT_TOKEN_PATTERN}\s*\)|\b\d+\s*[\).])",
+    re.IGNORECASE,
+)
+_NUMBERED_SECTION = re.compile(
+    rf"\b(?:act|acto|commandment|mandamiento|step|paso)\s+"
+    rf"{_COUNT_TOKEN_PATTERN}\b",
+    re.IGNORECASE,
 )
 
 
@@ -1238,28 +1604,502 @@ def _count_token_value(token: str) -> Optional[int]:
     return int(token) if token.isdigit() else _COUNT_VALUES.get(token)
 
 
-def _material_count_claimed_total(claim: str) -> Optional[int]:
-    ratio = _MATERIAL_COUNT_RATIO.search(claim)
-    if ratio is not None:
-        return _count_token_value(ratio.group("count"))
+def _count_constraint_at(
+    value: str,
+    count_start: int,
+    total: int,
+) -> Tuple[str, int]:
+    prefix = value[:count_start]
+    if _COUNT_MINIMUM.search(prefix):
+        return "minimum", total
+    if _COUNT_MAXIMUM.search(prefix):
+        return "maximum", total
+    if _COUNT_EXCLUSIVE_MINIMUM.search(prefix):
+        return "minimum", total + 1
+    if _COUNT_EXCLUSIVE_MAXIMUM.search(prefix):
+        return "maximum", max(0, total - 1)
+    return "exact", total
 
-    without_page_references = _PROSE_PAGE_REFERENCE.sub(" ", claim)
-    tokens = re.findall(
-        r"[^\W_]+", without_page_references.casefold(), flags=re.UNICODE
-    )
-    entity_indexes = [
-        index for index, token in enumerate(tokens)
-        if token in _MATERIAL_COUNT_ENTITIES
+
+def _local_count_context(value: str, start: int, end: int) -> str:
+    sentence_start = max(
+        (value.rfind(marker, 0, start) for marker in ".!?;\n"),
+        default=-1,
+    ) + 1
+    sentence_ends = [
+        position
+        for marker in ".!?;\n"
+        if (position := value.find(marker, end)) >= 0
     ]
-    candidates: List[Tuple[int, int, int]] = []
-    for index, token in enumerate(tokens):
+    sentence_end = min(sentence_ends, default=len(value))
+    return value[
+        max(sentence_start, start - 40):min(sentence_end, end + 80)
+    ]
+
+
+def _first_material_count_claim_details(
+    claim: str,
+) -> Optional[Dict[str, Any]]:
+    without_page_references = _PROSE_PAGE_REFERENCE.sub(
+        lambda match: " " * len(match.group(0)), claim
+    )
+    for pattern in (
+        _COUNT_MEASUREMENT,
+        _NUMBERED_RUBRIC_ITEM,
+        _NUMBERED_SECTION,
+    ):
+        without_page_references = pattern.sub(
+            lambda match: " " * len(match.group(0)),
+            without_page_references,
+        )
+    raw_token_matches = list(re.finditer(
+        r"[^\W_]+",
+        without_page_references.casefold(),
+        flags=re.UNICODE,
+    ))
+    raw_tokens = [match.group(0) for match in raw_token_matches]
+    suppressed_count_spans: List[Tuple[int, int]] = []
+
+    # "Of the four judges, two are bribed" puts the claimed subset after
+    # the denominator and entity. Handle that literal construction first.
+    for index, token in enumerate(raw_tokens):
+        if token not in {"of", "de"}:
+            continue
+        if index and _count_token_value(raw_tokens[index - 1]) is not None:
+            continue
+        cursor = index + 1
+        if cursor < len(raw_tokens) and raw_tokens[cursor] in {
+            "a", "the", "los", "las", "un", "una",
+        }:
+            cursor += 1
+        denominator = (
+            _count_token_value(raw_tokens[cursor])
+            if cursor < len(raw_tokens)
+            else None
+        )
+        if (
+            cursor >= len(raw_tokens)
+            or denominator is None
+        ):
+            continue
+        entity_index = next(
+            (
+                candidate
+                for candidate in range(
+                    cursor + 1, min(cursor + 5, len(raw_tokens))
+                )
+                if raw_tokens[candidate] in _MATERIAL_COUNT_ENTITIES
+            ),
+            None,
+        )
+        if entity_index is None:
+            continue
+        for candidate in range(
+            entity_index + 1, min(entity_index + 5, len(raw_tokens))
+        ):
+            count = _count_token_value(raw_tokens[candidate])
+            if (
+                count is None
+                and token == "de"
+                and raw_tokens[candidate] == "once"
+            ):
+                count = 11
+            if count is not None:
+                context = _local_count_context(
+                    without_page_references,
+                    raw_token_matches[index].start(),
+                    raw_token_matches[candidate].end(),
+                )
+                if (
+                    raw_tokens[entity_index] == "items"
+                    and _NON_STORY_RATIO_CONTEXT.search(context)
+                ):
+                    suppressed_count_spans.extend((
+                        raw_token_matches[cursor].span(),
+                        raw_token_matches[candidate].span(),
+                    ))
+                    continue
+                quantifier, claimed_total = _count_constraint_at(
+                    without_page_references,
+                    raw_token_matches[candidate].start(),
+                    count,
+                )
+                return {
+                    "claimed_total": claimed_total,
+                    "claimed_universe_total": denominator,
+                    "count_quantifier": quantifier,
+                    "count_entity": raw_tokens[entity_index],
+                    "_count_span": (
+                        raw_token_matches[index].start(),
+                        raw_token_matches[candidate].end(),
+                    ),
+                }
+
+    for ratio in _MATERIAL_COUNT_RATIO.finditer(without_page_references):
+        preceding_indexes = [
+            index for index, match in enumerate(raw_token_matches)
+            if match.end() <= ratio.start()
+        ][-4:]
+        following_indexes = [
+            index for index, match in enumerate(raw_token_matches)
+            if match.start() >= ratio.end()
+        ][:4]
+        preceding_material = [
+            index for index in preceding_indexes
+            if raw_tokens[index] in _MATERIAL_COUNT_ENTITIES
+        ]
+        following_material = [
+            index for index in following_indexes
+            if raw_tokens[index] in _MATERIAL_COUNT_ENTITIES
+        ]
+        material_indexes = [*preceding_material, *following_material]
+        if material_indexes:
+            entity_index = (
+                following_material[0]
+                if following_material
+                else preceding_material[-1]
+            )
+            material_tokens = [raw_tokens[index] for index in material_indexes]
+            if (
+                "items" in material_tokens
+                and _NON_STORY_RATIO_CONTEXT.search(
+                    _local_count_context(
+                        without_page_references, ratio.start(), ratio.end()
+                    )
+                )
+            ):
+                continue
+            count = _count_token_value(ratio.group("count"))
+            if (
+                count is None
+                and ratio.group("count").casefold() == "once"
+                and re.search(r"\bde\b", ratio.group(0), re.IGNORECASE)
+            ):
+                count = 11
+            universe = _count_token_value(ratio.group("universe"))
+            if count is None or universe is None:
+                continue
+            quantifier, claimed_total = _count_constraint_at(
+                without_page_references, ratio.start(), count
+            )
+            return {
+                "claimed_total": claimed_total,
+                "claimed_universe_total": universe,
+                "count_quantifier": quantifier,
+                "count_entity": raw_tokens[entity_index],
+                "_count_span": (
+                    min(ratio.start(), raw_token_matches[entity_index].start()),
+                    max(ratio.end(), raw_token_matches[entity_index].end()),
+                ),
+            }
+
+    # Conservative post-verbal occurrence syntax: "the ritual happens once".
+    # Clause-initial English "Once judges arrive" remains a conjunction.
+    for count_index, token in enumerate(raw_tokens):
+        if token not in {"once", "twice"}:
+            continue
+        entity_index = next(
+            (
+                candidate
+                for candidate in range(
+                    count_index - 1, max(-1, count_index - 8), -1
+                )
+                if raw_tokens[candidate] in _MATERIAL_COUNT_ENTITIES
+            ),
+            None,
+        )
+        if entity_index is None:
+            continue
+        between = without_page_references[
+            raw_token_matches[entity_index].end():
+            raw_token_matches[count_index].start()
+        ]
+        between_tokens = raw_tokens[entity_index + 1:count_index]
+        if (
+            re.search(r"[.!?;,\n]", between)
+            or not (
+                raw_tokens[entity_index] in _OCCURRENCE_COUNT_VERBS
+                or any(
+                    word in _OCCURRENCE_COUNT_VERBS
+                    for word in between_tokens
+                )
+            )
+        ):
+            continue
+        return {
+            "claimed_total": 1 if token == "once" else 2,
+            "claimed_universe_total": 0,
+            "count_quantifier": "exact",
+            "count_entity": raw_tokens[entity_index],
+            "_count_span": (
+                raw_token_matches[entity_index].start(),
+                raw_token_matches[count_index].end(),
+            ),
+        }
+
+    # Conservative entity-before-total syntax: "Judges bribed: two" or
+    # "the number of bribed judges is two". Free prose proximity is rejected.
+    copulas = {
+        "are", "equals", "equal", "eran", "es", "fueron", "is",
+        "suma", "suman", "son", "total", "totals", "was", "were",
+    }
+    for count_index, token in enumerate(raw_tokens):
         count = _count_token_value(token)
+        if count is None and token == "once":
+            count = 11
         if count is None:
             continue
-        distances = [abs(entity_index - index) for entity_index in entity_indexes]
-        if distances and min(distances) <= 6:
-            candidates.append((min(distances), index, count))
-    return min(candidates)[2] if candidates else None
+        if token in {"ambas", "ambos", "both"}:
+            continue
+        entity_index = next(
+            (
+                candidate
+                for candidate in range(
+                    count_index - 1, max(-1, count_index - 5), -1
+                )
+                if raw_tokens[candidate] in _MATERIAL_COUNT_ENTITIES
+            ),
+            None,
+        )
+        if entity_index is None:
+            continue
+        between = without_page_references[
+            raw_token_matches[entity_index].end():
+            raw_token_matches[count_index].start()
+        ]
+        between_tokens = raw_tokens[entity_index + 1:count_index]
+        tail = without_page_references[raw_token_matches[count_index].end():]
+        clause_tail = re.split(r"[.!?;\n]", tail, maxsplit=1)[0]
+        if (
+            re.search(r"[.!?;\n]", between)
+            or any(_count_token_value(word) is not None for word in between_tokens)
+            or re.search(r"[^\W\d_]+", clause_tail, re.UNICODE)
+            or ":" not in between
+            and not (between_tokens and between_tokens[-1] in copulas)
+        ):
+            continue
+        quantifier, claimed_total = _count_constraint_at(
+            without_page_references,
+            raw_token_matches[count_index].start(),
+            count,
+        )
+        return {
+            "claimed_total": claimed_total,
+            "claimed_universe_total": 0,
+            "count_quantifier": quantifier,
+            "count_entity": raw_tokens[entity_index],
+            "_count_span": (
+                raw_token_matches[entity_index].start(),
+                raw_token_matches[count_index].end(),
+            ),
+        }
+
+    # Ratios used by a methodology rubric (for example "four of five viral
+    # boxes") are not screenplay-fact counts. Remove them before looking for
+    # nearby material entities so they cannot contaminate the fallback.
+    fallback_characters = list(without_page_references)
+    for start, end in suppressed_count_spans:
+        fallback_characters[start:end] = " " * (end - start)
+    without_page_references = _MATERIAL_COUNT_RATIO.sub(
+        lambda match: " " * len(match.group(0)),
+        "".join(fallback_characters),
+    )
+    fallback_token_matches = list(re.finditer(
+        r"[^\W_]+",
+        without_page_references.casefold(),
+        flags=re.UNICODE,
+    ))
+    tokens = [match.group(0) for match in fallback_token_matches]
+    candidates: List[Tuple[int, int, int]] = []
+    for index, token in enumerate(tokens):
+        if (
+            token in {"ambas", "ambos", "both"}
+            and index + 1 < len(tokens)
+            and tokens[index + 1] in {"as", "como"}
+        ):
+            continue
+        count = _count_token_value(token)
+        if (
+            count is None
+            and token == "once"
+            and index > 0
+            and tokens[index - 1] in {"existen", "hay", "habia", "había", "son"}
+            and index + 1 < len(tokens)
+            and tokens[index + 1] in _MATERIAL_COUNT_ENTITIES
+            and tokens[index + 1].endswith("s")
+        ):
+            count = 11
+        if count is None:
+            continue
+        for entity_index in range(index + 1, min(index + 4, len(tokens))):
+            if tokens[entity_index] not in _MATERIAL_COUNT_ENTITIES:
+                continue
+            between = tokens[index + 1:entity_index]
+            span_between = without_page_references[
+                fallback_token_matches[index].end():
+                fallback_token_matches[entity_index].start()
+            ]
+            if re.search(r"[.!?;\n]", span_between):
+                continue
+            if (
+                re.match(r"\s*[-–—]", span_between)
+                and entity_index != index + 1
+            ):
+                continue
+            if token in {"ambas", "ambos", "both", "one", "una", "uno"}:
+                if entity_index != index + 1:
+                    continue
+            if token in _COLLECTIVE_COUNT_TOKENS:
+                allowed = {"a", "de", "del", "of", "the", "un", "una"}
+                if any(word not in allowed for word in between):
+                    continue
+            elif any(
+                _count_token_value(word) is not None
+                or word == "once"
+                or word in _COUNT_FILLER_STOPWORDS
+                for word in between
+            ):
+                continue
+            candidates.append((index, entity_index, count))
+            break
+    if not candidates:
+        return None
+    count_index, entity_index, count = min(candidates)
+    count_match = fallback_token_matches[count_index]
+    entity_match = fallback_token_matches[entity_index]
+    quantifier, claimed_total = _count_constraint_at(
+        without_page_references,
+        count_match.start(),
+        count,
+    )
+    return {
+        "claimed_total": claimed_total,
+        "claimed_universe_total": 0,
+        "count_quantifier": quantifier,
+        "count_entity": tokens[entity_index],
+        "_count_span": (count_match.start(), entity_match.end()),
+    }
+
+
+def _material_count_claims_details(claim: str) -> List[Dict[str, Any]]:
+    working = claim
+    results: List[Dict[str, Any]] = []
+    while details := _first_material_count_claim_details(working):
+        start, end = details.pop("_count_span")
+        if not 0 <= start < end <= len(working):
+            raise CoverageContractError("Count parser returned an invalid span")
+        results.append({
+            **details,
+            "count_anchor": " ".join(claim[start:end].split()),
+            "count_claim": " ".join(
+                _local_count_context(claim, start, end).split()
+            ),
+            "_count_start": start,
+            "_count_end": end,
+        })
+        working = working[:start] + " " * (end - start) + working[end:]
+
+    # Bind a clause-initial count to the immediately preceding material entity:
+    # "Four judges appear; two are bribed." Both propositions need a ledger.
+    excluded_spans = [
+        match.span()
+        for pattern in (
+            _PROSE_PAGE_REFERENCE,
+            _COUNT_MEASUREMENT,
+            _NUMBERED_RUBRIC_ITEM,
+            _NUMBERED_SECTION,
+        )
+        for match in pattern.finditer(claim)
+    ]
+    count_matches = re.finditer(
+        rf"\b(?P<count>{_COUNT_TOKEN_PATTERN})\b",
+        claim,
+        re.IGNORECASE,
+    )
+    for match in count_matches:
+        start = match.start()
+        occupied = [
+            (int(row["_count_start"]), int(row["_count_end"]))
+            for row in results
+        ]
+        if any(left <= start < right for left, right in [
+            *occupied, *excluded_spans,
+        ]):
+            continue
+        prior = max(
+            (
+                row for row in results
+                if int(row["_count_end"]) <= start
+            ),
+            key=lambda row: int(row["_count_end"]),
+            default=None,
+        )
+        if prior is None:
+            continue
+        between = claim[int(prior["_count_end"]):start]
+        if re.search(r"[.!?\n]", between) or not _ANAPHORIC_COUNT_LINK.search(
+            between
+        ):
+            continue
+        predicate_match = re.match(
+            r"\s+(?P<predicate>[^\W\d_]+)\b",
+            claim[match.end():],
+            re.UNICODE,
+        )
+        if (
+            predicate_match is None
+            or predicate_match.group("predicate").casefold()
+            not in _ANAPHORIC_COUNT_PREDICATES
+        ):
+            continue
+        count = _count_token_value(match.group("count"))
+        if count is None:
+            continue
+        tail = claim[match.end():]
+        terminator = re.search(r"[;.!?\n]", tail)
+        end = match.end() + (
+            terminator.start() if terminator is not None else len(tail)
+        )
+        anchor = " ".join(claim[start:end].split())
+        if not anchor:
+            continue
+        quantifier, claimed_total = _count_constraint_at(claim, start, count)
+        prior_universe = 0
+        if prior.get("count_quantifier") == "exact":
+            prior_universe = int(
+                prior.get("claimed_universe_total")
+                or prior.get("claimed_total", 0)
+            )
+        results.append({
+            "claimed_total": claimed_total,
+            "claimed_universe_total": prior_universe,
+            "count_quantifier": quantifier,
+            "count_entity": str(prior["count_entity"]),
+            "count_anchor": anchor,
+            "count_claim": " ".join(
+                _local_count_context(claim, start, end).split()
+            ),
+            "_count_start": start,
+            "_count_end": end,
+        })
+
+    results.sort(key=lambda details: int(details["_count_start"]))
+    for details in results:
+        details.pop("_count_start")
+        details.pop("_count_end")
+    return results
+
+
+def _material_count_claim_details(claim: str) -> Optional[Dict[str, Any]]:
+    details = _first_material_count_claim_details(claim)
+    if details is not None:
+        details.pop("_count_span")
+    return details
+
+
+def _material_count_claimed_total(claim: str) -> Optional[int]:
+    details = _material_count_claim_details(claim)
+    return int(details["claimed_total"]) if details is not None else None
 
 
 _EVIDENCE_STOPWORDS = frozenset(
@@ -1281,6 +2121,12 @@ def _evidence_search_terms(value: str) -> List[str]:
     return terms
 
 
+def _has_nonquantitative_absolute(claim: str) -> bool:
+    return _ABSOLUTE_NEGATIVE.search(
+        _QUANTITATIVE_ABSOLUTE.sub(" ", claim)
+    ) is not None
+
+
 def build_existing_evidence_checks(
     coverage: Dict[str, Any],
     text: str,
@@ -1291,18 +2137,26 @@ def build_existing_evidence_checks(
     still has to inspect staging, synonyms, setup, payoff, and aftermath.
     """
     _numbers, pages = _marked_page_contents(text)
-    candidates: List[Tuple[str, str, str]] = []
+    candidates: List[Dict[str, Any]] = []
     for index, priority in enumerate(coverage.get("development_priorities", [])):
         if isinstance(priority, dict):
+            path = f"development_priorities[{index}]"
             combined = " ".join(
                 str(priority.get(field, ""))
                 for field in ("priority", "why", "how")
             )
-            candidates.append(
-                (f"development_priorities[{index}]", combined, "recommendation")
-            )
+            candidates.append({
+                "path": path,
+                "source_path": path,
+                "claim": combined,
+                "trigger": "recommendation",
+            })
     for path, value in _iter_coverage_text_fields(coverage):
         if path.startswith("development_priorities["):
+            continue
+        if path == "commercial_hypothesis":
+            # Market positioning is producer judgment, not a fact the
+            # screenplay can prove or disprove.
             continue
         if path.endswith(
             (
@@ -1313,16 +2167,34 @@ def build_existing_evidence_checks(
             )
         ):
             continue
-        trigger = None
-        if _ABSOLUTE_NEGATIVE.search(value):
-            trigger = "absolute_negative"
-        elif _material_count_claimed_total(value) is not None:
-            trigger = "counting_claim"
-        if trigger is not None:
-            candidates.append((path, value, trigger))
+        count_details = _material_count_claims_details(value)
+        has_absolute = _has_nonquantitative_absolute(value)
+        if count_details:
+            multiple = len(count_details) > 1 or has_absolute
+            for count_index, details in enumerate(count_details, start=1):
+                candidates.append({
+                    "path": (
+                        f"{path}#count_{count_index}" if multiple else path
+                    ),
+                    "source_path": path,
+                    "claim": details.pop("count_claim"),
+                    "trigger": "counting_claim",
+                    "count_details": details,
+                })
+        if has_absolute:
+            candidates.append({
+                "path": f"{path}#absolute" if count_details else path,
+                "source_path": path,
+                "claim": value,
+                "trigger": "absolute_negative",
+            })
 
     checks: List[Dict[str, Any]] = []
-    for path, claim, trigger in candidates:
+    for candidate in candidates:
+        path = str(candidate["path"])
+        source_path = str(candidate["source_path"])
+        claim = str(candidate["claim"])
+        trigger = str(candidate["trigger"])
         all_terms = _evidence_search_terms(claim)
         all_hits: Dict[str, List[int]] = {}
         for term in all_terms:
@@ -1345,9 +2217,9 @@ def build_existing_evidence_checks(
             selected.add(term)
         terms = [term for term in all_terms if term in selected]
         hits = {term: all_hits[term] for term in terms if term in all_hits}
-        checks.append(
-            {
+        check: Dict[str, Any] = {
                 "field_path": path,
+                "source_field_path": source_path,
                 "trigger": trigger,
                 "claim": " ".join(claim.split()),
                 "search_terms": terms,
@@ -1357,7 +2229,9 @@ def build_existing_evidence_checks(
                 ),
                 "full_screenplay_searched": True,
             }
-        )
+        if trigger == "counting_claim":
+            check.update(candidate["count_details"])
+        checks.append(check)
     return checks
 
 
@@ -1650,16 +2524,49 @@ def build_detail_audit_user_blocks(
                 "staging, payoff, and aftermath before deciding. For citation "
                 "rows, decide whether the quoted excerpt actually supports its "
                 "attached point, separately from whether the text merely exists. "
+                "A local quote can prove that an event occurs; by itself it "
+                "cannot prove a global claim that setup is absent elsewhere. "
+                "For a `continuity_flags` row, judge whether the coverage flag "
+                "accurately identifies the screenplay's inconsistency. If the "
+                "flag correctly quotes two conflicting script facts, classify "
+                "the flag supported; do not call the flag contradicted merely "
+                "because the underlying dialogue and staging contradict each "
+                "other. "
                 "For every `counting_claim` row, its result value must instead be "
-                "a JSON object encoded as a string with exactly these fields: "
-                "classification, claimed_total, observed_total, instances, note. "
-                "Each instance must contain exactly label, page, and a verbatim "
-                "3-12-word excerpt from that page. The instance list length must "
-                "equal observed_total; use an empty list only when zero instances "
-                "exist. A wrong total for a real event is partially_supported, "
-                "never supported. For reveal provenance, inspect "
-                "the reveal, the next page, and the aftermath for who captured or "
-                "supplied it."
+                "a JSON object with exactly these fields: "
+                "classification, claimed_total, observed_total, "
+                "claimed_universe_total, observed_universe_total, instances, "
+                "note. Copy the code-generated `subject.claimed_total` and "
+                "`subject.claimed_universe_total` exactly. "
+                "The code-generated `subject.count_entity` and "
+                "`subject.count_anchor` identify the exact occurrence to audit; "
+                "never substitute a different entity or event. Sibling predicates "
+                "about the same entity may enumerate the same universe, but each "
+                "matches_claim value must answer its own count anchor literally. "
+                "Follow the tool schema: encode this object as a "
+                "JSON string when the slot is typed as string, or return its "
+                "fields directly when the slot is typed as object. "
+                "Each instance must contain exactly label, page, a verbatim "
+                "3-12-word excerpt from that page, matches_claim, and multiplicity. "
+                "Use multiplicity 1 for one event. When one source line literally "
+                "proves a collective count, use one instance with that literal "
+                "multiplicity; never duplicate or shift the same quote. Enumerate "
+                "the whole relevant universe: observed_universe_total must equal "
+                "the sum of all multiplicities, and observed_total must equal the "
+                "sum whose matches_claim is true. A ratio is supported only "
+                "when its denominator is also proved. Respect "
+                "subject.count_quantifier: minimum allows more matching instances, "
+                "maximum allows fewer, and exact allows neither. A wrong total "
+                "for a real event is "
+                "partially_supported, never supported. For reveal provenance, "
+                "test capture/source, "
+                "character knowledge or motive, and activation or delivery as "
+                "three separate questions. Inspect the reveal, the next page, "
+                "and the aftermath, including any private footage in the revealed "
+                "package, before approving a recommendation to add a new recording "
+                "or plant. If source is inferable but activation is missing, a "
+                "claim combining those two ideas is partially_supported: name "
+                "the existing source evidence and the still-missing activation."
             ),
         },
     ]
@@ -2290,6 +3197,57 @@ def validate_coverage_payload(
     return problems
 
 
+def _fact_repair_protected_changes(
+    original: Dict[str, Any],
+    candidate: Any,
+) -> List[str]:
+    """Keep factual correction from silently changing producer judgment."""
+    if not isinstance(candidate, dict):
+        return []
+
+    def genre_primary(report: Dict[str, Any]) -> Any:
+        genre = report.get("genre")
+        return genre.get("primary") if isinstance(genre, dict) else None
+
+    def contract_value(report: Dict[str, Any], key: str) -> Any:
+        contract = report.get("genre_contract")
+        return contract.get(key) if isinstance(contract, dict) else None
+
+    def lens_judgments(report: Dict[str, Any]) -> Any:
+        notes = report.get("lens_notes")
+        if not isinstance(notes, list):
+            return None
+        return [
+            (note.get("lens"), note.get("grade"))
+            if isinstance(note, dict) else None
+            for note in notes
+        ]
+
+    protected = {
+        "verdict": (original.get("verdict"), candidate.get("verdict")),
+        "confidence": (
+            original.get("confidence"), candidate.get("confidence")
+        ),
+        "genre.primary": (genre_primary(original), genre_primary(candidate)),
+        "lens_notes[].lens/grade": (
+            lens_judgments(original), lens_judgments(candidate)
+        ),
+        "genre_contract.contract": (
+            contract_value(original, "contract"),
+            contract_value(candidate, "contract"),
+        ),
+        "genre_contract.met": (
+            contract_value(original, "met"),
+            contract_value(candidate, "met"),
+        ),
+    }
+    return [
+        f"fact repair changed protected qualitative field {path}"
+        for path, (before, after) in protected.items()
+        if before != after
+    ]
+
+
 # ── Fact audit ───────────────────────────────────────────────────────────────
 
 def build_audit_claims(coverage: Dict[str, Any]) -> List[Dict[str, str]]:
@@ -2348,9 +3306,10 @@ def build_audit_claims(coverage: Dict[str, Any]) -> List[Dict[str, str]]:
     )
     add(
         "guard.cross_field_consistency",
-        "The spine, synopsis, lenses, concerns, priorities, uncertainties, "
-        "champion case, and pass case all agree with the canonical material "
-        "facts, especially the climax and ending.",
+        "The spine, logline, synopsis, lenses, genre failures, strengths, "
+        "concerns, priorities, uncertainties, champion case, pass case, and "
+        "story facts repeated in the commercial hypothesis all agree with the "
+        "canonical material facts, especially the climax and ending.",
     )
     add(
         "guard.sequence_integrity",
@@ -2940,6 +3899,12 @@ def run_coverage_v1(
     audit_payload = _verified_payload(
         checkpoint_store.load(checkpoint_key, "audit"), binding, "audit"
     )
+    if (
+        audit_payload is not None
+        and audit_payload.get("detail_contract_version")
+        != DETAIL_AUDIT_CONTRACT_VERSION
+    ):
+        audit_payload = None
     audit_replayed = audit_payload is not None
     audit_core_payload = (
         _verified_payload(
@@ -2975,10 +3940,74 @@ def run_coverage_v1(
     ) -> Dict[str, Any]:
         nonlocal usage_total
         rows = build_detail_audit_rows(candidate_coverage, candidate_evidence)
-        evidence_rows: List[Dict[str, str]] = []
+        progress_stage = (
+            "fact_reaudit_details_progress"
+            if stage.startswith("coverage_v1.fact_reaudit")
+            else "audit_details_progress"
+        )
+        coverage_sha256 = canonical_json_hash(candidate_coverage)
+        candidate_sha256 = canonical_json_hash(candidate)
+        rows_sha256 = canonical_json_hash(rows)
+        progress = _verified_payload(
+            checkpoint_store.load(checkpoint_key, progress_stage),
+            binding,
+            progress_stage,
+        )
+        if (
+            progress is not None
+            and (
+                progress.get("detail_contract_version")
+                != DETAIL_AUDIT_CONTRACT_VERSION
+                or progress.get("coverage_sha256") != coverage_sha256
+                or progress.get("candidate_sha256") != candidate_sha256
+                or progress.get("rows_sha256") != rows_sha256
+            )
+        ):
+            progress = None
+        evidence_rows: List[Dict[str, Any]] = copy.deepcopy(
+            (progress or {}).get("evidence_rows", [])
+        )
         citation_rows: List[Dict[str, str]] = []
+        citation_rows = copy.deepcopy(
+            (progress or {}).get("citation_rows", [])
+        )
+        completed_main = set(
+            (progress or {}).get("completed_main_batches", [])
+        )
+        completed_retries = set(
+            (progress or {}).get("completed_retry_batches", [])
+        )
+        retry_plan = list((progress or {}).get("retry_plan", []))
+
+        def save_progress() -> None:
+            checkpoint_store.save(
+                checkpoint_key,
+                progress_stage,
+                _sealed_record(
+                    binding,
+                    {
+                        "detail_contract_version": (
+                            DETAIL_AUDIT_CONTRACT_VERSION
+                        ),
+                        "coverage_sha256": coverage_sha256,
+                        "candidate_sha256": candidate_sha256,
+                        "rows_sha256": rows_sha256,
+                        "completed_main_batches": sorted(completed_main),
+                        "completed_retry_batches": sorted(
+                            completed_retries
+                        ),
+                        "retry_plan": retry_plan,
+                        "evidence_rows": evidence_rows,
+                        "citation_rows": citation_rows,
+                    },
+                ),
+            )
+
         for start in range(0, len(rows), MAX_DETAIL_AUDIT_ROWS):
             batch = rows[start:start + MAX_DETAIL_AUDIT_ROWS]
+            batch_sha256 = canonical_json_hash(batch)
+            if batch_sha256 in completed_main:
+                continue
             tool = build_detail_audit_tool(batch)
             guard.check_before_call()
             detail_input, _text_out, usage = call(
@@ -2990,7 +4019,7 @@ def run_coverage_v1(
                     page_reference_map,
                     batch,
                 ),
-                model_key=audit_model_key,
+                model_key=audit_model_effective,
                 tool=tool,
                 thinking_budget=AUDIT_THINKING_BUDGET,
                 max_tokens=AUDIT_MAX_TOKENS,
@@ -3001,12 +4030,84 @@ def run_coverage_v1(
             )
             usage_total = _merge_usage(usage_total, usage)
             _note_usage(usage_sink, usage_total)
-            guard.charge(usage)
             decoded_evidence, decoded_citations = (
                 decode_detail_audit_payload(detail_input, batch, text)
             )
             evidence_rows.extend(decoded_evidence)
             citation_rows.extend(decoded_citations)
+            completed_main.add(batch_sha256)
+            save_progress()
+            guard.charge(usage)
+
+        evidence_rows = _enforce_count_ledger_uniqueness(
+            evidence_rows, rows, text
+        )
+        if not retry_plan:
+            invalid_count_paths = {
+                str(row.get("field_path", ""))
+                for row in evidence_rows
+                if isinstance(row.get("count_ledger"), dict)
+                and row["count_ledger"].get("valid") is False
+            }
+            retry_plan = [
+                str(row.get("identifier", ""))
+                for row in rows
+                if str(row.get("identifier", "")) in invalid_count_paths
+            ][:MAX_COUNT_DETAIL_RETRY_TOTAL_ROWS]
+            save_progress()
+        rows_by_identifier = {
+            str(row.get("identifier", "")): row for row in rows
+        }
+        retry_rows = [
+            rows_by_identifier[identifier]
+            for identifier in retry_plan
+            if identifier in rows_by_identifier
+        ]
+        for start in range(0, len(retry_rows), MAX_COUNT_DETAIL_RETRY_ROWS):
+            retry_batch = retry_rows[start:start + MAX_COUNT_DETAIL_RETRY_ROWS]
+            batch_sha256 = canonical_json_hash(retry_batch)
+            if batch_sha256 in completed_retries:
+                continue
+            guard.check_before_call()
+            retry_input, _text_out, usage = call(
+                system_blocks=audit_system,
+                user_blocks=build_detail_audit_user_blocks(
+                    text,
+                    title,
+                    candidate_coverage,
+                    page_reference_map,
+                    retry_batch,
+                ),
+                model_key=audit_model_effective,
+                tool=build_count_detail_retry_tool(retry_batch),
+                thinking_budget=AUDIT_THINKING_BUDGET,
+                max_tokens=AUDIT_MAX_TOKENS,
+                proxy_url=proxy_url,
+                job_id=job_id,
+                stage=(
+                    stage
+                    + f"_count_retry_{start // MAX_COUNT_DETAIL_RETRY_ROWS + 1}"
+                ),
+                pipeline_pass="coverage_v1",
+            )
+            usage_total = _merge_usage(usage_total, usage)
+            _note_usage(usage_sink, usage_total)
+            retried, _unused_citations = decode_detail_audit_payload(
+                retry_input, retry_batch, text
+            )
+            replacements = {
+                str(row["field_path"]): row for row in retried
+            }
+            evidence_rows = [
+                replacements.get(str(row.get("field_path", "")), row)
+                for row in evidence_rows
+            ]
+            completed_retries.add(batch_sha256)
+            save_progress()
+            guard.charge(usage)
+        evidence_rows = _enforce_count_ledger_uniqueness(
+            evidence_rows, rows, text
+        )
         return _replace_audit_details(
             candidate, evidence_rows, citation_rows
         )
@@ -3150,6 +4251,7 @@ def run_coverage_v1(
                 "Fact audit failed validation: " + "; ".join(problems[:8])
             )
         audit_payload = {
+            "detail_contract_version": DETAIL_AUDIT_CONTRACT_VERSION,
             "claims": claims,
             "verdicts": tool_input["verdicts"],
             "existing_evidence_verdicts": tool_input[
@@ -3179,6 +4281,11 @@ def run_coverage_v1(
     by_claim, central_failures, central_partials, unclassified, support_rate = (
         _adjudicate_verdicts(audit_payload["verdicts"])
     )
+    partial_claims = sorted(
+        claim_id
+        for claim_id, verdict_row in by_claim.items()
+        if verdict_row["classification"] == "partially_supported"
+    )
 
     # ── Stage 3: fact repair (brief #3, defect 6) ───────────────────────────
     # The audit detects factual imprecision in central claims; a document
@@ -3187,12 +4294,19 @@ def run_coverage_v1(
     # re-audited, once. Contradicted central facts still go straight to
     # human review — a fundamentally wrong read is never patched in place.
     fact_repair_info: Dict[str, Any] = {"attempted": False}
-    if central_partials and not central_failures:
+    if partial_claims and not central_failures:
+        repair_targets = partial_claims
         stage3 = _verified_payload(
             checkpoint_store.load(checkpoint_key, "fact_repair"),
             binding,
             "fact_repair",
         )
+        if (
+            stage3 is not None
+            and stage3.get("detail_contract_version")
+            != DETAIL_AUDIT_CONTRACT_VERSION
+        ):
+            stage3 = None
         if stage3 is not None:
             coverage_payload = stage3["coverage"]
             citation_summary = stage3["citation_summary"]
@@ -3224,125 +4338,209 @@ def run_coverage_v1(
         else:
             fact_repair_info = {
                 "attempted": True,
-                "target_claims": list(central_partials),
+                "target_claims": repair_targets,
                 "applied": [],
                 "reaudited": False,
                 "outcome": "",
             }
-            statements = {c["claim_id"]: c["statement"] for c in claims}
-            target_lines = "\n\n".join(
-                f"claim_id: {claim_id}\n"
-                f"current claim: {statements.get(claim_id, '')}\n"
-                f"auditor's note: {by_claim[claim_id].get('note', '')}"
-                for claim_id in central_partials
+            repair_usage: Optional[Dict[str, Any]] = None
+            audit_payload_sha256 = canonical_json_hash(audit_payload)
+            repair_candidate = _verified_payload(
+                checkpoint_store.load(
+                    checkpoint_key, "fact_repair_candidate"
+                ),
+                binding,
+                "fact_repair_candidate",
             )
-            guard.check_before_call()
-            corrections_input, _text_out, usage = call(
-                system_blocks=[
-                    {"type": "text", "text": FACT_REPAIR_CHARTER}
-                ],
-                user_blocks=[
-                    {
-                        "type": "text",
-                        "text": (
-                            "# CURRENT COMPLETE COVERAGE REPORT (JSON)\n\n"
-                            + json.dumps(
-                                coverage_payload,
-                                ensure_ascii=False,
-                                indent=1,
-                            )
-                            + "\n\n# CANONICAL FACT REGISTRY (JSON)\n\n"
-                            + json.dumps(
-                                canonical_fact_registry,
-                                ensure_ascii=False,
-                                indent=1,
-                            )
-                            + "\n\n# AUDITOR RELIABILITY EVIDENCE (JSON)\n\n"
-                            + json.dumps(
-                                {
-                                    "existing_evidence_verdicts": audit_payload[
-                                        "existing_evidence_verdicts"
-                                    ],
-                                    "sequence_ledger": audit_payload[
-                                        "sequence_ledger"
-                                    ],
-                                    "citation_relevance": audit_payload[
-                                        "citation_relevance"
-                                    ],
-                                },
-                                ensure_ascii=False,
-                                indent=1,
-                            )
-                            + "\n\n# CLAIMS TO CORRECT (with the auditor's "
-                            "findings)\n\n"
-                            f"{target_lines}\n\n"
-                            "Return the complete coverage report. Correct each "
-                            "named claim, then propagate that same canonical "
-                            "fact through every dependent field."
-                        ),
-                    }
-                ],
-                model_key=model_key,
-                tool=FACT_REPAIR_TOOL,
-                thinking_budget=0,
-                max_tokens=COVERAGE_MAX_TOKENS,
-                proxy_url=proxy_url,
-                job_id=job_id,
-                stage="coverage_v1.fact_repair",
-                pipeline_pass="coverage_v1",
+            if (
+                repair_candidate is not None
+                and (
+                    repair_candidate.get("detail_contract_version")
+                    != DETAIL_AUDIT_CONTRACT_VERSION
+                    or repair_candidate.get("repair_targets")
+                    != repair_targets
+                    or repair_candidate.get("audit_payload_sha256")
+                    != audit_payload_sha256
+                )
+            ):
+                repair_candidate = None
+            if repair_candidate is None:
+                statements = {c["claim_id"]: c["statement"] for c in claims}
+                target_lines = "\n\n".join(
+                    f"claim_id: {claim_id}\n"
+                    f"current claim: {statements.get(claim_id, '')}\n"
+                    f"auditor's note: {by_claim[claim_id].get('note', '')}"
+                    for claim_id in repair_targets
+                )
+                guard.check_before_call()
+                corrections_input, _text_out, usage = call(
+                    system_blocks=[
+                        {"type": "text", "text": FACT_REPAIR_CHARTER}
+                    ],
+                    user_blocks=[
+                        {
+                            "type": "text",
+                            "text": (
+                                "# CURRENT COMPLETE COVERAGE REPORT (JSON)\n\n"
+                                + json.dumps(
+                                    coverage_payload,
+                                    ensure_ascii=False,
+                                    indent=1,
+                                )
+                                + "\n\n# CANONICAL FACT REGISTRY (JSON)\n\n"
+                                + json.dumps(
+                                    canonical_fact_registry,
+                                    ensure_ascii=False,
+                                    indent=1,
+                                )
+                                + "\n\n# AUDITOR RELIABILITY EVIDENCE (JSON)\n\n"
+                                + json.dumps(
+                                    {
+                                        "existing_evidence_verdicts": (
+                                            audit_payload[
+                                                "existing_evidence_verdicts"
+                                            ]
+                                        ),
+                                        "sequence_ledger": audit_payload[
+                                            "sequence_ledger"
+                                        ],
+                                        "citation_relevance": audit_payload[
+                                            "citation_relevance"
+                                        ],
+                                    },
+                                    ensure_ascii=False,
+                                    indent=1,
+                                )
+                                + "\n\n# CLAIMS TO CORRECT (with the auditor's "
+                                "findings)\n\n"
+                                f"{target_lines}\n\n"
+                                "Return the complete coverage report. Correct "
+                                "each named claim, then propagate that same "
+                                "canonical fact through every dependent field."
+                            ),
+                        }
+                    ],
+                    model_key=model_key,
+                    tool=FACT_REPAIR_TOOL,
+                    thinking_budget=0,
+                    max_tokens=COVERAGE_MAX_TOKENS,
+                    proxy_url=proxy_url,
+                    job_id=job_id,
+                    stage="coverage_v1.fact_repair",
+                    pipeline_pass="coverage_v1",
+                )
+                usage_total = _merge_usage(usage_total, usage)
+                _note_usage(usage_sink, usage_total)
+                repair_usage = usage
+                corrected_coverage = corrections_input
+            else:
+                corrected_coverage = repair_candidate.get("coverage")
+                fact_repair_info["candidate_replayed"] = True
+            structural_problems = validate_coverage_payload(
+                corrected_coverage, lens_stack, page_reference_map
             )
-            usage_total = _merge_usage(usage_total, usage)
-            _note_usage(usage_sink, usage_total)
-            guard.charge(usage)
-
-            corrected_coverage = corrections_input
+            structural_problems.extend(
+                _fact_repair_protected_changes(
+                    coverage_payload, corrected_coverage
+                )
+            )
+            corrected_citation_summary = None
+            if not structural_problems:
+                corrected_citation_summary = verify_citations(
+                    corrected_coverage, text
+                )
             applied = (
-                list(central_partials)
-                if isinstance(corrected_coverage, dict)
+                repair_targets
+                if not structural_problems
                 and corrected_coverage != coverage_payload
                 else []
             )
             fact_repair_info["applied"] = applied
-            structural_problems = validate_coverage_payload(
-                corrected_coverage, lens_stack, page_reference_map
-            )
-            if applied and not structural_problems:
-                corrected_citation_summary = verify_citations(
-                    corrected_coverage, text
+            if not structural_problems and repair_candidate is None:
+                checkpoint_store.save(
+                    checkpoint_key,
+                    "fact_repair_candidate",
+                    _sealed_record(
+                        binding,
+                        {
+                            "detail_contract_version": (
+                                DETAIL_AUDIT_CONTRACT_VERSION
+                            ),
+                            "repair_targets": repair_targets,
+                            "audit_payload_sha256": audit_payload_sha256,
+                            "coverage": corrected_coverage,
+                        },
+                    ),
                 )
+            if applied and not structural_problems:
+                if repair_usage is not None:
+                    guard.charge(repair_usage)
                 new_claims = build_audit_claims(corrected_coverage)
                 corrected_evidence_checks = build_existing_evidence_checks(
                     corrected_coverage, text
                 )
                 corrected_audit_tool = build_audit_tool(new_claims)
-                guard.check_before_call()
-                reaudit_input, _text_out, usage = call(
-                    system_blocks=audit_system,
-                    user_blocks=build_audit_user_blocks(
-                        text,
-                        title,
-                        new_claims,
-                        coverage=corrected_coverage,
-                        page_reference_map=page_reference_map,
-                        evidence_checks=corrected_evidence_checks,
-                        sequence_focus=sequence_focus,
+                corrected_coverage_sha256 = canonical_json_hash(
+                    corrected_coverage
+                )
+                reaudit_core = _verified_payload(
+                    checkpoint_store.load(
+                        checkpoint_key, "fact_reaudit_core"
                     ),
-                    model_key=audit_model_key,
-                    tool=corrected_audit_tool,
-                    thinking_budget=AUDIT_THINKING_BUDGET,
-                    max_tokens=AUDIT_MAX_TOKENS,
-                    proxy_url=proxy_url,
-                    job_id=job_id,
-                    stage="coverage_v1.fact_reaudit",
-                    pipeline_pass="coverage_v1",
+                    binding,
+                    "fact_reaudit_core",
                 )
-                usage_total = _merge_usage(usage_total, usage)
-                _note_usage(usage_sink, usage_total)
-                guard.charge(usage)
-                reaudit_input = normalize_audit_tool_input(
-                    reaudit_input,
-                    page_reference_map["valid_citation_pages"],
-                )
+                if (
+                    reaudit_core is not None
+                    and (
+                        reaudit_core.get("detail_contract_version")
+                        != DETAIL_AUDIT_CONTRACT_VERSION
+                        or reaudit_core.get("repair_targets") != repair_targets
+                        or reaudit_core.get("audit_payload_sha256")
+                        != audit_payload_sha256
+                        or reaudit_core.get("coverage_sha256")
+                        != corrected_coverage_sha256
+                    )
+                ):
+                    reaudit_core = None
+                if reaudit_core is None:
+                    guard.check_before_call()
+                    reaudit_input, _text_out, usage = call(
+                        system_blocks=audit_system,
+                        user_blocks=build_audit_user_blocks(
+                            text,
+                            title,
+                            new_claims,
+                            coverage=corrected_coverage,
+                            page_reference_map=page_reference_map,
+                            evidence_checks=corrected_evidence_checks,
+                            sequence_focus=sequence_focus,
+                        ),
+                        model_key=audit_model_effective,
+                        tool=corrected_audit_tool,
+                        thinking_budget=AUDIT_THINKING_BUDGET,
+                        max_tokens=AUDIT_MAX_TOKENS,
+                        proxy_url=proxy_url,
+                        job_id=job_id,
+                        stage="coverage_v1.fact_reaudit",
+                        pipeline_pass="coverage_v1",
+                    )
+                    usage_total = _merge_usage(usage_total, usage)
+                    _note_usage(usage_sink, usage_total)
+                    guard.charge(usage)
+                    reaudit_input = normalize_audit_tool_input(
+                        reaudit_input,
+                        page_reference_map["valid_citation_pages"],
+                    )
+                else:
+                    audit_model_effective = str(
+                        reaudit_core.get(
+                            "audit_model", audit_model_effective
+                        )
+                    )
+                    reaudit_input = copy.deepcopy(
+                        reaudit_core["tool_input"]
+                    )
                 reaudit_problems = validate_audit_payload(
                     reaudit_input,
                     new_claims,
@@ -3351,6 +4549,28 @@ def run_coverage_v1(
                     corrected_evidence_checks,
                 )
                 if _audit_problems_are_detail_only(reaudit_problems):
+                    if reaudit_core is None:
+                        checkpoint_store.save(
+                            checkpoint_key,
+                            "fact_reaudit_core",
+                            _sealed_record(
+                                binding,
+                                {
+                                    "detail_contract_version": (
+                                        DETAIL_AUDIT_CONTRACT_VERSION
+                                    ),
+                                    "repair_targets": repair_targets,
+                                    "audit_payload_sha256": (
+                                        audit_payload_sha256
+                                    ),
+                                    "coverage_sha256": (
+                                        corrected_coverage_sha256
+                                    ),
+                                    "audit_model": audit_model_effective,
+                                    "tool_input": reaudit_input,
+                                },
+                            ),
+                        )
                     reaudit_input = _complete_audit_details(
                         reaudit_input,
                         corrected_coverage,
@@ -3363,6 +4583,22 @@ def run_coverage_v1(
                         corrected_coverage,
                         page_reference_map,
                         corrected_evidence_checks,
+                    )
+                reaudited_by_id = {
+                    str(row.get("claim_id", "")): row
+                    for row in reaudit_input.get("verdicts", [])
+                    if isinstance(row, dict)
+                }
+                unresolved_targets = sorted(
+                    claim_id
+                    for claim_id, verdict_row in reaudited_by_id.items()
+                    if verdict_row.get("classification")
+                    == "partially_supported"
+                )
+                if unresolved_targets:
+                    reaudit_problems.append(
+                        "fact repair targets remain unresolved: "
+                        + ", ".join(unresolved_targets)
                     )
                 if reaudit_problems:
                     reaudit_input, _unclassified2, reaudit_problems = (
@@ -3405,6 +4641,9 @@ def run_coverage_v1(
                         _sealed_record(
                             binding,
                             {
+                                "detail_contract_version": (
+                                    DETAIL_AUDIT_CONTRACT_VERSION
+                                ),
                                 "coverage": coverage_payload,
                                 "citation_summary": citation_summary,
                                 "claims": claims,
@@ -3423,11 +4662,15 @@ def run_coverage_v1(
                         ),
                     )
                 else:
+                    fact_repair_info["applied"] = []
                     fact_repair_info["outcome"] = (
                         "re-audit failed validation; original audit kept: "
                         + "; ".join(reaudit_problems[:3])
                     )
             else:
+                if repair_usage is not None:
+                    guard.charge(repair_usage)
+                fact_repair_info["applied"] = []
                 fact_repair_info["outcome"] = (
                     "corrections not applied ("
                     + (
@@ -3447,6 +4690,11 @@ def run_coverage_v1(
         *writer_directive_summary["added"],
         *post_repair_directives["added"],
     ]
+    partial_claims = sorted(
+        claim_id
+        for claim_id, verdict_row in by_claim.items()
+        if verdict_row["classification"] == "partially_supported"
+    )
 
     status = "sealed"
     review_reasons: List[str] = []
@@ -3482,7 +4730,7 @@ def run_coverage_v1(
             "audit left central claims unclassified: "
             + ", ".join(central_unclassified)
         )
-    if central_partials:
+    if partial_claims:
         status = "needs_review"
     if writer_directive_summary["unreported"]:
         status = "needs_review"
@@ -3594,17 +4842,17 @@ def run_coverage_v1(
     human_review_recommended = (
         status == "needs_review"
         or coverage_payload["confidence"] == "low"
-        or bool(central_partials)
+        or bool(partial_claims)
         or bool(noncentral_contradicted)
         or bool(noncentral_unclassified)
         or unverified_citations > 0
     )
     if coverage_payload["confidence"] == "low":
         review_reasons.append("reader confidence is low")
-    if central_partials:
+    if partial_claims:
         review_reasons.append(
             "blocking audit claims only partially supported: "
-            + ", ".join(sorted(central_partials))
+            + ", ".join(partial_claims)
         )
     if noncentral_contradicted:
         review_reasons.append(

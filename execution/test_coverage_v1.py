@@ -1093,6 +1093,7 @@ Los asesinos preparan el campamento y luego mueven el cuerpo.
             "On p.87, Tony bribes three judges",
             "Tony bribes a trio of judges",
             "Tony soborna a un trío de jueces",
+            "Tony bribes three contestants",
         )
         for claim in claims:
             with self.subTest(claim=claim):
@@ -1109,6 +1110,554 @@ Los asesinos preparan el campamento y luego mueven el cuerpo.
 
                 self.assertEqual(count_check["trigger"], "counting_claim")
                 self.assertEqual(cv._material_count_claimed_total(claim), 3)
+                self.assertEqual(count_check["claimed_total"], 3)
+                if claim in claims[:5] or "four-judge" in claim:
+                    self.assertEqual(count_check["claimed_universe_total"], 4)
+                else:
+                    self.assertEqual(count_check["claimed_universe_total"], 0)
+
+    def test_cosquillitas_methodology_ratio_is_not_a_story_fact_count(self):
+        coverage = valid_coverage()
+        analysis = (
+            "The playback scene clears four of five viral checklist items, "
+            "and the comedy lens remains a professional judgment."
+        )
+        coverage["lens_notes"][0]["analysis"] = analysis
+
+        checks = cv.build_existing_evidence_checks(coverage, SCREENPLAY_TEXT)
+
+        self.assertIsNone(cv._material_count_claimed_total(analysis))
+        self.assertNotIn(
+            "lens_notes[0].analysis",
+            {check["field_path"] for check in checks},
+        )
+        self.assertIsNone(cv._material_count_claim_details(
+            "Of the five viral checklist items, four pass."
+        ))
+
+    def test_ratio_suppression_is_local_to_the_selected_fact(self):
+        claims = (
+            "This lens is useful. Tony bribes three of four judges.",
+            "The methodology notes that Tony bribes three of four judges.",
+            "The rubric reveals that three of four judges are bribed.",
+            "Three of four contestants go viral after the performance.",
+        )
+
+        for claim in claims:
+            with self.subTest(claim=claim):
+                details = cv._material_count_claim_details(claim)
+                self.assertEqual(details["claimed_total"], 3)
+                self.assertEqual(details["claimed_universe_total"], 4)
+
+    def test_ratio_quantifier_belongs_to_the_selected_count(self):
+        details = cv._material_count_claim_details(
+            "At least one beat works, but Tony bribes exactly three of four "
+            "judges."
+        )
+
+        self.assertEqual(details["claimed_total"], 3)
+        self.assertEqual(details["claimed_universe_total"], 4)
+        self.assertEqual(details["count_quantifier"], "exact")
+
+    def test_daddy_issues_napkin_item_counts_remain_auditable(self):
+        exact = cv._material_count_claim_details(
+            "The napkin contains ten items."
+        )
+        ratio = cv._material_count_claim_details(
+            "The montage covers nine of the ten items on the napkin list."
+        )
+
+        self.assertEqual(exact["claimed_total"], 10)
+        self.assertEqual(exact["claimed_universe_total"], 0)
+        self.assertEqual(ratio["claimed_total"], 9)
+        self.assertEqual(ratio["claimed_universe_total"], 10)
+
+    def test_cosquillitas_human_audit_count_categories_are_auditable(self):
+        claims = (
+            ("His ritual is cut off by the curtain three times.", 3),
+            (
+                "The ending contains five resolutions, including world peace "
+                "and a pregnancy.",
+                5,
+            ),
+            ("That is eleven distinct page laughs.", 11),
+            ("All three runners receive payoffs.", 3),
+        )
+
+        for claim, expected in claims:
+            with self.subTest(claim=claim):
+                self.assertEqual(
+                    cv._material_count_claimed_total(claim), expected
+                )
+
+    def test_correlative_both_is_not_a_count(self):
+        claim = (
+            "It serves both as a recurring laugh and as a structural metaphor."
+        )
+
+        self.assertEqual(cv._material_count_claims_details(claim), [])
+        self.assertEqual(
+            cv._material_count_claimed_total("Both judges are bribed."), 2
+        )
+
+    def test_every_material_count_in_one_field_gets_its_own_guard(self):
+        coverage = valid_coverage()
+        coverage["story_spine"]["opposition"] = (
+            "Two of four judges are bribed, and five contestants perform."
+        )
+
+        checks = [
+            row for row in cv.build_existing_evidence_checks(
+                coverage, SCREENPLAY_TEXT
+            )
+            if row["source_field_path"] == "story_spine.opposition"
+            and row["trigger"] == "counting_claim"
+        ]
+
+        self.assertEqual(
+            [row["field_path"] for row in checks],
+            [
+                "story_spine.opposition#count_1",
+                "story_spine.opposition#count_2",
+            ],
+        )
+        self.assertEqual(
+            [
+                (row["claimed_total"], row["claimed_universe_total"])
+                for row in checks
+            ],
+            [(2, 4), (5, 0)],
+        )
+
+    def test_sibling_counts_keep_distinct_entities_and_anchors(self):
+        coverage = valid_coverage()
+        coverage["story_spine"]["opposition"] = (
+            "Two judges are bribed and two contestants perform."
+        )
+
+        checks = [
+            row for row in cv.build_existing_evidence_checks(
+                coverage, SCREENPLAY_TEXT
+            )
+            if row["source_field_path"] == "story_spine.opposition"
+            and row["trigger"] == "counting_claim"
+        ]
+
+        self.assertEqual(
+            [(row["count_entity"], row["count_anchor"]) for row in checks],
+            [("judges", "Two judges"), ("contestants", "two contestants")],
+        )
+
+    def test_anaphoric_sibling_count_inherits_the_material_entity(self):
+        details = cv._material_count_claims_details(
+            "Four judges appear; two are bribed."
+        )
+
+        self.assertEqual(
+            [
+                (
+                    row["claimed_total"],
+                    row["claimed_universe_total"],
+                    row["count_entity"],
+                    row["count_anchor"],
+                )
+                for row in details
+            ],
+            [
+                (4, 0, "judges", "Four judges"),
+                (2, 4, "judges", "two are bribed"),
+            ],
+        )
+
+    def test_same_entity_sibling_counts_share_universe_with_own_predicates(self):
+        source = (
+            "[PAGE 7]\n"
+            "First judge appears and accepts Tony's bribe. "
+            "Second judge appears and accepts Tony's bribe. "
+            "Third judge appears and refuses Tony's bribe. "
+            "Fourth judge appears and refuses Tony's bribe.\n"
+        )
+        claim = "Four judges appear; two are bribed."
+        coverage = valid_coverage()
+        coverage["story_spine"]["opposition"] = claim
+        rows = [
+            row for row in cv.build_detail_audit_rows(
+                coverage,
+                cv.build_existing_evidence_checks(coverage, source),
+            )
+            if row["subject"].get("trigger") == "counting_claim"
+        ]
+        excerpts = (
+            "First judge appears and accepts Tony's bribe",
+            "Second judge appears and accepts Tony's bribe",
+            "Third judge appears and refuses Tony's bribe",
+            "Fourth judge appears and refuses Tony's bribe",
+        )
+        payload = {"results": {
+            row["slot"]: {
+                "classification": "supported",
+                "claimed_total": row["subject"]["claimed_total"],
+                "observed_total": 4 if index == 0 else 2,
+                "claimed_universe_total": (
+                    row["subject"]["claimed_universe_total"]
+                ),
+                "observed_universe_total": 4,
+                "instances": [
+                    {
+                        "label": f"judge {instance_index}",
+                        "page": 7,
+                        "excerpt": excerpt,
+                        "matches_claim": index == 0 or instance_index <= 2,
+                    }
+                    for instance_index, excerpt in enumerate(excerpts, 1)
+                ],
+                "note": "Each row tests its own predicate over four judges.",
+            }
+            for index, row in enumerate(rows)
+        }}
+
+        evidence, _citations = cv.decode_detail_audit_payload(
+            payload, rows, source
+        )
+
+        self.assertEqual(len(rows), 2)
+        self.assertTrue(all(row["count_ledger"]["valid"] for row in evidence))
+        self.assertEqual(
+            [row["count_ledger"]["observed_total"] for row in evidence],
+            [4, 2],
+        )
+
+    def test_sibling_counts_cannot_reuse_the_same_screenplay_evidence(self):
+        source = (
+            "[PAGE 7]\nFirst judge takes the stage. "
+            "Second judge takes the stage.\n"
+        )
+        claim = "Two judges are bribed and two contestants perform."
+        coverage = valid_coverage()
+        coverage["story_spine"]["opposition"] = claim
+        rows = [
+            row for row in cv.build_detail_audit_rows(
+                coverage,
+                cv.build_existing_evidence_checks(coverage, source),
+            )
+            if row["subject"].get("trigger") == "counting_claim"
+        ]
+        payload = {"results": {
+            row["slot"]: {
+                "classification": "supported",
+                "claimed_total": 2,
+                "observed_total": 2,
+                "claimed_universe_total": 0,
+                "observed_universe_total": 2,
+                "instances": [
+                    {
+                        "label": f"instance {index}",
+                        "page": 7,
+                        "excerpt": excerpt,
+                        "matches_claim": True,
+                    }
+                    for index, excerpt in (
+                        (1, "First judge takes the stage"),
+                        (2, "Second judge takes the stage"),
+                    )
+                ],
+                "note": "Two matching instances are claimed.",
+            }
+            for row in rows
+        }}
+
+        evidence, _citations = cv.decode_detail_audit_payload(
+            payload, rows, source
+        )
+
+        self.assertTrue(evidence[0]["count_ledger"]["valid"])
+        self.assertFalse(evidence[1]["count_ledger"]["valid"])
+        self.assertIn("already used by count row", evidence[1]["note"])
+
+    def test_priority_edit_targets_are_not_current_screenplay_counts(self):
+        coverage = valid_coverage()
+        coverage["development_priorities"][0] = {
+            "priority": "Cut the section from ten pages to five",
+            "why": "The current sequence repeats",
+            "how": "Select three list items and use two rapid cross-cuts",
+        }
+
+        rows = [
+            row for row in cv.build_existing_evidence_checks(
+                coverage, SCREENPLAY_TEXT
+            )
+            if row["source_field_path"] == "development_priorities[0]"
+        ]
+
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["trigger"], "recommendation")
+
+    def test_count_and_independent_absence_claim_get_separate_guards(self):
+        coverage = valid_coverage()
+        coverage["story_spine"]["opposition"] = (
+            "Two of four judges are bribed, but the exposé video has no setup "
+            "anywhere."
+        )
+
+        checks = [
+            row for row in cv.build_existing_evidence_checks(
+                coverage, "[PAGE 3]\nRichie plants the exposé camera.\n"
+            )
+            if row["source_field_path"] == "story_spine.opposition"
+        ]
+
+        self.assertEqual(
+            [(row["field_path"], row["trigger"]) for row in checks],
+            [
+                ("story_spine.opposition#count_1", "counting_claim"),
+                ("story_spine.opposition#absolute", "absolute_negative"),
+            ],
+        )
+        self.assertIn(3, checks[1]["matched_pages"])
+
+    def test_cosquillitas_currency_stakes_are_not_a_counting_claim(self):
+        coverage = valid_coverage()
+        coverage["story_spine"]["stakes"] = (
+            "The five-million-peso prize that would end Juanito's poverty."
+        )
+        coverage["story_spine"]["major_turns"][-1]["turn"] = (
+            "Two bribed judges score him 5 and 2 before the result is voided."
+        )
+
+        checks = cv.build_existing_evidence_checks(coverage, SCREENPLAY_TEXT)
+        by_path = {check["field_path"]: check for check in checks}
+
+        self.assertNotIn("story_spine.stakes", by_path)
+        self.assertEqual(
+            by_path["story_spine.major_turns[2].turn"]["claimed_total"], 2
+        )
+
+    def test_count_parser_handles_entity_before_and_inside_ratios(self):
+        claims = (
+            "Judges: two of four are bribed.",
+            "Of the four judges, two are bribed.",
+            "Jueces: dos de cuatro están sobornados.",
+            "De los cuatro jueces, dos están sobornados.",
+        )
+
+        for claim in claims:
+            with self.subTest(claim=claim):
+                details = cv._material_count_claim_details(claim)
+                self.assertEqual(details["claimed_total"], 2)
+                self.assertEqual(details["claimed_universe_total"], 4)
+
+    def test_direct_ratio_keeps_its_own_numerator(self):
+        claims = (
+            ("One of the four judges gave two points.", 1, 4),
+            ("Two of the four judges score 10.", 2, 4),
+            ("Three of five contestants perform two songs.", 3, 5),
+        )
+
+        for claim, numerator, denominator in claims:
+            with self.subTest(claim=claim):
+                details = cv._material_count_claim_details(claim)
+                self.assertEqual(details["claimed_total"], numerator)
+                self.assertEqual(
+                    details["claimed_universe_total"], denominator
+                )
+
+    def test_english_once_is_not_spanish_eleven(self):
+        occurrence_claims = (
+            ("Richie reveals the source once.", 1),
+            ("The ritual happens once.", 1),
+            ("The ritual is interrupted twice.", 2),
+        )
+        for claim, total in occurrence_claims:
+            with self.subTest(claim=claim):
+                self.assertEqual(
+                    cv._material_count_claimed_total(claim), total
+                )
+
+        conjunction_claims = (
+            "Once judges arrive, Tony bribes them.",
+            "Once members gather, the ritual begins.",
+            "Once contestants perform, the panel votes.",
+        )
+
+        for claim in conjunction_claims:
+            with self.subTest(claim=claim):
+                self.assertIsNone(cv._material_count_claim_details(claim))
+        details = cv._material_count_claims_details(
+            "Once the four judges arrive, Tony acts."
+        )
+        self.assertEqual(
+            [row["claimed_total"] for row in details], [4]
+        )
+
+        coverage = valid_coverage()
+        coverage["strengths"][0]["point"] = (
+            "His pre-show ritual is cut off once by the curtain."
+        )
+        check = next(
+            row for row in cv.build_existing_evidence_checks(
+                coverage, SCREENPLAY_TEXT
+            )
+            if row["source_field_path"] == "strengths[0].point"
+        )
+        self.assertEqual(check["trigger"], "counting_claim")
+        self.assertEqual(check["claimed_total"], 1)
+
+    def test_entity_before_count_syntax_remains_auditable(self):
+        claims = (
+            ("Judges bribed: two.", 2, "judges"),
+            ("The number of bribed judges is two.", 2, "judges"),
+            ("Jueces sobornados: dos.", 2, "jueces"),
+        )
+        for claim, total, entity in claims:
+            with self.subTest(claim=claim):
+                details = cv._material_count_claim_details(claim)
+                self.assertEqual(details["claimed_total"], total)
+                self.assertEqual(details["count_entity"], entity)
+
+    def test_spanish_once_is_eleven_in_count_syntax(self):
+        exact = cv._material_count_claim_details("Hay once jueces presentes.")
+        ratio = cv._material_count_claim_details(
+            "Once de doce jueces están presentes."
+        )
+
+        self.assertEqual(exact["claimed_total"], 11)
+        self.assertEqual(ratio["claimed_total"], 11)
+        self.assertEqual(ratio["claimed_universe_total"], 12)
+
+    def test_count_parser_preserves_minimum_quantifier(self):
+        details = cv._material_count_claim_details(
+            "At least two of the four judges are bribed."
+        )
+
+        self.assertEqual(details["claimed_total"], 2)
+        self.assertEqual(details["claimed_universe_total"], 4)
+        self.assertEqual(details["count_quantifier"], "minimum")
+
+    def test_absolute_wording_cannot_bypass_count_ledgers(self):
+        claims = (
+            ("Only two judges are bribed.", 2),
+            ("Solo dos jueces están sobornados.", 2),
+            ("Only three of four judges are bribed.", 3),
+            ("Solo tres de cuatro jueces están sobornados.", 3),
+        )
+
+        for claim, total in claims:
+            with self.subTest(claim=claim):
+                coverage = valid_coverage()
+                coverage["story_spine"]["opposition"] = claim
+                check = next(
+                    row for row in cv.build_existing_evidence_checks(
+                        coverage, SCREENPLAY_TEXT
+                    )
+                    if row["field_path"] == "story_spine.opposition"
+                )
+                self.assertEqual(check["trigger"], "counting_claim")
+                self.assertEqual(check["claimed_total"], total)
+
+    def test_judge_scores_are_not_mistaken_for_a_judge_count(self):
+        self.assertIsNone(
+            cv._material_count_claimed_total("The judges score him 5 and 2.")
+        )
+        self.assertIsNone(
+            cv._material_count_claimed_total(
+                "Los jueces califican la canción con 5 y 2."
+            )
+        )
+        examples = (
+            ("A score of 10 comes from two judges.", [2]),
+            ("The scores are 10, 10, 5, and 2 from four judges.", [4]),
+            ("Las calificaciones 5 y 2 vienen de dos jueces.", [2]),
+        )
+        for claim, expected in examples:
+            with self.subTest(claim=claim):
+                self.assertEqual(
+                    [
+                        row["claimed_total"]
+                        for row in cv._material_count_claims_details(claim)
+                    ],
+                    expected,
+                )
+
+    def test_count_parser_ignores_measurements_and_rubric_numbers(self):
+        examples = (
+            ("That is seven distinct laugh moments across 89 pages.", [7]),
+            ("The montage covers nine list items in three pages.", [9]),
+            ("(5) Resolution closes the Story Grid analysis.", []),
+            ("A three-page escalating sequence ends in a physical reveal.", []),
+            ("Resolution: The six-month jump settles the ending.", []),
+            ("Act 3 contains the payoff.", []),
+            ("A ten-page laugh-free stretch follows.", []),
+            ("The pig costume and the two-coffees ritual are callbacks.", []),
+            ("He scores 10. The third judge gives a five.", []),
+            ("Both simultaneously. Diego kills the attacker.", []),
+            ("One scream. Comic runners return later.", []),
+        )
+        for claim, expected in examples:
+            with self.subTest(claim=claim):
+                self.assertEqual(
+                    [
+                        row["claimed_total"]
+                        for row in cv._material_count_claims_details(claim)
+                    ],
+                    expected,
+                )
+        self.assertEqual(
+            cv._material_count_claimed_total("The ritual repeats two times."),
+            2,
+        )
+
+    def test_spanish_article_after_entity_is_not_a_count(self):
+        self.assertEqual(
+            cv._material_count_claims_details(
+                "la invisibilización de las víctimas, o como una deficiencia"
+            ),
+            [],
+        )
+        details = cv._material_count_claim_details("Hay una víctima visible.")
+        self.assertEqual(details["claimed_total"], 1)
+        self.assertEqual(details["count_entity"], "víctima")
+
+    def test_comparative_count_bounds_are_integer_safe(self):
+        examples = (
+            ("More than two of four judges are bribed.", 3, "minimum"),
+            ("Más de dos de cuatro jueces están sobornados.", 3, "minimum"),
+            ("Fewer than three of four judges are bribed.", 2, "maximum"),
+            ("Menos de tres de cuatro jueces están sobornados.", 2, "maximum"),
+            ("No fewer than two judges are bribed.", 2, "minimum"),
+            ("No more than two judges are bribed.", 2, "maximum"),
+        )
+        for claim, total, quantifier in examples:
+            with self.subTest(claim=claim):
+                details = cv._material_count_claim_details(claim)
+                self.assertEqual(details["claimed_total"], total)
+                self.assertEqual(details["count_quantifier"], quantifier)
+
+        coverage = valid_coverage()
+        coverage["story_spine"]["opposition"] = (
+            "No fewer than two judges are bribed."
+        )
+        rows = [
+            row for row in cv.build_existing_evidence_checks(
+                coverage, SCREENPLAY_TEXT
+            )
+            if row["source_field_path"] == "story_spine.opposition"
+        ]
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["trigger"], "counting_claim")
+
+    def test_commercial_judgment_is_not_a_screenplay_evidence_claim(self):
+        coverage = valid_coverage()
+        coverage["commercial_hypothesis"] = (
+            "Popstar: Never Stop Never Stopping is a useful comparison; "
+            "complete the positioning work first."
+        )
+
+        checks = cv.build_existing_evidence_checks(coverage, SCREENPLAY_TEXT)
+
+        self.assertNotIn(
+            "commercial_hypothesis",
+            {check["field_path"] for check in checks},
+        )
 
     def test_cosquillitas_reliability_rules_reach_both_readers(self):
         self.assertIn("leftover writer directives", cv.COVERAGE_CHARTER)
@@ -1126,6 +1675,23 @@ Los asesinos preparan el campamento y luego mueven el cuerpo.
         )[-1]["text"]
         self.assertIn("verbatim 3-12-word excerpt", detail_text)
         self.assertIn("reveal provenance", detail_text)
+        self.assertIn("capture/source", detail_text)
+        self.assertIn("continuity_flags", detail_text)
+        self.assertIn("subject.claimed_total", detail_text)
+        self.assertIn("subject.claimed_universe_total", detail_text)
+        self.assertIn("story facts repeated inside the commercial", audit_charter)
+        consistency_claim = next(
+            claim["statement"] for claim in cv.build_audit_claims(valid_coverage())
+            if claim["claim_id"] == "guard.cross_field_consistency"
+        )
+        self.assertIn("logline", consistency_claim)
+        self.assertIn("commercial hypothesis", consistency_claim)
+        self.assertIn(
+            "validated sequence ledger as authoritative",
+            cv.FACT_REPAIR_CHARTER,
+        )
+        self.assertIn("logline, synopsis", cv.FACT_REPAIR_CHARTER)
+        self.assertIn("never recommend", cv.FACT_REPAIR_CHARTER)
 
     def test_cosquillitas_writer_directives_are_deterministically_flagged(self):
         screenplay = SCREENPLAY_TEXT.replace(
@@ -1320,6 +1886,27 @@ Los asesinos preparan el campamento y luego mueven el cuerpo.
             [owner for owner, _item in cv._iter_citations(coverage)],
         )
         self.assertEqual(usage["call_count"], 3)
+
+    def test_detail_audit_uses_the_effective_retry_model(self):
+        coverage = valid_coverage()
+        bad_core = provider_audit_core(coverage)
+        bad_core["sequence_ledger"]["ending"][0]["page"] = 5
+        bad_core["sequence_ledger"]["climax"][0]["page"] = 6
+        good_core = provider_audit_core(coverage)
+        transport = FakeTransport(
+            [
+                (coverage, settled_usage()),
+                (bad_core, settled_usage()),
+                (good_core, settled_usage()),
+                (supported_detail_payload(coverage), settled_usage()),
+            ]
+        )
+
+        report, _usage = run_engine(new_store(), transport)
+
+        self.assertEqual(report["status"], "sealed")
+        self.assertEqual(transport.calls[2]["model_key"], "sonnet")
+        self.assertEqual(transport.calls[3]["model_key"], "sonnet")
 
     def test_corrected_cosquillitas_phase_buckets_reach_detail_audit(self):
         # Billy's approved audit: Richie chooses Lucesita before the exposé,
@@ -1700,6 +2287,36 @@ class TestCheckpointsAndResume(unittest.TestCase):
         self.assertEqual(report["status"], "sealed")
         self.assertEqual(usage["call_count"], 1)
 
+    def test_legacy_detail_audit_is_discarded_without_rebuying_core(self):
+        coverage = valid_coverage()
+        store = new_store()
+        run_engine(
+            store,
+            FakeTransport(
+                [
+                    (coverage, settled_usage()),
+                    (provider_audit_core(coverage), settled_usage()),
+                    (supported_detail_payload(coverage), settled_usage()),
+                ]
+            ),
+        )
+        [key_dir] = list(store.root.iterdir())
+        target = key_dir / "audit.json"
+        record = json.loads(target.read_text(encoding="utf-8"))
+        record["payload"].pop("detail_contract_version")
+        record["payload_sha256"] = cv.canonical_json_hash(record["payload"])
+        target.write_text(json.dumps(record), encoding="utf-8")
+
+        resume = FakeTransport([])
+        report, usage = run_engine(store, resume)
+
+        self.assertEqual(len(resume.calls), 0)
+        self.assertTrue(report["replay"]["coverage_replayed"])
+        self.assertTrue(report["replay"]["audit_core_replayed"])
+        self.assertFalse(report["replay"]["audit_replayed"])
+        self.assertEqual(usage["call_count"], 0)
+        self.assertEqual(report["status"], "sealed")
+
     def test_full_replay_makes_zero_calls(self):
         coverage = valid_coverage()
         store = new_store()
@@ -1796,16 +2413,37 @@ class TestFactAudit(unittest.TestCase):
             any("guard.existing_evidence disagrees" in p for p in problems)
         )
 
-    def test_cosquillitas_generic_count_audit_cannot_seal(self):
+    def test_cosquillitas_malformed_count_gets_one_typed_retry(self):
         coverage = valid_coverage()
         coverage["story_spine"]["opposition"] = (
             "Tony bribes a trio of judges"
         )
+        evidence = cv.build_existing_evidence_checks(
+            coverage, SCREENPLAY_TEXT
+        )
+        count_row = next(
+            row for row in cv.build_detail_audit_rows(coverage, evidence)
+            if row["subject"].get("trigger") == "counting_claim"
+        )
+        typed_retry = {
+            "results": {
+                count_row["slot"]: {
+                    "classification": "unsupported",
+                    "claimed_total": 3,
+                    "observed_total": 0,
+                    "claimed_universe_total": 0,
+                    "observed_universe_total": 0,
+                    "instances": [],
+                    "note": "No bribed judges appear in the test screenplay.",
+                }
+            }
+        }
         transport = FakeTransport(
             [
                 (coverage, settled_usage()),
                 (provider_audit_core(coverage), settled_usage()),
                 (supported_detail_payload(coverage), settled_usage()),
+                (typed_retry, settled_usage()),
             ]
         )
 
@@ -1816,12 +2454,90 @@ class TestFactAudit(unittest.TestCase):
             "guard.existing_evidence",
             report["fact_audit"]["central_failures"],
         )
-        count_row = next(
+        result_row = next(
             row for row in report["fact_audit"]["existing_evidence_verdicts"]
             if row["field_path"] == "story_spine.opposition"
         )
-        self.assertEqual(count_row["classification"], "unsupported")
-        self.assertFalse(count_row["count_ledger"]["valid"])
+        self.assertEqual(result_row["classification"], "unsupported")
+        self.assertTrue(result_row["count_ledger"]["valid"])
+        self.assertEqual(len(transport.calls), 4)
+        self.assertEqual(
+            transport.calls[3]["tool"]["name"],
+            "submit_count_detail_retry_v1_2",
+        )
+        self.assertLessEqual(
+            cv.strict_schema_complexity(
+                transport.calls[3]["tool"]["input_schema"]
+            )["property_count"],
+            cv.STRICT_BUDGET["property_count"],
+        )
+
+    def test_all_malformed_counts_retry_in_schema_safe_batches(self):
+        coverage = valid_coverage()
+        coverage["story_spine"].update({
+            "opposition": "Two judges oppose Diego.",
+            "stakes": "Three judges can take the field.",
+            "climax": "Four judges confront Diego in the final.",
+            "ending": "Five judges leave after the final.",
+        })
+        evidence = cv.build_existing_evidence_checks(
+            coverage, SCREENPLAY_TEXT
+        )
+        count_rows = [
+            row for row in cv.build_detail_audit_rows(coverage, evidence)
+            if row["subject"].get("trigger") == "counting_claim"
+        ]
+        self.assertEqual(len(count_rows), 4)
+
+        retry_payloads = []
+        for start in range(0, len(count_rows), cv.MAX_COUNT_DETAIL_RETRY_ROWS):
+            retry_payloads.append({
+                "results": {
+                    row["slot"]: {
+                        "classification": "unsupported",
+                        "claimed_total": row["subject"]["claimed_total"],
+                        "observed_total": 0,
+                        "claimed_universe_total": 0,
+                        "observed_universe_total": 0,
+                        "instances": [],
+                        "note": "No matching judges appear in the screenplay.",
+                    }
+                    for row in count_rows[
+                        start:start + cv.MAX_COUNT_DETAIL_RETRY_ROWS
+                    ]
+                }
+            })
+        store = new_store()
+        first = FakeTransport([
+            (coverage, settled_usage()),
+            (provider_audit_core(coverage), settled_usage()),
+            (supported_detail_payload(coverage), settled_usage()),
+            (retry_payloads[0], settled_usage()),
+            RuntimeError("proxy died during count retry batch 2"),
+        ])
+
+        with self.assertRaises(RuntimeError):
+            run_engine(store, first)
+
+        self.assertEqual(
+            [call["stage"] for call in first.calls[3:]],
+            [
+                "coverage_v1.fact_audit_details_count_retry_1",
+                "coverage_v1.fact_audit_details_count_retry_2",
+            ],
+        )
+        resume = FakeTransport([
+            (retry_payloads[1], settled_usage()),
+        ])
+        report, usage = run_engine(store, resume)
+
+        self.assertEqual(report["status"], "needs_review")
+        self.assertEqual(len(resume.calls), 1)
+        self.assertEqual(
+            resume.calls[0]["stage"],
+            "coverage_v1.fact_audit_details_count_retry_2",
+        )
+        self.assertEqual(usage["call_count"], 1)
 
     def test_cosquillitas_count_ledger_requires_verbatim_instances(self):
         source = (
@@ -1844,16 +2560,20 @@ class TestFactAudit(unittest.TestCase):
                     "classification": "partially_supported",
                     "claimed_total": 3,
                     "observed_total": 2,
+                    "claimed_universe_total": 0,
+                    "observed_universe_total": 2,
                     "instances": [
                         {
                             "label": "first judge",
                             "page": 97,
                             "excerpt": "entrega dinero al primer juez",
+                            "matches_claim": True,
                         },
                         {
                             "label": "second judge",
                             "page": 97,
                             "excerpt": "regala un reloj al segundo juez",
+                            "matches_claim": True,
                         },
                     ],
                     "note": "Two bribed judges are shown on page 97, not three.",
@@ -1869,6 +2589,333 @@ class TestFactAudit(unittest.TestCase):
         self.assertEqual(evidence[0]["classification"], "partially_supported")
         self.assertTrue(evidence[0]["count_ledger"]["valid"])
         self.assertEqual(evidence[0]["count_ledger"]["observed_total"], 2)
+
+    def test_count_ledger_rejects_reused_evidence_as_distinct_instances(self):
+        source = "[PAGE 97]\nTony entrega dinero al primer juez.\n"
+        claim = "Tony bribes three judges."
+        rows = [{
+            "slot": "row_001",
+            "kind": "existing_evidence",
+            "identifier": "story_spine.opposition",
+            "subject": {
+                "field_path": "story_spine.opposition",
+                "trigger": "counting_claim",
+                "claim": claim,
+                **cv._material_count_claim_details(claim),
+            },
+        }]
+        payload = {"results": {"row_001": {
+            "classification": "supported",
+            "claimed_total": 3,
+            "observed_total": 3,
+            "claimed_universe_total": 0,
+            "observed_universe_total": 3,
+            "instances": [
+                {
+                    "label": f"judge {index}",
+                    "page": 97,
+                    "excerpt": "entrega dinero al primer juez",
+                    "matches_claim": True,
+                }
+                for index in range(1, 4)
+            ],
+            "note": "Three judges are bribed.",
+        }}}
+
+        evidence, _citations = cv.decode_detail_audit_payload(
+            payload, rows, source
+        )
+
+        self.assertEqual(evidence[0]["classification"], "unsupported")
+        self.assertFalse(evidence[0]["count_ledger"]["valid"])
+        self.assertIn("overlaps an evidence anchor", evidence[0]["note"])
+
+    def test_count_ledger_rejects_shifted_quotes_from_one_event(self):
+        source = "[PAGE 97]\nTony bribes the first judge at noon.\n"
+        claim = "Tony bribes two judges."
+        rows = [{
+            "slot": "row_001",
+            "kind": "existing_evidence",
+            "identifier": "story_spine.opposition",
+            "subject": {
+                "field_path": "story_spine.opposition",
+                "trigger": "counting_claim",
+                "claim": claim,
+                **cv._material_count_claim_details(claim),
+            },
+        }]
+        payload = {"results": {"row_001": {
+            "classification": "supported",
+            "claimed_total": 2,
+            "observed_total": 2,
+            "claimed_universe_total": 0,
+            "observed_universe_total": 2,
+            "instances": [
+                {
+                    "label": "first window",
+                    "page": 97,
+                    "excerpt": "Tony bribes the first judge",
+                    "matches_claim": True,
+                },
+                {
+                    "label": "shifted window",
+                    "page": 97,
+                    "excerpt": "bribes the first judge at noon",
+                    "matches_claim": True,
+                },
+            ],
+            "note": "Two judges are claimed from one event.",
+        }}}
+
+        evidence, _citations = cv.decode_detail_audit_payload(
+            payload, rows, source
+        )
+
+        self.assertFalse(evidence[0]["count_ledger"]["valid"])
+        self.assertIn("overlaps an evidence anchor", evidence[0]["note"])
+
+    def test_collective_source_line_uses_one_multiplicity_instance(self):
+        source = "[PAGE 94]\nThe first two judges raise their cards.\n"
+        claim = "Two judges score ten."
+        rows = [{
+            "slot": "row_001",
+            "kind": "existing_evidence",
+            "identifier": "story_spine.climax",
+            "subject": {
+                "field_path": "story_spine.climax",
+                "trigger": "counting_claim",
+                "claim": claim,
+                **cv._material_count_claim_details(claim),
+            },
+        }]
+        payload = {"results": {"row_001": {
+            "classification": "supported",
+            "claimed_total": 2,
+            "observed_total": 2,
+            "claimed_universe_total": 0,
+            "observed_universe_total": 2,
+            "instances": [{
+                "label": "first two judges collectively",
+                "page": 94,
+                "excerpt": "The first two judges raise their cards",
+                "matches_claim": True,
+                "multiplicity": 2,
+            }],
+            "note": "One line explicitly identifies two judges.",
+        }}}
+
+        evidence, _citations = cv.decode_detail_audit_payload(
+            payload, rows, source
+        )
+
+        self.assertTrue(evidence[0]["count_ledger"]["valid"])
+        self.assertEqual(
+            evidence[0]["count_ledger"]["instances"][0]["multiplicity"], 2
+        )
+
+    def test_global_count_uniqueness_survives_separate_retry_decode(self):
+        source = (
+            "[PAGE 7]\nFirst judge takes the stage. "
+            "Second judge takes the stage.\n"
+        )
+        coverage = valid_coverage()
+        coverage["story_spine"]["opposition"] = (
+            "Two judges are bribed and two contestants perform."
+        )
+        rows = [
+            row for row in cv.build_detail_audit_rows(
+                coverage,
+                cv.build_existing_evidence_checks(coverage, source),
+            )
+            if row["subject"].get("trigger") == "counting_claim"
+        ]
+
+        def payload_for(row):
+            return {"results": {row["slot"]: {
+                "classification": "supported",
+                "claimed_total": 2,
+                "observed_total": 2,
+                "claimed_universe_total": 0,
+                "observed_universe_total": 2,
+                "instances": [
+                    {
+                        "label": label,
+                        "page": 7,
+                        "excerpt": excerpt,
+                        "matches_claim": True,
+                    }
+                    for label, excerpt in (
+                        ("first", "First judge takes the stage"),
+                        ("second", "Second judge takes the stage"),
+                    )
+                ],
+                "note": "Two instances are claimed.",
+            }}}
+
+        first, _ = cv.decode_detail_audit_payload(
+            payload_for(rows[0]), [rows[0]], source
+        )
+        retry, _ = cv.decode_detail_audit_payload(
+            payload_for(rows[1]), [rows[1]], source
+        )
+        combined = cv._enforce_count_ledger_uniqueness(
+            [*first, *retry], rows, source
+        )
+
+        self.assertTrue(combined[0]["count_ledger"]["valid"])
+        self.assertFalse(combined[1]["count_ledger"]["valid"])
+
+    def test_typed_count_ledger_decodes_without_free_form_json(self):
+        source = "[PAGE 97]\nTony entrega dinero al primer juez.\n"
+        rows = [{
+            "slot": "row_001",
+            "kind": "existing_evidence",
+            "identifier": "story_spine.opposition",
+            "subject": {
+                "field_path": "story_spine.opposition",
+                "trigger": "counting_claim",
+                "claim": "Tony bribes one judge",
+                "claimed_total": 1,
+            },
+        }]
+        payload = {
+            "results": {
+                "row_001": {
+                    "classification": "supported",
+                    "claimed_total": 1,
+                    "observed_total": 1,
+                    "claimed_universe_total": 0,
+                    "observed_universe_total": 1,
+                    "instances": [{
+                        "label": "first judge",
+                        "page": 97,
+                        "excerpt": "entrega dinero al primer juez",
+                        "matches_claim": True,
+                    }],
+                    "note": "One bribed judge is shown.",
+                }
+            }
+        }
+
+        evidence, citations = cv.decode_detail_audit_payload(
+            payload, rows, source
+        )
+
+        self.assertEqual(citations, [])
+        self.assertEqual(evidence[0]["classification"], "supported")
+        self.assertTrue(evidence[0]["count_ledger"]["valid"])
+
+        retry_rows = [
+            {**rows[0], "slot": f"row_{index:03d}"}
+            for index in range(1, cv.MAX_COUNT_DETAIL_RETRY_ROWS + 1)
+        ]
+        stats = cv.strict_schema_complexity(
+            cv.build_count_detail_retry_tool(retry_rows)["input_schema"]
+        )
+        self.assertLessEqual(stats["property_count"], 44)
+        self.assertLessEqual(stats["object_count"], 9)
+
+    def test_ratio_count_cannot_hide_a_wrong_denominator(self):
+        source = (
+            "[PAGE 97]\nAna is the first judge. Beto is the second judge. "
+            "Carla is the third judge. Diego is the fourth judge.\n"
+        )
+        subject = {
+            "field_path": "story_spine.opposition",
+            "trigger": "counting_claim",
+            "claim": "Two of three judges are bribed.",
+            **cv._material_count_claim_details(
+                "Two of three judges are bribed."
+            ),
+        }
+        rows = [{
+            "slot": "row_001",
+            "kind": "existing_evidence",
+            "identifier": "story_spine.opposition",
+            "subject": subject,
+        }]
+        instances = [
+            {
+                "label": label,
+                "page": 97,
+                "excerpt": excerpt,
+                "matches_claim": index < 2,
+            }
+            for index, (label, excerpt) in enumerate((
+                ("Ana", "Ana is the first judge"),
+                ("Beto", "Beto is the second judge"),
+                ("Carla", "Carla is the third judge"),
+                ("Diego", "Diego is the fourth judge"),
+            ))
+        ]
+        payload = {"results": {"row_001": {
+            "classification": "supported",
+            "claimed_total": 2,
+            "observed_total": 2,
+            "claimed_universe_total": 3,
+            "observed_universe_total": 4,
+            "instances": instances,
+            "note": "Two are bribed, but four judges appear.",
+        }}}
+
+        evidence, _citations = cv.decode_detail_audit_payload(
+            payload, rows, source
+        )
+
+        self.assertEqual(evidence[0]["classification"], "unsupported")
+        self.assertFalse(evidence[0]["count_ledger"]["valid"])
+        self.assertIn("universe total", evidence[0]["note"])
+
+    def test_minimum_ratio_accepts_more_matching_instances(self):
+        source = (
+            "[PAGE 97]\nAna is the first judge. Beto is the second judge. "
+            "Carla is the third judge. Diego is the fourth judge.\n"
+        )
+        claim = "At least two of four judges are bribed."
+        rows = [{
+            "slot": "row_001",
+            "kind": "existing_evidence",
+            "identifier": "story_spine.opposition",
+            "subject": {
+                "field_path": "story_spine.opposition",
+                "trigger": "counting_claim",
+                "claim": claim,
+                **cv._material_count_claim_details(claim),
+            },
+        }]
+        instances = [
+            {
+                "label": label,
+                "page": 97,
+                "excerpt": excerpt,
+                "matches_claim": index < 3,
+            }
+            for index, (label, excerpt) in enumerate((
+                ("Ana", "Ana is the first judge"),
+                ("Beto", "Beto is the second judge"),
+                ("Carla", "Carla is the third judge"),
+                ("Diego", "Diego is the fourth judge"),
+            ))
+        ]
+        payload = {"results": {"row_001": {
+            "classification": "supported",
+            "claimed_total": 2,
+            "observed_total": 3,
+            "claimed_universe_total": 4,
+            "observed_universe_total": 4,
+            "instances": instances,
+            "note": "Three of the four judges are bribed.",
+        }}}
+
+        evidence, _citations = cv.decode_detail_audit_payload(
+            payload, rows, source
+        )
+
+        self.assertEqual(evidence[0]["classification"], "supported")
+        self.assertTrue(evidence[0]["count_ledger"]["valid"])
+        self.assertEqual(
+            evidence[0]["count_ledger"]["count_quantifier"], "minimum"
+        )
 
     def test_will_sequence_ledger_rejects_nonliteral_order_metadata(self):
         coverage = valid_coverage()
@@ -2218,6 +3265,293 @@ class TestFactAudit(unittest.TestCase):
         self.assertFalse(
             any("SCREENPLAY TEXT" in str(b.get("text", "")) for b in blocks)
         )
+
+    def test_fact_repair_cannot_change_undisputed_verdict(self):
+        coverage = valid_coverage()
+        audit = supported_audit(coverage)
+        audit["verdicts"][0]["classification"] = "partially_supported"
+        audit["verdicts"][0]["note"] = "The fame claim is overstated."
+        corrected = copy.deepcopy(coverage)
+        corrected["story_spine"]["protagonist"] = (
+            "Diego Salas, portero retirado"
+        )
+        corrected["verdict"] = "RECOMMEND"
+        transport = FakeTransport([
+            (coverage, settled_usage()),
+            (audit, settled_usage()),
+            (corrected, settled_usage()),
+        ])
+
+        report, _usage = run_engine(new_store(), transport)
+
+        self.assertEqual(report["status"], "needs_review")
+        self.assertEqual(report["verdict"], "CONSIDER")
+        self.assertEqual(report["coverage"]["verdict"], "CONSIDER")
+        self.assertEqual(
+            report["diagnostics"]["fact_repair"]["applied"], []
+        )
+        self.assertIn(
+            "protected qualitative field verdict",
+            report["diagnostics"]["fact_repair"]["outcome"],
+        )
+        self.assertEqual(len(transport.calls), 3)
+
+    def test_fact_repair_also_corrects_known_noncentral_partials(self):
+        coverage = valid_coverage()
+        coverage["genre_contract"]["failures"] = [
+            "Pages 3-4 are entirely event-free."
+        ]
+        audit = supported_audit(coverage)
+        for verdict in audit["verdicts"]:
+            if verdict["claim_id"] == "spine.protagonist":
+                verdict["classification"] = "partially_supported"
+                verdict["note"] = "The protagonist description overstates his fame."
+            if verdict["claim_id"] == "genre_contract.failure_0":
+                verdict["classification"] = "partially_supported"
+                verdict["note"] = "Page 4 contains a material event."
+        corrected = copy.deepcopy(coverage)
+        corrected["story_spine"]["protagonist"] = "Diego Salas, portero retirado"
+        corrected["genre_contract"]["failures"] = [
+            "Pages 3-4 lose momentum despite a material event on page 4."
+        ]
+        transport = FakeTransport(
+            [
+                (coverage, settled_usage()),
+                (audit, settled_usage()),
+                (corrected, settled_usage()),
+                (supported_audit(corrected), settled_usage()),
+            ]
+        )
+
+        report, _usage = run_engine(new_store(), transport)
+
+        expected = ["genre_contract.failure_0", "spine.protagonist"]
+        self.assertEqual(report["status"], "sealed")
+        self.assertEqual(
+            report["diagnostics"]["fact_repair"]["target_claims"], expected
+        )
+        self.assertEqual(report["diagnostics"]["fact_repair"]["applied"], expected)
+        repair_text = "\n".join(
+            str(block.get("text", ""))
+            for block in transport.calls[2]["user_blocks"]
+        )
+        self.assertIn("genre_contract.failure_0", repair_text)
+
+    def test_stale_logline_or_commercial_fact_after_repair_cannot_seal(self):
+        coverage = valid_coverage()
+        old_fact = "Los Chavos fabricate three scandal videos."
+        coverage["story_spine"]["opposition"] = old_fact
+        coverage["logline"] = (
+            "A retired goalkeeper fights Los Chavos, who fabricate three "
+            "scandal videos, to save his neighborhood team and its field."
+        )
+        coverage["commercial_hypothesis"] = (
+            "A family sports drama built around Los Chavos fabricating three "
+            "scandal videos."
+        )
+        audit = supported_audit(coverage)
+        opposition = next(
+            row for row in audit["verdicts"]
+            if row["claim_id"] == "spine.opposition"
+        )
+        opposition["classification"] = "partially_supported"
+        opposition["note"] = (
+            "Dante and Tony are implicated, but the initiator is unstated."
+        )
+        corrected = copy.deepcopy(coverage)
+        corrected["story_spine"]["opposition"] = (
+            "Dante and Tony are implicated in the videos; the initiator is "
+            "not stated."
+        )
+        reaudited = supported_audit(corrected)
+        consistency = next(
+            row for row in reaudited["verdicts"]
+            if row["claim_id"] == "guard.cross_field_consistency"
+        )
+        consistency["classification"] = "contradicted"
+        consistency["note"] = (
+            "The logline and commercial hypothesis retain the obsolete fact."
+        )
+        transport = FakeTransport([
+            (coverage, settled_usage()),
+            (audit, settled_usage()),
+            (corrected, settled_usage()),
+            (reaudited, settled_usage()),
+        ])
+
+        report, _usage = run_engine(new_store(), transport)
+
+        self.assertEqual(report["status"], "needs_review")
+        self.assertIn(
+            "guard.cross_field_consistency",
+            report["fact_audit"]["central_failures"],
+        )
+
+    def test_noncentral_partial_alone_is_repaired_before_sealing(self):
+        coverage = valid_coverage()
+        coverage["genre_contract"]["failures"] = [
+            "Pages 3-4 are entirely event-free."
+        ]
+        audit = supported_audit(coverage)
+        failure = next(
+            row for row in audit["verdicts"]
+            if row["claim_id"] == "genre_contract.failure_0"
+        )
+        failure["classification"] = "partially_supported"
+        failure["note"] = "Page 4 contains a material event."
+        corrected = copy.deepcopy(coverage)
+        corrected["genre_contract"]["failures"] = [
+            "Pages 3-4 lose momentum despite a material event on page 4."
+        ]
+        transport = FakeTransport(
+            [
+                (coverage, settled_usage()),
+                (audit, settled_usage()),
+                (corrected, settled_usage()),
+                (supported_audit(corrected), settled_usage()),
+            ]
+        )
+
+        report, _usage = run_engine(new_store(), transport)
+
+        self.assertEqual(report["status"], "sealed")
+        self.assertEqual(
+            report["diagnostics"]["fact_repair"]["target_claims"],
+            ["genre_contract.failure_0"],
+        )
+
+    def test_shifted_noncentral_partial_cannot_evade_reaudit(self):
+        coverage = valid_coverage()
+        coverage["genre_contract"]["failures"] = ["A factual overstatement."]
+        audit = supported_audit(coverage)
+        failure = next(
+            row for row in audit["verdicts"]
+            if row["claim_id"] == "genre_contract.failure_0"
+        )
+        failure["classification"] = "partially_supported"
+        failure["note"] = "The statement remains too absolute."
+        corrected = copy.deepcopy(coverage)
+        corrected["genre_contract"]["failures"] = [
+            "A new supported observation.",
+            "The same unresolved factual overstatement.",
+        ]
+        reaudited = supported_audit(corrected)
+        shifted = next(
+            row for row in reaudited["verdicts"]
+            if row["claim_id"] == "genre_contract.failure_1"
+        )
+        shifted["classification"] = "partially_supported"
+        shifted["note"] = "The shifted statement is still too absolute."
+        transport = FakeTransport(
+            [
+                (coverage, settled_usage()),
+                (audit, settled_usage()),
+                (corrected, settled_usage()),
+                (reaudited, settled_usage()),
+            ]
+        )
+
+        report, _usage = run_engine(new_store(), transport)
+
+        self.assertEqual(report["status"], "needs_review")
+        self.assertEqual(report["diagnostics"]["fact_repair"]["applied"], [])
+        self.assertIn(
+            "genre_contract.failure_1",
+            report["diagnostics"]["fact_repair"]["outcome"],
+        )
+
+    def test_fact_repair_candidate_resumes_without_rebuying_repair(self):
+        coverage = valid_coverage()
+        audit = supported_audit(coverage)
+        audit["verdicts"][0]["classification"] = "partially_supported"
+        audit["verdicts"][0]["note"] = "The fame claim is overstated."
+        corrected = copy.deepcopy(coverage)
+        corrected["story_spine"]["protagonist"] = "Diego Salas, portero retirado"
+        store = new_store()
+        first = FakeTransport(
+            [
+                (coverage, settled_usage()),
+                (audit, settled_usage()),
+                (corrected, settled_usage()),
+                RuntimeError("proxy died during fact re-audit"),
+            ]
+        )
+
+        with self.assertRaises(RuntimeError):
+            run_engine(store, first)
+
+        resume = FakeTransport(
+            [(supported_audit(corrected), settled_usage())]
+        )
+        report, usage = run_engine(store, resume)
+
+        self.assertEqual(len(resume.calls), 1)
+        self.assertEqual(resume.calls[0]["stage"], "coverage_v1.fact_reaudit")
+        self.assertEqual(usage["call_count"], 1)
+        self.assertTrue(
+            report["diagnostics"]["fact_repair"]["candidate_replayed"]
+        )
+        self.assertEqual(report["status"], "sealed")
+
+    def test_valid_noop_fact_repair_is_not_rebought_on_resume(self):
+        coverage = valid_coverage()
+        audit = supported_audit(coverage)
+        audit["verdicts"][0]["classification"] = "partially_supported"
+        audit["verdicts"][0]["note"] = "The wording remains imprecise."
+        store = new_store()
+        first = FakeTransport([
+            (coverage, settled_usage()),
+            (audit, settled_usage()),
+            (coverage, settled_usage()),
+        ])
+
+        first_report, _usage = run_engine(store, first)
+        resume = FakeTransport([])
+        resumed_report, resumed_usage = run_engine(store, resume)
+
+        self.assertEqual(first_report["status"], "needs_review")
+        self.assertEqual(resumed_report["status"], "needs_review")
+        self.assertEqual(len(resume.calls), 0)
+        self.assertEqual(resumed_usage["call_count"], 0)
+        self.assertTrue(
+            resumed_report["diagnostics"]["fact_repair"][
+                "candidate_replayed"
+            ]
+        )
+
+    def test_fact_reaudit_core_resumes_at_details_without_rebuying_core(self):
+        coverage = valid_coverage()
+        audit = supported_audit(coverage)
+        audit["verdicts"][0]["classification"] = "partially_supported"
+        audit["verdicts"][0]["note"] = "The fame claim is overstated."
+        corrected = copy.deepcopy(coverage)
+        corrected["story_spine"]["protagonist"] = (
+            "Diego Salas, portero retirado de 58 años"
+        )
+        store = new_store()
+        first = FakeTransport([
+            (coverage, settled_usage()),
+            (audit, settled_usage()),
+            (corrected, settled_usage()),
+            (provider_audit_core(corrected), settled_usage()),
+            RuntimeError("proxy died during fact re-audit details"),
+        ])
+
+        with self.assertRaises(RuntimeError):
+            run_engine(store, first)
+
+        resume = FakeTransport([
+            (supported_detail_payload(corrected), settled_usage()),
+        ])
+        report, usage = run_engine(store, resume)
+
+        self.assertEqual(len(resume.calls), 1)
+        self.assertEqual(
+            resume.calls[0]["stage"],
+            "coverage_v1.fact_reaudit_details",
+        )
+        self.assertEqual(usage["call_count"], 1)
+        self.assertEqual(report["status"], "sealed")
 
     def test_partial_surviving_reaudit_needs_review(self):
         # A central factual partial that survives repair cannot seal trusted.

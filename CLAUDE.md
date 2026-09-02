@@ -3,91 +3,45 @@
 ## Where Were We (WWW)
 <!-- Single source of truth for session continuity. OVERWRITE this whole section on "save" / "wrap up" / end of session — it reflects CURRENT state, not a log. On "www" / "where were we", read this back and summarize. -->
 
-**Last session:** 2026-09-02 (Coverage V1.2 Cosquillitas chronology fix judged)
+**Last session:** 2026-09-02 (Coverage V1.2 Cosquillitas reliability gate)
 
 **Current state:**
-- Work is on `claude/lemon-dashboard-v9-review-w3nuz0`. Coverage V1.2 changes
-  remain limited to the engine, offline tests, and documentation. Billy
-  separately authorized the paid 20-script V1.2 rerun. No production-data
-  write, deployment, daemon activation, or V1.2 promotion was performed.
-- The source of truth is Billy's approved audit of all 20 V1.1 benchmark
-  reports under `benchmark-artifacts/coverage-v1-audit-packages/`, especially
-  `00-CALIBRATION-SYNTHESIS/Coverage-V1.1-Human-Audit-Synthesis.md` and the
-  matching ledger JSON. All 20 verdicts were upheld; 19 reports were mostly
-  proper with corrections; El Arbol Negro was materially unreliable. The two
-  critical reading failures were the reversed climax order in W.I.L.L. and the
-  misread sacrifice mechanism in El Arbol Negro.
-- Engine version `coverage-v1.2` contains the five audited P0 safeguards:
-  typed PDF/printed/citation-page/scene identities; complete-script evidence
-  checks before absolute-negative claims or development priorities; one
-  canonical fact registry with complete-report repair and re-audit; an ordered
-  climax/ending ledger through final scene, tag, and aftermath; and separate
-  citation text, page, and relevance verification with layout normalization.
+- Work is on `claude/lemon-dashboard-v9-review-w3nuz0`. Billy authorized the
+  paid Cosquillitas fix/review loop and, once that gate passes, the same
+  20-script V1.2 benchmark. No production-data write, deployment, daemon
+  activation, or V1.2 promotion has occurred. V9 remains production.
+- Billy's approved 20-report audit under
+  `benchmark-artifacts/coverage-v1-audit-packages/` is the source of truth.
+  V1.2 implements its five P0 safeguards: typed PDF/printed/citation-page/scene
+  identities, complete-script existing-evidence checks, one canonical fact
+  registry with propagation, a literal ordered climax/ending pass, and
+  separate citation text/page/relevance verification.
+- The latest no-spend implementation also gives every material count a typed
+  source-instance ledger, supports nested/anaphoric counts such as "four judges;
+  two are bribed," rejects cross-entity evidence reuse, and preserves collective
+  counts through explicit multiplicity. Factual repair is deterministically
+  forbidden from changing verdict, confidence, primary genre, lens identities
+  or grades, and genre-contract judgment.
 - Regression fixtures cover W.I.L.L., El Arbol Negro, Terapia, La Ciguena,
-  Sola, Diablo, and the surviving Cosquillitas canary failures. The latest
-  no-spend verification covers 87 focused V1.2 tests and 518 Python execution
-  tests. Frontend proof remains 1,085 tests across 146 files plus the full
-  TypeScript/Vite production build.
-- The paid gate exposed that the provider strips arbitrary array-length
-  constraints: combined audit responses repeatedly omitted/duplicated detail
-  rows and one omitted `final_scene` and `aftermath`; another exhausted the
-  former 6k audit output ceiling. The engine now uses a compact fact/ending
-  tool with five required phase buckets, then a separate required-key detail
-  tool for every evidence path and citation owner. The compact audit core is
-  checkpointed before the detail call so a failure cannot rebuy it.
-- Billy authorized one split-contract Cosquillitas canary. It completed as
-  `needs_review`, not sealed: `CONSIDER`, medium confidence, 9/10 citations
-  verified, four settled calls, $0.889668 exact cost, zero uncertain spend.
-  The required-key split worked structurally, but the approved-audit comparison
-  still found the two-vs-three bribed-judge count conflict, the Richie/peluca
-  beat ordered after the p.97 trophy despite occurring on p.96 before the
-  exposé, incomplete Richie/camera existing-evidence treatment, and omitted
-  pp.82/85 writer notes. The new citation guard correctly rejected the invented
-  word `escondida` in a p.73 excerpt instead of sealing the report.
-- The follow-up no-spend patch is complete. Literal sequence pages must now be
-  nondecreasing; material count claims receive required detail rows; evidence
-  terms are selected only after the whole claim is searched, retaining the
-  p.98 `video` lead without bloating the audit; and both readers now get
-  explicit count-enumeration, reveal-provenance, staged-state-transition, and
-  leftover-writer-directive rules. Exact material counts must now carry a
-  source-grounded instance ledger before they can pass. Deterministic source
-  scanning also surfaces the real Cosquillitas draft notes on printed pp.82/85
-  and prevents a report from sealing if no continuity slot remains for them.
-  An independent gauntlet critic blocked unsafe attempts to delete a leading
-  or trailing citation word. That behavior
-  was removed: invented words such as `escondida` or `falsa` remain unverified.
-  Citation failures now use the existing single bounded repair call with only
-  their cited source pages, requiring a genuinely verbatim replacement or a
-  corrected attached point. The saved canary therefore still rechecks honestly
-  at 9/10, while its old p.97-to-p.96 ledger is rejected.
-- The next authorized Cosquillitas canary at commit `afe00e6` failed closed
-  before the detail audit. Its audit tool intentionally returns phase buckets,
-  but the engine concatenated those semantic buckets and manufactured a p.97
-  to p.96 reversal. The accompanying "missing" evidence/citation arrays were
-  expected because their separate detail call had not run. The validated paid
-  coverage checkpoint is preserved for a free replay. That attempt charged
-  $1.137244; its old scorecard failed to preserve the settled/uncertain split
-  and call count, which the follow-up now records correctly.
-- The judge-approved no-spend fix validates each phase bucket before merging by
-  printed page, keeps Richie/peluca inside the multi-stage climax before the
-  p.97 exposé, rejects an ending that starts before the final climax page, and
-  treats exact `NOT PRESENT` tag/aftermath rows as anchored absence markers.
-  The provider schema remains at its proven 40-property size. The independent
-  judge's final verdict on the implementation is PASS.
-- Cumulative V1.2 charged spend is now $3.783388 ($2.646144 previously known
-  exact-settled plus the latest $1.137244 charge whose settlement split was not
-  retained). Under the temporary $20 operation cap, $16.216612 remains. One
-  V1.2 `needs_review` artifact exists; no V1.2 report is sealed; the other 19
-  reports have not completed.
+  Sola, Diablo, and every reproduced Cosquillitas failure. Proof is 131 focused
+  engine tests plus 8 no-spend canary tests, 562 total Python execution tests,
+  1,085 frontend tests across 146 files, and the TypeScript/Vite production
+  build. The adversarial reviewer and independent consolidation judge both
+  return PASS with no P0/P1 blocker.
+- The most recent paid Cosquillitas artifact, from commit `a261220`, remains a
+  deliberate `needs_review` result and is not the release candidate. It cost
+  $0.787478 across three settled calls. It proved the typed audit shape but
+  still missed existing Richie setup, failed to propagate literal climax order,
+  falsely certified one citation's relevance, and received a malformed count
+  ledger. Those exact defects now have deterministic guards and regressions.
+- Cumulative V1.2 charged spend is $4.570866, leaving $15.429134 under the
+  temporary $20 operation cap. No V1.2 report is sealed and the other 19 have
+  not run. The next gate is a fresh paid Cosquillitas rerun, followed by a new
+  full-screenplay judge comparison. Do not open the other 19 until it passes.
 - The qualitative contract is unchanged: no screenplay scores, no rankability,
   frontend `scoreSource` remains `coverage_unscored`, irrelevant lenses remain
-  `not_applicable`, multi-stage climaxes are preserved, and factual audit is
-  kept separate from human taste.
-- Coverage remains double-gated and off by default. V9 is still the production
-  analyzer and the immutable record for sealed historical analyses. Billy has
-  authorized the paid Cosquillitas review/fix loop. Resume from the preserved
-  coverage checkpoint; do not run the other 19 reports until Cosquillitas seals
-  and a fresh judge clears it against the approved audit.
+  `not_applicable`, multi-stage climaxes are preserved, and human taste stays
+  separate from factual correction.
 
 **Open risks (carried over, not reverified this session):**
 - `VITE_TMDB_API_KEY` may be inlined into local builds. Never run

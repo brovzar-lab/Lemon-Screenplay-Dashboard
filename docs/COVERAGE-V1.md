@@ -1,43 +1,34 @@
 # Coverage V1.2 — qualitative screenplay coverage
 
-**Current status, 2026-09-02:** Coverage V1.2 P0 reliability changes are based
-on Billy's approved audits of all 20 V1.1 benchmark reports under
-`benchmark-artifacts/coverage-v1-audit-packages/`. Billy authorized the paid
-20-script V1.2 rerun. After the first combined-audit gate failed, Billy
-authorized one paid Cosquillitas canary of the split audit contract. The split
-returned every required fact, ending, evidence, and citation slot, but the
-report correctly stopped as `needs_review`: 9/10 citations verified, one
-invented word in a p.73 excerpt, and the approved-audit comparison found that
-known count, existing-evidence, climax-order, and draft-artifact errors remain.
-The no-spend follow-up patch now rejects descending ending pages, requires a
-source-grounded instance ledger for exact material counts, retains late
-exact-evidence terms such as the p.98 `video`, and explicitly audits reveal
-provenance and staged state transitions. Deterministic source scanning surfaces
-the real Cosquillitas draft notes on printed pp.82/85 and prevents sealing if
-they cannot be reported. An independent gauntlet
-critic caught and blocked an unsafe implementation that deleted an invented
-trailing word. Semantic additions such as `escondida` or `falsa` now stay
-unverified. The existing bounded repair call instead receives only the cited
-source pages and must return a genuinely verbatim replacement or correct the
-attached point. Against the saved real canary files, the honest result remains
-9/10 and the old p.97-to-p.96 ledger is rejected. A later authorized canary at
-`afe00e6` failed closed before the detail audit: the engine concatenated the
-provider's semantic phase buckets and thereby manufactured another p.97-to-p.96
-reversal. The validated paid coverage checkpoint is preserved. The judged
-follow-up validates each bucket first, merges valid material beats by printed
-page, rejects any ending that begins before the last climax page, and anchors
-exact `NOT PRESENT` tag/aftermath rows as absence markers. The provider schema
-remains at its proven 40-property size. The no-spend proof is 87 focused
-Coverage V1.2 tests, all 518 Python execution tests, all 1,085 frontend tests,
-and the production build; the independent judge verdict is PASS.
-The earlier split canary used four settled calls and cost exactly $0.889668.
-The `afe00e6` attempt charged $1.137244, but its old failure scorecard omitted
-the settled/uncertain split and call count; that accounting defect is fixed for
-future failures. Cumulative V1.2 charged spend is $3.783388, leaving $16.216612
-under the temporary $20 operation cap. One V1.2 `needs_review` artifact exists;
-no V1.2 report is sealed, and the other 19 reports have not completed.
-V1.2 has not been promoted, deployed, or used to write production data. V9
-remains the production analyzer. Reports remain
+**Current status, 2026-09-02:** Coverage V1.2 implements the five P0 reliability
+contracts derived from Billy's approved audits of all 20 V1.1 reports under
+`benchmark-artifacts/coverage-v1-audit-packages/`. In addition to typed page
+identities, complete-script evidence searches, canonical fact propagation,
+literal climax/ending reconstruction, and citation text/page/relevance checks,
+every material number now receives a typed source-instance ledger. Nested and
+anaphoric claims such as "four judges appear; two are bribed" receive separate
+predicate-specific ledgers; collective evidence carries explicit multiplicity;
+and source evidence cannot be recycled across different entities. Factual
+repair is also deterministically forbidden from changing verdict, confidence,
+primary genre, lens identities or grades, and genre-contract judgment.
+
+The current no-spend proof is 131 focused engine tests plus 8 canary tests, all
+562 Python execution tests, all 1,085 frontend tests, and the TypeScript/Vite
+production build. The 20 saved reports still produce exactly 24 intended
+material-count guards, with no page-duration, rubric, score, article, or
+correlative false positives. An adversarial reviewer and an independent
+consolidation judge both return PASS with no remaining P0/P1 blocker.
+
+The most recent paid Cosquillitas artifact, from commit `a261220`, correctly
+stopped as `needs_review` and is not a release candidate. Its three settled
+calls cost $0.787478. It exposed incomplete Richie/camera evidence handling,
+stale climax-order propagation, one falsely certified relevance judgment, and
+a malformed count ledger. Each failure now has a deterministic guard and local
+regression. Cumulative V1.2 charged spend is $4.570866, leaving $15.429134 under
+the temporary $20 operation cap. Billy authorized a fresh paid Cosquillitas
+rerun and, only after a full-screenplay judge clears it, the remaining 19-script
+benchmark. No V1.2 report is sealed yet. V1.2 has not been promoted, deployed,
+or used to write production data; V9 remains production. Reports remain
 qualitative and unrankable with `analysis_version: "coverage_v1"` and
 `scoreSource: "coverage_unscored"` at the frontend normalization boundary.
 
@@ -141,11 +132,16 @@ PDF → [code] parse + typed PDF/printed-page/scene map + hashes                
 - **Central facts have one registry**: protagonist, want, need, opposition,
   stakes, turns, climax, ending, and material causal claims are reconciled
   across the synopsis, lenses, concerns, priorities, uncertainties, and verdict
-  cases. An eligible repair returns and re-audits the complete report.
+  cases. An eligible repair returns and re-audits the complete report, but code
+  rejects any attempt to change the report's protected qualitative judgment.
 - **Climax and ending order is explicit**: the audit records actor, action,
   result, character knowledge, audience knowledge, page, final scene, tag, and
   aftermath. Missing tags remain `NOT PRESENT`; multi-stage climaxes stay
   multi-stage.
+- **Every material count has a typed ledger**: the auditor enumerates distinct
+  source instances, their pages, whether each matches the exact predicate, and
+  any collective multiplicity. Nested same-entity counts may share a universe;
+  different entities may not reuse the same evidence.
 - **Citation checks are independent**: text existence, page correctness, and
   relevance to the attached claim must all pass. Normalization handles layout
   line breaks, line-end hyphens, revision marks, whitespace, curly quotes,
@@ -258,7 +254,7 @@ Optional job fields: `format: "tv_pilot"`, `genre_hint: "horror"|"comedy"`,
 | File | What |
 |---|---|
 | `execution/coverage_v1.py` | Engine: schemas, prompts, page map, evidence gates, canonical facts, sequence audit, checkpoints, citation verification, cost split |
-| `execution/test_coverage_v1.py` | 74 offline engine tests (fake transport; no network) |
+| `execution/test_coverage_v1.py` | 131 offline engine tests (fake transport; no network) |
 | `execution/coverage_v1_citation_diag.py` | Offline near-miss vs fabrication diagnostic for unverified citations ($0) |
 | `execution/test_daemon_coverage_route.py` | 8 offline tests for the daemon route |
 | `execution/lenses/` | registry.json, cards/ (15 distilled), skills/ (30 imported sources) |
@@ -268,8 +264,9 @@ Optional job fields: `format: "tv_pilot"`, `genre_hint: "horror"|"comedy"`,
 ## Offline guarantees proven by tests
 
 - Normal completion is exactly 3 calls. Structural correction uses at most one
-  shared retry and never resends the screenplay; an eligible factual repair
-  must return the complete report and pass a fresh audit.
+  shared retry and never resends the screenplay; malformed count slots receive
+  bounded typed-only retries; an eligible factual repair must return the
+  complete report and pass a fresh audit.
 - Invalid coverage cannot seal; incomplete audits cannot seal.
 - A failure after coverage resumes at the audit **without repaying coverage**;
   a full replay makes **zero** calls.
@@ -292,7 +289,12 @@ Optional job fields: `format: "tv_pilot"`, `genre_hint: "horror"|"comedy"`,
   lengths. Generic IDs, duplicated rows, and omitted rows cannot pass.
 - The canonical fact registry is checked across the complete report. Eligible
   repairs return the full coverage and are re-audited, preventing a corrected
-  spine from coexisting with stale synopsis or lens claims.
+  spine from coexisting with stale synopsis or lens claims. Repair cannot
+  silently alter verdict, confidence, genre, lens grades, or genre-contract
+  judgment.
+- Material counts use typed, page-cited instance ledgers. Comparator bounds,
+  anaphoric subsets, collective multiplicity, and cross-row evidence ownership
+  are verified in code before a count can pass.
 - The ordered sequence ledger must cover climax, final scene, tag, and
   aftermath with consecutive steps, knowledge state, and valid pages. W.I.L.L.
   beat reversal and El Arbol Negro ending inconsistency fixtures cannot seal.
@@ -300,7 +302,7 @@ Optional job fields: `format: "tv_pilot"`, `genre_hint: "horror"|"comedy"`,
   never an automatic rerun.
 - Budget cap fails closed and preserves paid, validated work.
 - Spanish text and Unicode titles survive end to end.
-- Schemas stay within a strict compiler budget (60 properties, no unions) —
+- Schemas stay within a strict compiler budget (44 properties, no unions) —
   the JSON-string envelope workaround is structurally unavailable.
 
 ## The canary (authorized by Billy 2026-08-31, $10 total)
@@ -349,10 +351,11 @@ least as useful as the V9 report). Send `scorecard.json` and the
 ## Next gate
 
 The V1.1 benchmark and its 20 human-approved audits are complete. The latest
-Cosquillitas canary failed safely; its chronology and failure-accounting fixes
-are complete and independently judged. Billy authorized the paid review/fix
-loop on 2026-09-02. Resume from the preserved coverage checkpoint. Do not run
-the other 19 reports until a sealed Cosquillitas report clears a fresh
-comparison against the approved audit across all five P0 contracts. Production
-promotion, daemon activation, and production-data writes remain separate
-decisions after that result.
+Cosquillitas canary failed safely; its reproduced failures are fixed and the
+no-spend implementation is independently judged. Billy authorized the paid
+review/fix loop on 2026-09-02. Run a fresh Cosquillitas canary because the audit
+prompt changed and therefore invalidates older checkpoints. Do not run the
+other 19 reports until a sealed Cosquillitas report clears a fresh comparison
+against the approved audit across all five P0 contracts. Production promotion,
+daemon activation, and production-data writes remain separate decisions after
+that result.
