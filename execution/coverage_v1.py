@@ -566,27 +566,99 @@ def build_audit_tool(
     return tool
 
 
-def normalize_audit_tool_input(payload: Any) -> Any:
-    """Flatten provider-enforced phase buckets into the canonical ledger."""
+def normalize_audit_tool_input(
+    payload: Any,
+    valid_pages: Optional[Sequence[int]] = None,
+) -> Any:
+    """Validate phase buckets, then merge material beats by printed page."""
     if not isinstance(payload, dict):
         return payload
     sequence = payload.get("sequence_ledger")
     if not isinstance(sequence, dict):
         return payload
-    ledger: List[Dict[str, Any]] = []
+    page_set = set(valid_pages or [])
+    errors: List[str] = []
+    material: List[Dict[str, Any]] = []
+    absence_markers: List[Dict[str, Any]] = []
+    material_by_phase: Dict[str, List[Dict[str, Any]]] = {}
     for phase in AUDIT_SEQUENCE_PHASES:
         beats = sequence.get(phase)
         if not isinstance(beats, list):
             return payload
+        phase_material: List[Dict[str, Any]] = []
+        phase_absent: List[Dict[str, Any]] = []
         for beat in beats:
             if not isinstance(beat, dict):
                 return payload
-            ledger.append({
-                "order": len(ledger) + 1,
+            normalized = {
                 "phase": phase,
                 **copy.deepcopy(beat),
-            })
-    return {**payload, "sequence_ledger": ledger}
+            }
+            page = normalized.get("page")
+            if type(page) is not int or page < 1 or (
+                page_set and page not in page_set
+            ):
+                errors.append(f"sequence_ledger {phase} page is invalid")
+            if str(normalized.get("action", "")).strip() == "NOT PRESENT":
+                phase_absent.append(normalized)
+            else:
+                phase_material.append(normalized)
+        if phase_absent and (
+            phase not in {"tag", "aftermath"}
+            or len(phase_absent) != 1
+            or len(beats) != 1
+        ):
+            errors.append(
+                f"sequence_ledger {phase} has an invalid NOT PRESENT marker"
+            )
+        pages = [beat.get("page") for beat in phase_material]
+        if all(type(page) is int for page in pages) and any(
+            current < previous
+            for previous, current in zip(pages, pages[1:])
+        ):
+            errors.append(
+                f"sequence_ledger {phase} bucket pages must be nondecreasing"
+            )
+        material.extend(phase_material)
+        absence_markers.extend(phase_absent)
+        material_by_phase[phase] = phase_material
+
+    climax_pages = [
+        beat["page"] for beat in material_by_phase["climax"]
+        if type(beat.get("page")) is int
+    ]
+    if climax_pages:
+        last_climax_page = max(climax_pages)
+        for phase in AUDIT_SEQUENCE_PHASES[1:]:
+            if any(
+                type(beat.get("page")) is int
+                and beat["page"] < last_climax_page
+                for beat in material_by_phase[phase]
+            ):
+                errors.append(
+                    f"sequence_ledger {phase} begins before the final climax beat"
+                )
+
+    ledger = material
+    if all(type(beat.get("page")) is int for beat in ledger):
+        ledger.sort(key=lambda beat: beat["page"])
+    material_pages = [
+        beat["page"] for beat in ledger if type(beat.get("page")) is int
+    ]
+    if material_pages:
+        final_material_page = max(material_pages)
+        for marker in absence_markers:
+            marker["page"] = final_material_page
+            ledger.append(marker)
+    elif absence_markers:
+        errors.append("sequence_ledger contains no material story beats")
+        ledger.extend(absence_markers)
+    for order, beat in enumerate(ledger, start=1):
+        beat["order"] = order
+    normalized_payload = {**payload, "sequence_ledger": ledger}
+    if errors:
+        normalized_payload["_sequence_normalization_errors"] = errors
+    return normalized_payload
 
 
 def build_detail_audit_rows(
@@ -1527,10 +1599,14 @@ def build_audit_user_blocks(
                 "are collected by a separate strict tool; use their supplied "
                 "material to judge the two aggregate guards, but do not emit "
                 "those rows here. In `sequence_ledger`, return every required "
-                "phase key with a non-empty ordered array. Use multiple climax "
+                "phase key with a non-empty page-ordered array. A subplot "
+                "resolution before the final decisive reversal remains a "
+                "climax beat for this ledger: no ending or post-climax phase "
+                "may begin before the last climax page. Use multiple climax "
                 "or ending beats when the sequence has multiple stages. Use "
-                "an explicit NOT PRESENT beat for a missing tag or aftermath; "
-                "never invent one."
+                "exactly one explicit NOT PRESENT beat for a missing tag or "
+                "aftermath, never mix that marker with a story beat, and never "
+                "use it in climax, ending, or final_scene."
             ),
         },
     ]
@@ -2307,6 +2383,11 @@ def validate_audit_payload(
     problems: List[str] = []
     if not isinstance(payload, dict):
         return ["audit payload is not an object"]
+    normalization_errors = payload.get("_sequence_normalization_errors", [])
+    if isinstance(normalization_errors, list):
+        problems.extend(
+            str(error) for error in normalization_errors if str(error).strip()
+        )
     verdicts = payload.get("verdicts")
     if not isinstance(verdicts, list):
         return ["audit verdicts missing"]
@@ -2963,7 +3044,8 @@ def run_coverage_v1(
 
         if audit_core_payload is None:
             tool_input = normalize_audit_tool_input(
-                _audit_call(audit_model_key)
+                _audit_call(audit_model_key),
+                page_reference_map["valid_citation_pages"],
             )
         else:
             tool_input = copy.deepcopy(audit_core_payload["tool_input"])
@@ -3019,7 +3101,8 @@ def run_coverage_v1(
             repair_calls_used += 1
             audit_model_effective = model_key
             tool_input = normalize_audit_tool_input(
-                _audit_call(model_key)
+                _audit_call(model_key),
+                page_reference_map["valid_citation_pages"],
             )
             problems = validate_audit_payload(
                 tool_input,
@@ -3256,7 +3339,10 @@ def run_coverage_v1(
                 usage_total = _merge_usage(usage_total, usage)
                 _note_usage(usage_sink, usage_total)
                 guard.charge(usage)
-                reaudit_input = normalize_audit_tool_input(reaudit_input)
+                reaudit_input = normalize_audit_tool_input(
+                    reaudit_input,
+                    page_reference_map["valid_citation_pages"],
+                )
                 reaudit_problems = validate_audit_payload(
                     reaudit_input,
                     new_claims,

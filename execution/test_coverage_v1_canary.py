@@ -135,7 +135,9 @@ class PaidBatchTests(unittest.TestCase):
         # The drill script's cost includes the killed run's coverage charge.
         drill_row = scorecard["scripts"][1]
         self.assertAlmostEqual(drill_row["cost"]["charged_usd"], 0.28)
+        self.assertEqual(drill_row["cost"]["call_count"], 2)
         self.assertAlmostEqual(scorecard["totals"]["charged_usd"], 0.84)
+        self.assertEqual(scorecard["totals"]["call_count"], 6)
 
         bars = scorecard["automated_bars"]
         self.assertTrue(bars["batch_within_authorization"])
@@ -233,6 +235,9 @@ class PaidBatchTests(unittest.TestCase):
         self.assertEqual(row["status"], "failed_closed")
         self.assertAlmostEqual(row["charged_usd_before_failure"], 0.25)
         self.assertAlmostEqual(scorecard["totals"]["charged_usd"], 0.25)
+        self.assertAlmostEqual(scorecard["totals"]["settled_usd"], 0.25)
+        self.assertEqual(scorecard["totals"]["call_count"], 2)
+        self.assertAlmostEqual(row["cost_before_failure"]["settled_usd"], 0.25)
         self.assertTrue(scorecard["hard_failures"])
 
 

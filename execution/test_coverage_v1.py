@@ -1263,6 +1263,16 @@ Los asesinos preparan el campamento y luego mueven el cuerpo.
             set(schema["properties"]["sequence_ledger"]["properties"]),
             {"climax", "ending", "final_scene", "tag", "aftermath"},
         )
+        self.assertEqual(
+            cv.strict_schema_complexity(schema)["property_count"], 40
+        )
+        for phase in cv.AUDIT_SEQUENCE_PHASES:
+            self.assertNotIn(
+                "order",
+                schema["properties"]["sequence_ledger"]["properties"][phase][
+                    "items"
+                ]["properties"],
+            )
         self.assertTrue(evidence)
         self.assertTrue(citation_owners)
 
@@ -1310,6 +1320,154 @@ Los asesinos preparan el campamento y luego mueven el cuerpo.
             [owner for owner, _item in cv._iter_citations(coverage)],
         )
         self.assertEqual(usage["call_count"], 3)
+
+    def test_corrected_cosquillitas_phase_buckets_reach_detail_audit(self):
+        # Billy's approved audit: Richie chooses Lucesita before the exposé,
+        # so both beats remain in the multi-stage climax before ending begins.
+        coverage = valid_coverage()
+        audit = provider_audit_core(coverage)
+        richie = audit["sequence_ledger"]["climax"][0]
+        richie["page"] = 5
+        richie["action"] = "Richie chooses Lucesita before the result changes."
+        expose = copy.deepcopy(richie)
+        expose["page"] = 6
+        expose["action"] = "The exposé overturns the corrupt result."
+        audit["sequence_ledger"]["climax"].append(expose)
+        transport = FakeTransport(
+            [
+                (coverage, settled_usage()),
+                (audit, settled_usage()),
+                (supported_detail_payload(coverage), settled_usage()),
+            ]
+        )
+
+        report, _usage = run_engine(new_store(), transport)
+
+        self.assertEqual(
+            [call["stage"] for call in transport.calls],
+            [
+                "coverage_v1.coverage",
+                "coverage_v1.fact_audit",
+                "coverage_v1.fact_audit_details",
+            ],
+        )
+        self.assertEqual(
+            [row["page"] for row in report["fact_audit"]["sequence_ledger"]],
+            [5, 6, 6, 6, 6, 6],
+        )
+        self.assertEqual(
+            [row["phase"] for row in report["fact_audit"]["sequence_ledger"][:2]],
+            ["climax", "climax"],
+        )
+
+    def test_cosquillitas_internal_ending_reversal_stops_before_details(self):
+        coverage = valid_coverage()
+        bad_audit = provider_audit_core(coverage)
+        trophy = bad_audit["sequence_ledger"]["ending"][0]
+        trophy["page"] = 6
+        richie = copy.deepcopy(trophy)
+        richie["page"] = 5
+        richie["action"] = "Richie receives the wig before the exposé."
+        bad_audit["sequence_ledger"]["ending"].append(richie)
+        transport = FakeTransport(
+            [
+                (coverage, settled_usage()),
+                (bad_audit, settled_usage()),
+                (bad_audit, settled_usage()),
+            ]
+        )
+
+        with self.assertRaisesRegex(
+            cv.CoverageContractError,
+            "ending bucket pages must be nondecreasing",
+        ):
+            run_engine(new_store(), transport)
+
+        self.assertEqual(
+            [call["stage"] for call in transport.calls],
+            [
+                "coverage_v1.coverage",
+                "coverage_v1.fact_audit",
+                "coverage_v1.fact_audit",
+            ],
+        )
+
+    def test_post_climax_buckets_merge_and_absence_marker_lands_last(self):
+        coverage = valid_coverage()
+        audit = provider_audit_core(coverage)
+        audit["sequence_ledger"]["climax"][0]["page"] = 4
+        audit["sequence_ledger"]["ending"][0]["page"] = 5
+        first_final = audit["sequence_ledger"]["final_scene"][0]
+        first_final["page"] = 6
+        first_final["action"] = "First beat on the final page."
+        second_final = copy.deepcopy(first_final)
+        second_final["action"] = "Second beat on the final page."
+        audit["sequence_ledger"]["final_scene"].append(second_final)
+        audit["sequence_ledger"]["tag"][0]["page"] = 1
+        audit["sequence_ledger"]["aftermath"][0]["page"] = 5
+
+        normalized = cv.normalize_audit_tool_input(audit, range(1, 7))
+
+        self.assertNotIn("_sequence_normalization_errors", normalized)
+        ledger = normalized["sequence_ledger"]
+        self.assertEqual(
+            [row["phase"] for row in ledger],
+            [
+                "climax", "ending", "aftermath",
+                "final_scene", "final_scene", "tag",
+            ],
+        )
+        self.assertEqual(
+            [row["action"] for row in ledger[3:5]],
+            ["First beat on the final page.", "Second beat on the final page."],
+        )
+        self.assertEqual(ledger[-1]["action"], "NOT PRESENT")
+        self.assertEqual(ledger[-1]["page"], 6)
+
+    def test_invalid_phase_boundaries_and_markers_fail_normalization(self):
+        coverage = valid_coverage()
+        cases = []
+
+        early_ending = provider_audit_core(coverage)
+        first_climax = early_ending["sequence_ledger"]["climax"][0]
+        first_climax["page"] = 4
+        final_climax = copy.deepcopy(first_climax)
+        final_climax["page"] = 6
+        early_ending["sequence_ledger"]["climax"].append(final_climax)
+        early_ending["sequence_ledger"]["ending"][0]["page"] = 5
+        cases.append((early_ending, "ending begins before the final climax"))
+
+        mixed_tag = provider_audit_core(coverage)
+        extra_tag = copy.deepcopy(mixed_tag["sequence_ledger"]["tag"][0])
+        extra_tag["action"] = "A real tag beat."
+        mixed_tag["sequence_ledger"]["tag"].append(extra_tag)
+        cases.append((mixed_tag, "tag has an invalid NOT PRESENT marker"))
+
+        sentinel_ending = provider_audit_core(coverage)
+        sentinel_ending["sequence_ledger"]["ending"][0]["action"] = (
+            "NOT PRESENT"
+        )
+        cases.append((sentinel_ending, "ending has an invalid NOT PRESENT marker"))
+
+        noninteger = provider_audit_core(coverage)
+        noninteger["sequence_ledger"]["climax"][0]["page"] = "6"
+        cases.append((noninteger, "climax page is invalid"))
+
+        impossible = provider_audit_core(coverage)
+        impossible["sequence_ledger"]["climax"][0]["page"] = 99
+        cases.append((impossible, "climax page is invalid"))
+
+        for payload, expected in cases:
+            with self.subTest(expected=expected):
+                normalized = cv.normalize_audit_tool_input(payload, range(1, 7))
+                self.assertTrue(
+                    any(
+                        expected in error
+                        for error in normalized[
+                            "_sequence_normalization_errors"
+                        ]
+                    )
+                )
 
     def test_continuity_flags_are_validated_and_preserved(self):
         coverage = valid_coverage()

@@ -237,13 +237,13 @@ def run_canary(
 
         drill: Optional[Dict[str, Any]] = None
         kill_run_charged = 0.0
+        kill_sink: Dict[str, Any] = {}
         run_sink: Dict[str, Any] = {}
         try:
             if index == resume_drill_index:
                 # Resume drill: kill before the 2nd call (after Senior
                 # Coverage validated and checkpointed), then resume.
                 killer = KillBeforeCall(transport, kill_before_call=2)
-                kill_sink: Dict[str, Any] = {}
                 try:
                     coverage_v1.run_coverage_v1(
                         transport=killer, usage_sink=kill_sink, **run_kwargs
@@ -286,14 +286,19 @@ def run_canary(
             # LlmOutputContractError killed a run scorecard-less on
             # 2026-09-01). Engine errors and transport errors alike become
             # a failed_closed row; money spent still counts.
-            failed_charge = kill_run_charged + _charged_usd(run_sink)
-            charged_total += failed_charge
-            scorecard["totals"]["charged_usd"] = round(
-                scorecard["totals"]["charged_usd"] + failed_charge, 6
+            failed_cost = coverage_v1._usage_cost_split(
+                coverage_v1._merge_usage(kill_sink, run_sink)
             )
+            charged_total += failed_cost["charged_usd"]
+            for field in ("charged_usd", "settled_usd", "uncertain_usd"):
+                scorecard["totals"][field] = round(
+                    scorecard["totals"][field] + failed_cost[field], 6
+                )
+            scorecard["totals"]["call_count"] += failed_cost["call_count"]
             row["status"] = "failed_closed"
             row["error"] = f"{type(error).__name__}: {error}"
-            row["charged_usd_before_failure"] = round(failed_charge, 6)
+            row["charged_usd_before_failure"] = failed_cost["charged_usd"]
+            row["cost_before_failure"] = failed_cost
             scorecard["hard_failures"].append(f"#{index} {title}: {error}")
             continue
 
@@ -301,8 +306,10 @@ def run_canary(
         if kill_run_charged:
             # The killed first run paid for the coverage call; the resumed
             # run replays (never re-charges) it, so fold the real spend in.
-            cost["charged_usd"] = round(cost["charged_usd"] + kill_run_charged, 6)
-            cost["settled_usd"] = round(cost["settled_usd"] + kill_run_charged, 6)
+            kill_cost = coverage_v1._usage_cost_split(kill_sink)
+            for field in ("charged_usd", "settled_usd", "uncertain_usd"):
+                cost[field] = round(cost[field] + kill_cost[field], 6)
+            cost["call_count"] += kill_cost["call_count"]
         charged_total += float(cost["charged_usd"])
         row.update(
             {

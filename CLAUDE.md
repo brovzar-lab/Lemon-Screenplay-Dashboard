@@ -3,7 +3,7 @@
 ## Where Were We (WWW)
 <!-- Single source of truth for session continuity. OVERWRITE this whole section on "save" / "wrap up" / end of session — it reflects CURRENT state, not a log. On "www" / "where were we", read this back and summarize. -->
 
-**Last session:** 2026-09-02 (Coverage V1.2 Cosquillitas paid canary authorized)
+**Last session:** 2026-09-02 (Coverage V1.2 Cosquillitas chronology fix judged)
 
 **Current state:**
 - Work is on `claude/lemon-dashboard-v9-review-w3nuz0`. Coverage V1.2 changes
@@ -25,7 +25,7 @@
   citation text, page, and relevance verification with layout normalization.
 - Regression fixtures cover W.I.L.L., El Arbol Negro, Terapia, La Ciguena,
   Sola, Diablo, and the surviving Cosquillitas canary failures. The latest
-  no-spend verification covers 83 focused V1.2 tests and 514 Python execution
+  no-spend verification covers 87 focused V1.2 tests and 518 Python execution
   tests. Frontend proof remains 1,085 tests across 146 files plus the full
   TypeScript/Vite production build.
 - The paid gate exposed that the provider strips arbitrary array-length
@@ -60,20 +60,34 @@
   their cited source pages, requiring a genuinely verbatim replacement or a
   corrected attached point. The saved canary therefore still rechecks honestly
   at 9/10, while its old p.97-to-p.96 ledger is rejected.
-- The paid V1.2 total is now 12 settled calls costing exactly $2.646144, with
-  zero uncertain spend. One V1.2 `needs_review` artifact exists, no V1.2 report
-  is sealed, one interrupted call previously reached script 2, and the
-  remaining 18 scripts were never called. Under the temporary $20 operation
-  cap, $17.353856 remains.
+- The next authorized Cosquillitas canary at commit `afe00e6` failed closed
+  before the detail audit. Its audit tool intentionally returns phase buckets,
+  but the engine concatenated those semantic buckets and manufactured a p.97
+  to p.96 reversal. The accompanying "missing" evidence/citation arrays were
+  expected because their separate detail call had not run. The validated paid
+  coverage checkpoint is preserved for a free replay. That attempt charged
+  $1.137244; its old scorecard failed to preserve the settled/uncertain split
+  and call count, which the follow-up now records correctly.
+- The judge-approved no-spend fix validates each phase bucket before merging by
+  printed page, keeps Richie/peluca inside the multi-stage climax before the
+  p.97 exposé, rejects an ending that starts before the final climax page, and
+  treats exact `NOT PRESENT` tag/aftermath rows as anchored absence markers.
+  The provider schema remains at its proven 40-property size. The independent
+  judge's final verdict on the implementation is PASS.
+- Cumulative V1.2 charged spend is now $3.783388 ($2.646144 previously known
+  exact-settled plus the latest $1.137244 charge whose settlement split was not
+  retained). Under the temporary $20 operation cap, $16.216612 remains. One
+  V1.2 `needs_review` artifact exists; no V1.2 report is sealed; the other 19
+  reports have not completed.
 - The qualitative contract is unchanged: no screenplay scores, no rankability,
   frontend `scoreSource` remains `coverage_unscored`, irrelevant lenses remain
   `not_applicable`, multi-stage climaxes are preserved, and factual audit is
   kept separate from human taste.
 - Coverage remains double-gated and off by default. V9 is still the production
   analyzer and the immutable record for sealed historical analyses. Billy has
-  authorized the second paid Cosquillitas canary and the review/fix loop. Do
-  not resume the other 19 reports until that canary seals and a fresh judge
-  clears it against the approved audit.
+  authorized the paid Cosquillitas review/fix loop. Resume from the preserved
+  coverage checkpoint; do not run the other 19 reports until Cosquillitas seals
+  and a fresh judge clears it against the approved audit.
 
 **Open risks (carried over, not reverified this session):**
 - `VITE_TMDB_API_KEY` may be inlined into local builds. Never run

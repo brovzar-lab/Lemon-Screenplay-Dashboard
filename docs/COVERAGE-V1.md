@@ -20,15 +20,22 @@ trailing word. Semantic additions such as `escondida` or `falsa` now stay
 unverified. The existing bounded repair call instead receives only the cited
 source pages and must return a genuinely verbatim replacement or correct the
 attached point. Against the saved real canary files, the honest result remains
-9/10 and the old p.97-to-p.96 ledger is rejected. This is local proof only, not
-a new paid coverage result. The completed no-spend proof is 83 focused Coverage
-V1.2 tests, all 514 Python execution tests, all 1,085 frontend tests, and the
-production build. The independent critic's final verdict is clear.
-That canary used four settled calls and cost exactly $0.889668 with zero
-uncertain spend. Cumulative V1.2 work is 12 settled calls, $2.646144 exact,
-zero uncertain, leaving $17.353856 under the temporary $20 operation cap. One
-V1.2 `needs_review` artifact exists; no V1.2 report is sealed. One earlier
-interrupted call reached script 2; the remaining 18 scripts were never called.
+9/10 and the old p.97-to-p.96 ledger is rejected. A later authorized canary at
+`afe00e6` failed closed before the detail audit: the engine concatenated the
+provider's semantic phase buckets and thereby manufactured another p.97-to-p.96
+reversal. The validated paid coverage checkpoint is preserved. The judged
+follow-up validates each bucket first, merges valid material beats by printed
+page, rejects any ending that begins before the last climax page, and anchors
+exact `NOT PRESENT` tag/aftermath rows as absence markers. The provider schema
+remains at its proven 40-property size. The no-spend proof is 87 focused
+Coverage V1.2 tests, all 518 Python execution tests, all 1,085 frontend tests,
+and the production build; the independent judge verdict is PASS.
+The earlier split canary used four settled calls and cost exactly $0.889668.
+The `afe00e6` attempt charged $1.137244, but its old failure scorecard omitted
+the settled/uncertain split and call count; that accounting defect is fixed for
+future failures. Cumulative V1.2 charged spend is $3.783388, leaving $16.216612
+under the temporary $20 operation cap. One V1.2 `needs_review` artifact exists;
+no V1.2 report is sealed, and the other 19 reports have not completed.
 V1.2 has not been promoted, deployed, or used to write production data. V9
 remains the production analyzer. Reports remain
 qualitative and unrankable with `analysis_version: "coverage_v1"` and
@@ -341,10 +348,11 @@ least as useful as the V9 report). Send `scorecard.json` and the
 
 ## Next gate
 
-The V1.1 benchmark and its 20 human-approved audits are complete. The first
-split-contract Cosquillitas canary failed safely, and its no-spend patch and
-regressions are complete. Billy authorized the second paid Cosquillitas canary
-and the review/fix loop on 2026-09-02. Do not run the other 19 reports until a
-sealed canary clears a fresh comparison against the approved audit across all
-five P0 contracts. Production promotion, daemon activation, and production-data
-writes remain separate decisions after that result.
+The V1.1 benchmark and its 20 human-approved audits are complete. The latest
+Cosquillitas canary failed safely; its chronology and failure-accounting fixes
+are complete and independently judged. Billy authorized the paid review/fix
+loop on 2026-09-02. Resume from the preserved coverage checkpoint. Do not run
+the other 19 reports until a sealed Cosquillitas report clears a fresh
+comparison against the approved audit across all five P0 contracts. Production
+promotion, daemon activation, and production-data writes remain separate
+decisions after that result.
