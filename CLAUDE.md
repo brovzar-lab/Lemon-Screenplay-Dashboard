@@ -24,9 +24,14 @@
   climax/ending ledger through final scene, tag, and aftermath; and separate
   citation text, page, and relevance verification with layout normalization.
 - Regression fixtures cover W.I.L.L., El Arbol Negro, Terapia, La Ciguena,
-  Sola, and Diablo. No-spend verification passed: 71 focused V1.2 tests, all
-  502 Python execution tests, 1,085 frontend tests across 146 files, and the
+  Sola, and Diablo. No-spend verification passed: 72 focused V1.2 tests, all
+  503 Python execution tests, 1,085 frontend tests across 146 files, and the
   full TypeScript/Vite production build.
+- The first paid preflight exposed a generic audit-schema defect before the
+  batch proceeded: the model could omit evidence rows and substitute spine
+  claim IDs as citation owners. Audit calls now bind exact runtime IDs and
+  exact row counts. Cosquillitas' validated senior-coverage checkpoint remains
+  reusable; no production data was written.
 - The qualitative contract is unchanged: no screenplay scores, no rankability,
   frontend `scoreSource` remains `coverage_unscored`, irrelevant lenses remain
   `not_applicable`, multi-stage climaxes are preserved, and factual audit is

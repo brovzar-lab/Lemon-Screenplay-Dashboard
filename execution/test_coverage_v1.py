@@ -1069,6 +1069,48 @@ Los asesinos preparan el campamento y luego mueven el cuerpo.
             )
         )
 
+    def test_audit_tool_pins_exact_runtime_ids_and_row_counts(self):
+        coverage = valid_coverage()
+        transport = FakeTransport(
+            [
+                (coverage, settled_usage()),
+                (supported_audit(coverage), settled_usage()),
+            ]
+        )
+
+        run_engine(new_store(), transport)
+
+        schema = transport.calls[1]["tool"]["input_schema"]
+        claims = cv.build_audit_claims(coverage)
+        evidence = cv.build_existing_evidence_checks(
+            coverage, SCREENPLAY_TEXT
+        )
+        citation_owners = [
+            owner for owner, _item in cv._iter_citations(coverage)
+        ]
+        verdicts = schema["properties"]["verdicts"]
+        evidence_rows = schema["properties"]["existing_evidence_verdicts"]
+        citation_rows = schema["properties"]["citation_relevance"]
+
+        self.assertEqual(verdicts["minItems"], len(claims))
+        self.assertEqual(verdicts["maxItems"], len(claims))
+        self.assertEqual(
+            verdicts["items"]["properties"]["claim_id"]["enum"],
+            [claim["claim_id"] for claim in claims],
+        )
+        self.assertEqual(evidence_rows["minItems"], len(evidence))
+        self.assertEqual(evidence_rows["maxItems"], len(evidence))
+        self.assertEqual(
+            evidence_rows["items"]["properties"]["field_path"]["enum"],
+            [check["field_path"] for check in evidence],
+        )
+        self.assertEqual(citation_rows["minItems"], len(citation_owners))
+        self.assertEqual(citation_rows["maxItems"], len(citation_owners))
+        self.assertEqual(
+            citation_rows["items"]["properties"]["owner"]["enum"],
+            citation_owners,
+        )
+
     def test_continuity_flags_are_validated_and_preserved(self):
         coverage = valid_coverage()
         coverage["continuity_flags"] = [

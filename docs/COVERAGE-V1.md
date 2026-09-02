@@ -10,7 +10,7 @@ misread. V1.2 has not been run against the 20 PDFs, promoted, deployed, or used
 to write production data. V9 remains the production analyzer. Reports remain
 qualitative and unrankable with `analysis_version: "coverage_v1"` and
 `scoreSource: "coverage_unscored"` at the frontend normalization boundary.
-No-spend verification passed on 2026-09-02: 71 focused V1.2 engine tests, 502
+No-spend verification passed on 2026-09-02: 72 focused V1.2 engine tests, 503
 Python execution tests, 1,085 frontend tests across 146 files, and the full
 TypeScript/Vite production build.
 
@@ -230,7 +230,7 @@ Optional job fields: `format: "tv_pilot"`, `genre_hint: "horror"|"comedy"`,
 | File | What |
 |---|---|
 | `execution/coverage_v1.py` | Engine: schemas, prompts, page map, evidence gates, canonical facts, sequence audit, checkpoints, citation verification, cost split |
-| `execution/test_coverage_v1.py` | 71 offline engine tests (fake transport; no network) |
+| `execution/test_coverage_v1.py` | 72 offline engine tests (fake transport; no network) |
 | `execution/coverage_v1_citation_diag.py` | Offline near-miss vs fabrication diagnostic for unverified citations ($0) |
 | `execution/test_daemon_coverage_route.py` | 8 offline tests for the daemon route |
 | `execution/lenses/` | registry.json, cards/ (15 distilled), skills/ (30 imported sources) |
@@ -258,6 +258,9 @@ Optional job fields: `format: "tv_pilot"`, `genre_hint: "horror"|"comedy"`,
 - Every development priority and high-risk absolute claim produces a complete-
   screenplay evidence check; the audit cannot pass a conflicting aggregate
   guard over failed detail rows.
+- Each live audit tool is bound to the exact claim IDs, evidence paths, citation
+  owners, and row counts for that report. Generic strings cannot be substituted
+  across audit sections, and omitted rows fail at the schema boundary.
 - The canonical fact registry is checked across the complete report. Eligible
   repairs return the full coverage and are re-audited, preventing a corrected
   spine from coexisting with stale synopsis or lens claims.

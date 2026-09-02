@@ -570,6 +570,36 @@ def assert_schemas_compiler_safe() -> None:
                 )
 
 
+def build_audit_tool(
+    claims: Sequence[Dict[str, str]],
+    evidence_checks: Sequence[Dict[str, Any]],
+    citation_owners: Sequence[str],
+) -> Dict[str, Any]:
+    """Bind audit arrays to the exact IDs required for this screenplay."""
+    tool = copy.deepcopy(AUDIT_TOOL)
+    properties = tool["input_schema"]["properties"]
+
+    def bind(field: str, id_field: str, ids: Sequence[str]) -> None:
+        expected = list(ids)
+        if not expected or len(expected) != len(set(expected)):
+            raise CoverageContractError(
+                f"Cannot bind {field}: expected unique non-empty IDs"
+            )
+        rows = properties[field]
+        rows["minItems"] = len(expected)
+        rows["maxItems"] = len(expected)
+        rows["items"]["properties"][id_field]["enum"] = expected
+
+    bind("verdicts", "claim_id", [claim["claim_id"] for claim in claims])
+    bind(
+        "existing_evidence_verdicts",
+        "field_path",
+        [str(check["field_path"]) for check in evidence_checks],
+    )
+    bind("citation_relevance", "owner", citation_owners)
+    return tool
+
+
 # ── Prompts ──────────────────────────────────────────────────────────────────
 
 UNTRUSTED_SCREENPLAY_INSTRUCTION = (
@@ -2379,6 +2409,11 @@ def run_coverage_v1(
         coverage_payload, text
     )
     sequence_focus = build_sequence_focus(text)
+    audit_tool = build_audit_tool(
+        claims,
+        existing_evidence_checks,
+        [owner for owner, _item in _iter_citations(coverage_payload)],
+    )
     audit_system = [
         {
             "type": "text",
@@ -2403,7 +2438,7 @@ def run_coverage_v1(
                 system_blocks=audit_system,
                 user_blocks=audit_user,
                 model_key=route,
-                tool=AUDIT_TOOL,
+                tool=audit_tool,
                 thinking_budget=AUDIT_THINKING_BUDGET,
                 max_tokens=AUDIT_MAX_TOKENS,
                 proxy_url=proxy_url,
@@ -2614,6 +2649,16 @@ def run_coverage_v1(
                 corrected_evidence_checks = build_existing_evidence_checks(
                     corrected_coverage, text
                 )
+                corrected_audit_tool = build_audit_tool(
+                    new_claims,
+                    corrected_evidence_checks,
+                    [
+                        owner
+                        for owner, _item in _iter_citations(
+                            corrected_coverage
+                        )
+                    ],
+                )
                 guard.check_before_call()
                 reaudit_input, _text_out, usage = call(
                     system_blocks=audit_system,
@@ -2627,7 +2672,7 @@ def run_coverage_v1(
                         sequence_focus=sequence_focus,
                     ),
                     model_key=audit_model_key,
-                    tool=AUDIT_TOOL,
+                    tool=corrected_audit_tool,
                     thinking_budget=AUDIT_THINKING_BUDGET,
                     max_tokens=AUDIT_MAX_TOKENS,
                     proxy_url=proxy_url,
