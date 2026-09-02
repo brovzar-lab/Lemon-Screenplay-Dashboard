@@ -12,21 +12,23 @@ and source evidence cannot be recycled across different entities. Factual
 repair is also deterministically forbidden from changing verdict, confidence,
 primary genre, lens identities or grades, and genre-contract judgment.
 
-The current no-spend proof is 131 focused engine tests plus 8 canary tests, all
-562 Python execution tests, all 1,085 frontend tests, and the TypeScript/Vite
+The current no-spend proof is 133 focused engine tests plus 8 canary tests, all
+564 Python execution tests, all 1,085 frontend tests, and the TypeScript/Vite
 production build. The 20 saved reports still produce exactly 24 intended
 material-count guards, with no page-duration, rubric, score, article, or
 correlative false positives. An adversarial reviewer and an independent
 consolidation judge both return PASS with no remaining P0/P1 blocker.
 
-The most recent paid Cosquillitas artifact, from commit `a261220`, correctly
-stopped as `needs_review` and is not a release candidate. Its three settled
-calls cost $0.787478. It exposed incomplete Richie/camera evidence handling,
-stale climax-order propagation, one falsely certified relevance judgment, and
-a malformed count ledger. Each failure now has a deterministic guard and local
-regression. Cumulative V1.2 charged spend is $4.570866, leaving $15.429134 under
-the temporary $20 operation cap. Billy authorized a fresh paid Cosquillitas
-rerun and, only after a full-screenplay judge clears it, the remaining 19-script
+The paid Cosquillitas run at commit `97e360b` failed closed after three settled
+calls and $0.768025. Its validated coverage checkpoint is preserved. The audit
+misclassified a subplot resolution as `ending` before its own later decisive
+`climax` beat, so code stopped before the evidence/citation detail pass. The
+judged correction now reclassifies only an ending beat bracketed by original
+climax pages, requires a genuine later ending to remain, records the original
+phase, and preserves every literal field. All broader chronology failures still
+stop. Cumulative V1.2 charged spend is $5.338891, leaving $14.661109 under the
+temporary $20 operation cap. Billy authorized the resumed Cosquillitas audit
+and, only after a full-screenplay judge clears it, the remaining 19-script
 benchmark. No V1.2 report is sealed yet. V1.2 has not been promoted, deployed,
 or used to write production data; V9 remains production. Reports remain
 qualitative and unrankable with `analysis_version: "coverage_v1"` and
@@ -353,9 +355,9 @@ least as useful as the V9 report). Send `scorecard.json` and the
 The V1.1 benchmark and its 20 human-approved audits are complete. The latest
 Cosquillitas canary failed safely; its reproduced failures are fixed and the
 no-spend implementation is independently judged. Billy authorized the paid
-review/fix loop on 2026-09-02. Run a fresh Cosquillitas canary because the audit
-prompt changed and therefore invalidates older checkpoints. Do not run the
-other 19 reports until a sealed Cosquillitas report clears a fresh comparison
-against the approved audit across all five P0 contracts. Production promotion,
-daemon activation, and production-data writes remain separate decisions after
-that result.
+review/fix loop on 2026-09-02. Resume Cosquillitas from the validated coverage
+checkpoint; the failed audit was never checkpointed, so it will be regenerated
+without rebuying the senior read. Do not run the other 19 reports until a sealed
+Cosquillitas report clears a fresh comparison against the approved audit across
+all five P0 contracts. Production promotion, daemon activation, and
+production-data writes remain separate decisions after that result.

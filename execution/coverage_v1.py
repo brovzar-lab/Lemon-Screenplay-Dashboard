@@ -573,7 +573,7 @@ def normalize_audit_tool_input(
     payload: Any,
     valid_pages: Optional[Sequence[int]] = None,
 ) -> Any:
-    """Validate phase buckets, then merge material beats by printed page."""
+    """Validate phase buckets, normalize false resolutions, then merge."""
     if not isinstance(payload, dict):
         return payload
     sequence = payload.get("sequence_ledger")
@@ -631,7 +631,28 @@ def normalize_audit_tool_input(
         if type(beat.get("page")) is int
     ]
     if climax_pages:
+        first_climax_page = min(climax_pages)
         last_climax_page = max(climax_pages)
+        early_endings = [
+            beat for beat in material_by_phase["ending"]
+            if type(beat.get("page")) is int
+            and first_climax_page <= beat["page"]
+            and beat["page"] < last_climax_page
+        ]
+        remaining_endings = [
+            beat for beat in material_by_phase["ending"]
+            if beat not in early_endings
+        ]
+        if early_endings and any(
+            type(beat.get("page")) is int
+            and beat["page"] >= last_climax_page
+            for beat in remaining_endings
+        ):
+            for beat in early_endings:
+                beat["phase_normalized_from"] = "ending"
+                beat["phase"] = "climax"
+            material_by_phase["climax"].extend(early_endings)
+            material_by_phase["ending"] = remaining_endings
         for phase in AUDIT_SEQUENCE_PHASES[1:]:
             if any(
                 type(beat.get("page")) is int

@@ -1890,7 +1890,7 @@ Los asesinos preparan el campamento y luego mueven el cuerpo.
     def test_detail_audit_uses_the_effective_retry_model(self):
         coverage = valid_coverage()
         bad_core = provider_audit_core(coverage)
-        bad_core["sequence_ledger"]["ending"][0]["page"] = 5
+        bad_core["sequence_ledger"]["final_scene"][0]["page"] = 5
         bad_core["sequence_ledger"]["climax"][0]["page"] = 6
         good_core = provider_audit_core(coverage)
         transport = FakeTransport(
@@ -1945,6 +1945,54 @@ Los asesinos preparan el campamento y luego mueven el cuerpo.
         self.assertEqual(
             [row["phase"] for row in report["fact_audit"]["sequence_ledger"][:2]],
             ["climax", "climax"],
+        )
+
+    def test_cosquillitas_early_ending_is_reclassified_before_detail_audit(self):
+        coverage = valid_coverage()
+        audit = provider_audit_core(coverage)
+        apparent_loss = audit["sequence_ledger"]["climax"][0]
+        apparent_loss["page"] = 4
+        apparent_loss["action"] = "The corrupt scores create an apparent loss."
+        expose = copy.deepcopy(apparent_loss)
+        expose["page"] = 6
+        expose["action"] = "The exposé overturns the corrupt result."
+        audit["sequence_ledger"]["climax"].append(expose)
+        richie = audit["sequence_ledger"]["ending"][0]
+        richie["page"] = 5
+        richie["action"] = "Richie receives the wig before the exposé."
+        coda = copy.deepcopy(richie)
+        coda["page"] = 6
+        coda["action"] = "The winners begin their post-climax celebration."
+        audit["sequence_ledger"]["ending"].append(coda)
+        transport = FakeTransport([
+            (coverage, settled_usage()),
+            (audit, settled_usage()),
+            (supported_detail_payload(coverage), settled_usage()),
+        ])
+
+        report, _usage = run_engine(new_store(), transport)
+
+        self.assertEqual(
+            [call["stage"] for call in transport.calls],
+            [
+                "coverage_v1.coverage",
+                "coverage_v1.fact_audit",
+                "coverage_v1.fact_audit_details",
+            ],
+        )
+        ledger = report["fact_audit"]["sequence_ledger"]
+        richie_index = next(
+            index for index, row in enumerate(ledger)
+            if row["action"].startswith("Richie receives")
+        )
+        self.assertEqual(ledger[richie_index]["page"], 5)
+        self.assertEqual(ledger[richie_index]["phase"], "climax")
+        self.assertEqual(
+            ledger[richie_index]["phase_normalized_from"], "ending"
+        )
+        self.assertEqual(
+            ledger[richie_index + 1]["action"],
+            "The exposé overturns the corrupt result.",
         )
 
     def test_cosquillitas_internal_ending_reversal_stops_before_details(self):
@@ -2011,18 +2059,129 @@ Los asesinos preparan el campamento y luego mueven el cuerpo.
         self.assertEqual(ledger[-1]["action"], "NOT PRESENT")
         self.assertEqual(ledger[-1]["page"], 6)
 
+    def test_multiple_early_endings_reclassify_without_changing_content(self):
+        coverage = valid_coverage()
+        audit = provider_audit_core(coverage)
+        first_climax = audit["sequence_ledger"]["climax"][0]
+        first_climax["page"] = 3
+        final_climax = copy.deepcopy(first_climax)
+        final_climax["page"] = 6
+        final_climax["action"] = "The decisive reversal completes."
+        audit["sequence_ledger"]["climax"].append(final_climax)
+        first_early = audit["sequence_ledger"]["ending"][0]
+        first_early["page"] = 4
+        first_early["action"] = "A false resolution begins."
+        second_early = copy.deepcopy(first_early)
+        second_early["page"] = 5
+        second_early["action"] = "A subplot resolves before the reversal."
+        actual_ending = copy.deepcopy(first_early)
+        actual_ending["page"] = 6
+        actual_ending["action"] = "The actual ending begins."
+        audit["sequence_ledger"]["ending"] = [
+            first_early, second_early, actual_ending,
+        ]
+        originals = copy.deepcopy(audit["sequence_ledger"]["ending"][:2])
+
+        normalized = cv.normalize_audit_tool_input(audit, range(1, 7))
+
+        self.assertNotIn("_sequence_normalization_errors", normalized)
+        ledger = normalized["sequence_ledger"]
+        reclassified = [
+            row for row in ledger if row.get("phase_normalized_from") == "ending"
+        ]
+        self.assertEqual([row["page"] for row in reclassified], [4, 5])
+        for original, row in zip(originals, reclassified):
+            self.assertEqual(
+                {key: value for key, value in row.items() if key not in {
+                    "order", "phase", "phase_normalized_from",
+                }},
+                original,
+            )
+        page_six = [row["phase"] for row in ledger if row["page"] == 6]
+        self.assertEqual(page_six[:2], ["climax", "ending"])
+
     def test_invalid_phase_boundaries_and_markers_fail_normalization(self):
         coverage = valid_coverage()
         cases = []
 
-        early_ending = provider_audit_core(coverage)
-        first_climax = early_ending["sequence_ledger"]["climax"][0]
+        early_final_scene = provider_audit_core(coverage)
+        first_climax = early_final_scene["sequence_ledger"]["climax"][0]
         first_climax["page"] = 4
         final_climax = copy.deepcopy(first_climax)
         final_climax["page"] = 6
-        early_ending["sequence_ledger"]["climax"].append(final_climax)
-        early_ending["sequence_ledger"]["ending"][0]["page"] = 5
-        cases.append((early_ending, "ending begins before the final climax"))
+        early_final_scene["sequence_ledger"]["climax"].append(final_climax)
+        early_final_scene["sequence_ledger"]["final_scene"][0]["page"] = 5
+        cases.append((
+            early_final_scene,
+            "final_scene begins before the final climax",
+        ))
+
+        no_post_climax_ending = provider_audit_core(coverage)
+        first_climax = no_post_climax_ending["sequence_ledger"]["climax"][0]
+        first_climax["page"] = 4
+        final_climax = copy.deepcopy(first_climax)
+        final_climax["page"] = 6
+        no_post_climax_ending["sequence_ledger"]["climax"].append(
+            final_climax
+        )
+        no_post_climax_ending["sequence_ledger"]["ending"][0]["page"] = 5
+        cases.append((
+            no_post_climax_ending,
+            "ending begins before the final climax",
+        ))
+
+        pre_climax_ending = provider_audit_core(coverage)
+        first_climax = pre_climax_ending["sequence_ledger"]["climax"][0]
+        first_climax["page"] = 4
+        final_climax = copy.deepcopy(first_climax)
+        final_climax["page"] = 6
+        pre_climax_ending["sequence_ledger"]["climax"].append(final_climax)
+        early = pre_climax_ending["sequence_ledger"]["ending"][0]
+        early["page"] = 3
+        actual = copy.deepcopy(early)
+        actual["page"] = 6
+        pre_climax_ending["sequence_ledger"]["ending"].append(actual)
+        cases.append((
+            pre_climax_ending,
+            "ending begins before the final climax",
+        ))
+
+        early_tag = provider_audit_core(coverage)
+        first_climax = early_tag["sequence_ledger"]["climax"][0]
+        first_climax["page"] = 4
+        final_climax = copy.deepcopy(first_climax)
+        final_climax["page"] = 6
+        early_tag["sequence_ledger"]["climax"].append(final_climax)
+        early_tag["sequence_ledger"]["tag"][0]["page"] = 5
+        early_tag["sequence_ledger"]["tag"][0]["action"] = (
+            "A material tag occurs."
+        )
+        cases.append((early_tag, "tag begins before the final climax"))
+
+        early_aftermath = provider_audit_core(coverage)
+        first_climax = early_aftermath["sequence_ledger"]["climax"][0]
+        first_climax["page"] = 4
+        final_climax = copy.deepcopy(first_climax)
+        final_climax["page"] = 6
+        early_aftermath["sequence_ledger"]["climax"].append(final_climax)
+        early_aftermath["sequence_ledger"]["aftermath"][0]["page"] = 5
+        cases.append((
+            early_aftermath,
+            "aftermath begins before the final climax",
+        ))
+
+        descending_climax = provider_audit_core(coverage)
+        first_climax = descending_climax["sequence_ledger"]["climax"][0]
+        first_climax["page"] = 6
+        earlier_climax = copy.deepcopy(first_climax)
+        earlier_climax["page"] = 5
+        descending_climax["sequence_ledger"]["climax"].append(
+            earlier_climax
+        )
+        cases.append((
+            descending_climax,
+            "climax bucket pages must be nondecreasing",
+        ))
 
         mixed_tag = provider_audit_core(coverage)
         extra_tag = copy.deepcopy(mixed_tag["sequence_ledger"]["tag"][0])

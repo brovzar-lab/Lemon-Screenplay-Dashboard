@@ -23,20 +23,26 @@
   forbidden from changing verdict, confidence, primary genre, lens identities
   or grades, and genre-contract judgment.
 - Regression fixtures cover W.I.L.L., El Arbol Negro, Terapia, La Ciguena,
-  Sola, Diablo, and every reproduced Cosquillitas failure. Proof is 131 focused
-  engine tests plus 8 no-spend canary tests, 562 total Python execution tests,
+  Sola, Diablo, and every reproduced Cosquillitas failure. Proof is 133 focused
+  engine tests plus 8 no-spend canary tests, 564 total Python execution tests,
   1,085 frontend tests across 146 files, and the TypeScript/Vite production
   build. The adversarial reviewer and independent consolidation judge both
   return PASS with no P0/P1 blocker.
-- The most recent paid Cosquillitas artifact, from commit `a261220`, remains a
-  deliberate `needs_review` result and is not the release candidate. It cost
-  $0.787478 across three settled calls. It proved the typed audit shape but
-  still missed existing Richie setup, failed to propagate literal climax order,
-  falsely certified one citation's relevance, and received a malformed count
-  ledger. Those exact defects now have deterministic guards and regressions.
-- Cumulative V1.2 charged spend is $4.570866, leaving $15.429134 under the
+- The paid Cosquillitas run at commit `97e360b` failed closed after three
+  settled calls and $0.768025. The coverage checkpoint is valid; the audit
+  mislabeled a p.96-style subplot resolution as `ending` even though a later
+  decisive `climax` beat remained. Evidence/citation "missing" messages were
+  downstream because the invalid sequence stopped before the detail pass.
+- The judged no-spend fix reclassifies an `ending` beat as `climax` only when
+  original climax beats bracket its page and a genuine ending remains at or
+  after the final climax. It records `phase_normalized_from: "ending"` and
+  preserves all literal content. Pre-climax endings, early final scenes/tags/
+  aftermaths, impossible pages, descending buckets, and missing real endings
+  still fail. The next rerun can reuse the validated coverage checkpoint and
+  pay only for the new audit path.
+- Cumulative V1.2 charged spend is $5.338891, leaving $14.661109 under the
   temporary $20 operation cap. No V1.2 report is sealed and the other 19 have
-  not run. The next gate is a fresh paid Cosquillitas rerun, followed by a new
+  not run. The next gate is the resumed Cosquillitas audit, followed by a new
   full-screenplay judge comparison. Do not open the other 19 until it passes.
 - The qualitative contract is unchanged: no screenplay scores, no rankability,
   frontend `scoreSource` remains `coverage_unscored`, irrelevant lenses remain
