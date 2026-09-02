@@ -573,7 +573,7 @@ def normalize_audit_tool_input(
     payload: Any,
     valid_pages: Optional[Sequence[int]] = None,
 ) -> Any:
-    """Validate phase buckets, normalize false resolutions, then merge."""
+    """Normalize provider ordering noise, then validate literal chronology."""
     if not isinstance(payload, dict):
         return payload
     sequence = payload.get("sequence_ledger")
@@ -584,6 +584,7 @@ def normalize_audit_tool_input(
     material: List[Dict[str, Any]] = []
     absence_markers: List[Dict[str, Any]] = []
     material_by_phase: Dict[str, List[Dict[str, Any]]] = {}
+    normalization_diagnostics: List[str] = []
     for phase in AUDIT_SEQUENCE_PHASES:
         beats = sequence.get(phase)
         if not isinstance(beats, list):
@@ -598,11 +599,27 @@ def normalize_audit_tool_input(
                 **copy.deepcopy(beat),
             }
             page = normalized.get("page")
-            if type(page) is not int or page < 1 or (
-                page_set and page not in page_set
+            action = normalized.get("action")
+            is_absence = action == "NOT PRESENT"
+            if (
+                isinstance(action, str)
+                and action.strip().upper() == "NOT PRESENT"
+                and not is_absence
+            ):
+                errors.append(
+                    f"sequence_ledger {phase} has an invalid NOT PRESENT marker"
+                )
+            is_page_less_marker = (
+                is_absence
+                and phase in {"tag", "aftermath"}
+                and len(beats) == 1
+            )
+            if type(page) is not int or (
+                not is_page_less_marker
+                and (page < 1 or (page_set and page not in page_set))
             ):
                 errors.append(f"sequence_ledger {phase} page is invalid")
-            if str(normalized.get("action", "")).strip() == "NOT PRESENT":
+            if is_absence:
                 phase_absent.append(normalized)
             else:
                 phase_material.append(normalized)
@@ -614,14 +631,26 @@ def normalize_audit_tool_input(
             errors.append(
                 f"sequence_ledger {phase} has an invalid NOT PRESENT marker"
             )
-        pages = [beat.get("page") for beat in phase_material]
-        if all(type(page) is int for page in pages) and any(
-            current < previous
-            for previous, current in zip(pages, pages[1:])
+        indexed_material = list(enumerate(phase_material, start=1))
+        if indexed_material and all(
+            type(beat.get("page")) is int
+            and beat["page"] >= 1
+            and (not page_set or beat["page"] in page_set)
+            for _input_order, beat in indexed_material
         ):
-            errors.append(
-                f"sequence_ledger {phase} bucket pages must be nondecreasing"
+            ordered_material = sorted(
+                indexed_material,
+                key=lambda row: row[1]["page"],
             )
+            if [row[0] for row in ordered_material] != list(
+                range(1, len(phase_material) + 1)
+            ):
+                for input_order, beat in ordered_material:
+                    beat["phase_input_order"] = input_order
+                phase_material = [beat for _order, beat in ordered_material]
+                normalization_diagnostics.append(
+                    f"sequence_ledger {phase} beats stably sorted by printed page"
+                )
         material.extend(phase_material)
         absence_markers.extend(phase_absent)
         material_by_phase[phase] = phase_material
@@ -672,6 +701,13 @@ def normalize_audit_tool_input(
     if material_pages:
         final_material_page = max(material_pages)
         for marker in absence_markers:
+            input_page = marker.get("page")
+            if input_page != final_material_page:
+                marker["page_normalized_from"] = input_page
+                normalization_diagnostics.append(
+                    "sequence_ledger "
+                    f"{marker['phase']} NOT PRESENT page anchored to final beat"
+                )
             marker["page"] = final_material_page
             ledger.append(marker)
     elif absence_markers:
@@ -680,6 +716,10 @@ def normalize_audit_tool_input(
     for order, beat in enumerate(ledger, start=1):
         beat["order"] = order
     normalized_payload = {**payload, "sequence_ledger": ledger}
+    if normalization_diagnostics:
+        normalized_payload["sequence_normalization_diagnostics"] = (
+            normalization_diagnostics
+        )
     if errors:
         normalized_payload["_sequence_normalization_errors"] = errors
     return normalized_payload
@@ -4279,6 +4319,9 @@ def run_coverage_v1(
                 "existing_evidence_verdicts"
             ],
             "sequence_ledger": tool_input["sequence_ledger"],
+            "sequence_normalization_diagnostics": tool_input.get(
+                "sequence_normalization_diagnostics", []
+            ),
             "citation_relevance": tool_input["citation_relevance"],
             "audit_model": audit_model_effective,
             "first_pass_problems": audit_first_pass_problems,
@@ -4346,6 +4389,9 @@ def run_coverage_v1(
                     "existing_evidence_verdicts"
                 ],
                 sequence_ledger=stage3["sequence_ledger"],
+                sequence_normalization_diagnostics=stage3.get(
+                    "sequence_normalization_diagnostics", []
+                ),
                 citation_relevance=stage3["citation_relevance"],
             )
             fact_repair_info = dict(stage3.get("info", {}), replayed=True)
@@ -4643,6 +4689,9 @@ def run_coverage_v1(
                             "existing_evidence_verdicts"
                         ],
                         sequence_ledger=reaudit_input["sequence_ledger"],
+                        sequence_normalization_diagnostics=reaudit_input.get(
+                            "sequence_normalization_diagnostics", []
+                        ),
                         citation_relevance=reaudit_input[
                             "citation_relevance"
                         ],
@@ -4675,6 +4724,12 @@ def run_coverage_v1(
                                 "sequence_ledger": audit_payload[
                                     "sequence_ledger"
                                 ],
+                                "sequence_normalization_diagnostics": (
+                                    audit_payload.get(
+                                        "sequence_normalization_diagnostics",
+                                        [],
+                                    )
+                                ),
                                 "citation_relevance": audit_payload[
                                     "citation_relevance"
                                 ],
@@ -4951,6 +5006,9 @@ def run_coverage_v1(
                     audit_payload.get("sequence_ledger", [])
                 ),
                 "guard": by_claim.get("guard.sequence_integrity"),
+                "normalizations": audit_payload.get(
+                    "sequence_normalization_diagnostics", []
+                ),
             },
         },
         "coverage": coverage_payload,
@@ -4965,6 +5023,9 @@ def run_coverage_v1(
                 "existing_evidence_verdicts"
             ],
             "sequence_ledger": audit_payload["sequence_ledger"],
+            "sequence_normalization_diagnostics": audit_payload.get(
+                "sequence_normalization_diagnostics", []
+            ),
             "citation_relevance": audit_payload["citation_relevance"],
         },
         "verdict": verdict,

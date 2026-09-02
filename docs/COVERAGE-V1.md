@@ -12,21 +12,23 @@ and source evidence cannot be recycled across different entities. Factual
 repair is also deterministically forbidden from changing verdict, confidence,
 primary genre, lens identities or grades, and genre-contract judgment.
 
-The current no-spend proof is 133 focused engine tests plus 8 canary tests, all
-564 Python execution tests, all 1,085 frontend tests, and the TypeScript/Vite
+The current no-spend proof is 134 focused engine tests plus 8 canary tests, all
+565 Python execution tests, all 1,085 frontend tests, and the TypeScript/Vite
 production build. The 20 saved reports still produce exactly 24 intended
 material-count guards, with no page-duration, rubric, score, article, or
 correlative false positives. An adversarial reviewer and an independent
 consolidation judge both return PASS with no remaining P0/P1 blocker.
 
-The paid Cosquillitas run at commit `97e360b` failed closed after three settled
-calls and $0.768025. Its validated coverage checkpoint is preserved. The audit
-misclassified a subplot resolution as `ending` before its own later decisive
-`climax` beat, so code stopped before the evidence/citation detail pass. The
-judged correction now reclassifies only an ending beat bracketed by original
-climax pages, requires a genuine later ending to remain, records the original
-phase, and preserves every literal field. All broader chronology failures still
-stop. Cumulative V1.2 charged spend is $5.338891, leaving $14.661109 under the
+Paid Cosquillitas runs at commits `97e360b` and `84a3d59` both failed closed.
+The latter reused the validated coverage checkpoint and spent $0.156316 on one
+new audit call. After the bracketed-climax correction, the provider returned
+valid ending beats out of array order and attached an invalid integer sentinel
+to an absence-only aftermath marker. The judged correction stably sorts only
+valid material beats inside their own phase, records their original positions,
+and anchors a sole exact `NOT PRESENT` tag/aftermath marker to the final material
+page while recording its input sentinel. Invalid material pages and impossible
+cross-phase chronology still stop. Cumulative V1.2 charged spend is $5.495207,
+leaving $14.504793 under the
 temporary $20 operation cap. Billy authorized the resumed Cosquillitas audit
 and, only after a full-screenplay judge clears it, the remaining 19-script
 benchmark. No V1.2 report is sealed yet. V1.2 has not been promoted, deployed,
@@ -300,6 +302,10 @@ Optional job fields: `format: "tv_pilot"`, `genre_hint: "horror"|"comedy"`,
 - The ordered sequence ledger must cover climax, final scene, tag, and
   aftermath with consecutive steps, knowledge state, and valid pages. W.I.L.L.
   beat reversal and El Arbol Negro ending inconsistency fixtures cannot seal.
+  Valid beats returned out of order inside one phase are stably reordered by
+  their typed printed pages with original-position provenance. A sole exact
+  absence marker for tag/aftermath is page-less and is anchored to the final
+  material beat; the same invalid page on a material beat still fails.
 - Contradicted central facts (wrong ending/protagonist) → `needs_review`,
   never an automatic rerun.
 - Budget cap fails closed and preserves paid, validated work.
