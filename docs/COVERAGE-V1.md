@@ -9,6 +9,14 @@ returned every required fact, ending, evidence, and citation slot, but the
 report correctly stopped as `needs_review`: 9/10 citations verified, one
 invented word in a p.73 excerpt, and the approved-audit comparison found that
 known count, existing-evidence, climax-order, and draft-artifact errors remain.
+The no-spend follow-up patch now rejects descending ending pages, routes
+material counts through required detail checks, retains late exact-evidence
+terms such as the p.98 `video`, normalizes the one-extra-word citation while
+preserving its original wording, and explicitly audits reveal provenance,
+staged state transitions, and leftover writer directives. Against the saved
+real canary files, citation integrity now rechecks at 10/10 and the old
+p.97-to-p.96 ledger is rejected. This is local proof only, not a new paid
+coverage result.
 That canary used four settled calls and cost exactly $0.889668 with zero
 uncertain spend. Cumulative V1.2 work is 12 settled calls, $2.646144 exact,
 zero uncertain, leaving $17.353856 under the temporary $20 operation cap. One
@@ -328,9 +336,9 @@ least as useful as the V9 report). Send `scorecard.json` and the
 
 The V1.1 benchmark and its 20 human-approved audits are complete. The paid V1.2
 rerun remains paused after the split-contract Cosquillitas canary failed safely.
-Do not run the other 19 reports. First make a no-spend patch for the surviving
-Cosquillitas P0 failures and add regressions. A second paid Cosquillitas canary
-requires separate authorization after those tests pass. Only a sealed canary
-whose approved-audit comparison clears all five P0 contracts can reopen the
-20-PDF run. Production promotion, daemon activation, and production-data writes
-remain separate decisions after that result.
+The no-spend Cosquillitas patch and regressions are complete. Do not run the
+other 19 reports. A second paid Cosquillitas canary requires separate
+authorization. Only a sealed canary whose approved-audit comparison clears all
+five P0 contracts can reopen the 20-PDF run. Production promotion, daemon
+activation, and production-data writes remain separate decisions after that
+result.

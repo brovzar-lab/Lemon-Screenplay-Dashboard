@@ -3,7 +3,7 @@
 ## Where Were We (WWW)
 <!-- Single source of truth for session continuity. OVERWRITE this whole section on "save" / "wrap up" / end of session — it reflects CURRENT state, not a log. On "www" / "where were we", read this back and summarize. -->
 
-**Last session:** 2026-09-02 (Coverage V1.2 split-contract canary failed safely)
+**Last session:** 2026-09-02 (Coverage V1.2 Cosquillitas no-spend patch complete)
 
 **Current state:**
 - Work is on `claude/lemon-dashboard-v9-review-w3nuz0`. Coverage V1.2 changes
@@ -24,9 +24,10 @@
   climax/ending ledger through final scene, tag, and aftermath; and separate
   citation text, page, and relevance verification with layout normalization.
 - Regression fixtures cover W.I.L.L., El Arbol Negro, Terapia, La Ciguena,
-  Sola, and Diablo. The latest no-spend verification covers 74 focused V1.2
-  tests and 505 Python execution tests. Frontend proof remains 1,085 tests
-  across 146 files plus the full TypeScript/Vite production build.
+  Sola, Diablo, and the surviving Cosquillitas canary failures. The latest
+  no-spend verification covers 79 focused V1.2 tests and 510 Python execution
+  tests. Frontend proof remains 1,085 tests across 146 files plus the full
+  TypeScript/Vite production build.
 - The paid gate exposed that the provider strips arbitrary array-length
   constraints: combined audit responses repeatedly omitted/duplicated detail
   rows and one omitted `final_scene` and `aftermath`; another exhausted the
@@ -43,6 +44,15 @@
   exposé, incomplete Richie/camera existing-evidence treatment, and omitted
   pp.82/85 writer notes. The new citation guard correctly rejected the invented
   word `escondida` in a p.73 excerpt instead of sealing the report.
+- The follow-up no-spend patch is complete. Literal sequence pages must now be
+  nondecreasing; material count claims receive required detail rows; evidence
+  terms are selected only after the whole claim is searched, retaining the
+  p.98 `video` lead without bloating the audit; the single extra citation word
+  is removed only when the remaining four-plus-word excerpt exists verbatim,
+  while the original is retained as `cited_excerpt`; and both readers now get
+  explicit count-enumeration, reveal-provenance, staged-state-transition, and
+  leftover-writer-directive rules. A local recheck of the real canary moved
+  citation integrity from 9/10 to 10/10 and rejects its old p.97-to-p.96 ledger.
 - The paid V1.2 total is now 12 settled calls costing exactly $2.646144, with
   zero uncertain spend. One V1.2 `needs_review` artifact exists, no V1.2 report
   is sealed, one interrupted call previously reached script 2, and the
@@ -54,9 +64,9 @@
   kept separate from human taste.
 - Coverage remains double-gated and off by default. V9 is still the production
   analyzer and the immutable record for sealed historical analyses. Do not
-  resume the other 19 reports. The next step is a no-spend patch and regression
-  tests for the failed Cosquillitas P0 checks. A second paid Cosquillitas canary
-  is a new gate and requires separate authorization after those tests pass.
+  resume the other 19 reports. The next gate is a second paid Cosquillitas
+  canary, which requires separate authorization. It must seal and clear the
+  approved-audit comparison before the 19-report batch can resume.
 
 **Open risks (carried over, not reverified this session):**
 - `VITE_TMDB_API_KEY` may be inlined into local builds. Never run

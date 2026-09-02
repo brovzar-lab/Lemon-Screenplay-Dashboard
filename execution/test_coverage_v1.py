@@ -717,6 +717,30 @@ class TestHappyPath(unittest.TestCase):
         self.assertTrue(item["citation_verified"])
         self.assertIn("lead_word_dropped", item["citation_match_kind"])
 
+    def test_cosquillitas_single_extra_citation_word_is_normalized(self):
+        coverage = {
+            "lens_notes": [],
+            "strengths": [
+                {
+                    "point": "La cámara prepara el video del final",
+                    "page": 73,
+                    "excerpt": "vemos una pequeña cámara escondida",
+                }
+            ],
+            "concerns": [],
+        }
+        screenplay = "[PAGE 73]\nVemos una pequeña cámara.\n"
+
+        summary = cv.verify_citations(coverage, screenplay)
+
+        self.assertEqual(summary["unverified"], 0)
+        citation = coverage["strengths"][0]
+        self.assertEqual(citation["cited_excerpt"], (
+            "vemos una pequeña cámara escondida"
+        ))
+        self.assertEqual(citation["excerpt"], "vemos una pequeña cámara")
+        self.assertIn("single_word_dropped", citation["citation_match_kind"])
+
     def test_wrong_edge_punctuation_verifies(self):
         # Re-canary 2026-09-01: the model wrote '¡Quién...' for the text's
         # '¿Quién...' — edge punctuation must not fail a verbatim quote.
@@ -1026,6 +1050,64 @@ Los asesinos preparan el campamento y luego mueven el cuerpo.
         self.assertTrue(
             all(check["full_screenplay_searched"] for check in checks)
         )
+
+    def test_cosquillitas_reveal_terms_survive_long_priority_text(self):
+        coverage = valid_coverage()
+        coverage["development_priorities"][0] = {
+            "priority": (
+                "Give Richie or another character an active role in planting or "
+                "activating the hidden camera that exposes Tony, so the climactic "
+                "reversal is something the protagonists caused rather than "
+                "something that happened to them"
+            ),
+            "why": (
+                "The current ending is structurally convenient because the video "
+                "plays from an unattributed source at the perfect moment"
+            ),
+            "how": "Aclarar la activación sin agregar un dispositivo nuevo",
+        }
+        screenplay = "[PAGE 98]\nRICHIE muestra el video privado.\n"
+
+        checks = cv.build_existing_evidence_checks(coverage, screenplay)
+        priority = next(
+            check for check in checks
+            if check["field_path"] == "development_priorities[0]"
+        )
+
+        self.assertIn("video", priority["search_terms"])
+        self.assertEqual(priority["exact_term_hits"]["video"], [98])
+        self.assertLessEqual(len(priority["search_terms"]), 24)
+
+    def test_cosquillitas_material_counts_receive_a_detailed_check(self):
+        coverage = valid_coverage()
+        coverage["story_spine"]["opposition"] = (
+            "Tony bribes three of four contest judges"
+        )
+
+        checks = cv.build_existing_evidence_checks(coverage, SCREENPLAY_TEXT)
+        count_check = next(
+            check for check in checks
+            if check["field_path"] == "story_spine.opposition"
+        )
+
+        self.assertEqual(count_check["trigger"], "counting_claim")
+
+    def test_cosquillitas_reliability_rules_reach_both_readers(self):
+        self.assertIn("leftover writer directives", cv.COVERAGE_CHARTER)
+        audit_charter = " ".join(cv.AUDIT_CHARTER.split())
+        self.assertIn("enumerate every on-page instance", audit_charter)
+        self.assertIn("collapse, coma, and death", audit_charter)
+        self.assertIn("reveal provenance", audit_charter)
+
+        detail_text = cv.build_detail_audit_user_blocks(
+            SCREENPLAY_TEXT,
+            "Cosquillitas",
+            valid_coverage(),
+            cv.build_page_reference_map(SCREENPLAY_TEXT, 6, None),
+            [],
+        )[-1]["text"]
+        self.assertIn("enumerate every on-page instance", detail_text)
+        self.assertIn("reveal provenance", detail_text)
 
     def test_literal_ending_focus_keeps_opening_and_last_scene(self):
         focus = cv.build_sequence_focus(SCREENPLAY_TEXT)
@@ -1485,6 +1567,25 @@ class TestFactAudit(unittest.TestCase):
 
         self.assertIn(
             "sequence_ledger order must be consecutive from 1",
+            problems,
+        )
+
+    def test_cosquillitas_sequence_ledger_rejects_descending_pages(self):
+        coverage = valid_coverage()
+        audit = supported_audit(coverage)
+        audit["sequence_ledger"][0]["page"] = 6
+        audit["sequence_ledger"][1]["page"] = 5
+
+        problems = cv.validate_audit_payload(
+            audit,
+            cv.build_audit_claims(coverage),
+            coverage,
+            cv.build_page_reference_map(SCREENPLAY_TEXT, 6, None),
+            cv.build_existing_evidence_checks(coverage, SCREENPLAY_TEXT),
+        )
+
+        self.assertIn(
+            "sequence_ledger pages must be nondecreasing in literal story order",
             problems,
         )
 

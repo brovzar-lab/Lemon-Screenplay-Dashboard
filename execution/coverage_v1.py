@@ -822,6 +822,11 @@ are permanent and non-negotiable):
    moral choice is never function-free, whatever its content — raise
    content and rating concerns as classification and staging notes, not as
    genre-contract failures.
+17. Run a literal draft-artifact sweep for leftover writer directives such
+   as TODO, FIXME, "Juntar esta parte", "Meter...", or notes addressed to
+   the writer. Report each surviving directive in `continuity_flags` with
+   its page. Do not mistake standard screenplay INSERT or ANGLE headings for
+   writer notes.
 """
 
 AUDIT_CHARTER = """\
@@ -872,6 +877,14 @@ The five `guard.*` claims are mandatory whole-report gates:
 - Citations: decide separately whether the quoted words exist, whether the
   final citable page is correct, and whether those words actually support the
   attached claim. Mere text existence is not relevance.
+
+For every numerical or counting claim, enumerate every on-page instance with
+its page before classifying the total; never approve a number from gist. For
+state transitions, distinguish what staging proves about collapse, coma, and
+death from dialogue, later confirmation, or an inferred off-page cause. For
+reveal provenance, trace who captured or supplied the revealed material by
+reading the reveal itself, the next page, and the aftermath; do not stop at
+the first visible recording device.
 """
 
 FACT_REPAIR_CHARTER = """\
@@ -969,6 +982,16 @@ _ABSOLUTE_NEGATIVE = re.compile(
     r"falta|ausente|irresuelto)\b",
     re.IGNORECASE,
 )
+_COUNT_TOKEN = (
+    r"(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|"
+    r"uno|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)"
+)
+_MATERIAL_COUNT_ASSERTION = re.compile(
+    rf"\b{_COUNT_TOKEN}\s+(?:(?:of|de)\s+{_COUNT_TOKEN}\b|"
+    r"(?:judges?|jueces?|deaths?|muertes?|kills?|victims?|v[ií]ctimas?|"
+    r"characters?|personajes?|reveals?|revelaciones?)\b)",
+    re.IGNORECASE,
+)
 _EVIDENCE_STOPWORDS = frozenset(
     """
     agregar antes como con donde ella ellos esta este esto para pero porque
@@ -985,7 +1008,7 @@ def _evidence_search_terms(value: str) -> List[str]:
     for term in re.findall(r"\b[^\W\d_]{4,}\b", value.casefold()):
         if term not in _EVIDENCE_STOPWORDS and term not in terms:
             terms.append(term)
-    return terms[:12]
+    return terms
 
 
 def build_existing_evidence_checks(
@@ -1013,20 +1036,26 @@ def build_existing_evidence_checks(
             continue
         if path.endswith(
             (
-                ".excerpt", ".lens", ".grade", ".citation_match_kind",
+                ".excerpt", ".cited_excerpt", ".lens", ".grade",
+                ".citation_match_kind",
                 ".citation_relevance_classification",
                 ".citation_relevance_note",
             )
         ):
             continue
+        trigger = None
         if _ABSOLUTE_NEGATIVE.search(value):
-            candidates.append((path, value, "absolute_negative"))
+            trigger = "absolute_negative"
+        elif _MATERIAL_COUNT_ASSERTION.search(value):
+            trigger = "counting_claim"
+        if trigger is not None:
+            candidates.append((path, value, trigger))
 
     checks: List[Dict[str, Any]] = []
     for path, claim, trigger in candidates:
-        terms = _evidence_search_terms(claim)
-        hits: Dict[str, List[int]] = {}
-        for term in terms:
+        all_terms = _evidence_search_terms(claim)
+        all_hits: Dict[str, List[int]] = {}
+        for term in all_terms:
             pattern = re.compile(rf"(?<!\w){re.escape(term)}(?!\w)")
             term_pages = sorted(
                 page
@@ -1034,7 +1063,18 @@ def build_existing_evidence_checks(
                 if pattern.search(content.casefold())
             )
             if term_pages:
-                hits[term] = term_pages
+                all_hits[term] = term_pages
+        ranked_hits = sorted(
+            all_hits,
+            key=lambda term: (len(all_hits[term]), all_terms.index(term)),
+        )
+        selected = set(ranked_hits[:24])
+        for term in all_terms:
+            if len(selected) >= 24:
+                break
+            selected.add(term)
+        terms = [term for term in all_terms if term in selected]
+        hits = {term: all_hits[term] for term in terms if term in all_hits}
         checks.append(
             {
                 "field_path": path,
@@ -1335,7 +1375,11 @@ def build_detail_audit_user_blocks(
                 "search the COMPLETE screenplay for setup, synonyms, physical "
                 "staging, payoff, and aftermath before deciding. For citation "
                 "rows, decide whether the quoted excerpt actually supports its "
-                "attached point, separately from whether the text merely exists."
+                "attached point, separately from whether the text merely exists. "
+                "For a counting claim, enumerate every on-page instance with its "
+                "page before accepting the total. For reveal provenance, inspect "
+                "the reveal, the next page, and the aftermath for who captured or "
+                "supplied it."
             ),
         },
     ]
@@ -1631,6 +1675,7 @@ def build_page_reference_map(
 # normalizes a leading article: "El COQUERO" for the text's "del...COQUERO").
 # Only excerpts that keep at least this many verbatim words qualify.
 _MIN_WORDS_AFTER_LEAD_DROP = 5
+_MIN_WORDS_AFTER_SINGLE_WORD_DROP = 4
 
 
 def _excerpt_variants(excerpt: str) -> List[Tuple[str, str]]:
@@ -1653,24 +1698,29 @@ def _excerpt_variants(excerpt: str) -> List[Tuple[str, str]]:
         trimmed = re.sub(r"^\W+|\W+$", "", text, flags=re.UNICODE)
         if trimmed and trimmed != text:
             variants.append((trimmed, suffix + "_edge_punct_stripped"))
-    for text, suffix in list(variants):
+    transcription_variants = list(variants)
+    for text, suffix in transcription_variants:
         words = text.split()
         if len(words) - 1 >= _MIN_WORDS_AFTER_LEAD_DROP:
             variants.append(
                 (" ".join(words[1:]), suffix + "_lead_word_dropped")
             )
+        if len(words) - 1 >= _MIN_WORDS_AFTER_SINGLE_WORD_DROP:
+            variants.append(
+                (" ".join(words[:-1]), suffix + "_single_word_dropped")
+            )
     return variants
 
 
-def _lenient_excerpt_match_kind(
+def _lenient_excerpt_match(
     page_text: str,
     excerpt: str,
-) -> Optional[str]:
+) -> Optional[Tuple[str, str]]:
     """Verbatim match allowing known transcription-format artifacts."""
     for candidate, suffix in _excerpt_variants(excerpt):
         kind = _evidence_excerpt_match_kind(page_text, candidate)
         if kind is not None:
-            return kind + suffix
+            return kind + suffix, candidate
         # PDF extraction can split a word at a line ending and leave revision
         # stars between the two halves. This fallback only removes those
         # layout artifacts; the resulting words still have to match verbatim.
@@ -1689,8 +1739,17 @@ def _lenient_excerpt_match_kind(
             normalized_candidate,
         )
         if kind is not None:
-            return kind + suffix + "_layout_normalized"
+            return kind + suffix + "_layout_normalized", candidate
     return None
+
+
+def _lenient_excerpt_match_kind(
+    page_text: str,
+    excerpt: str,
+) -> Optional[str]:
+    """Return only the match kind for callers that do not need normalization."""
+    match = _lenient_excerpt_match(page_text, excerpt)
+    return match[0] if match is not None else None
 
 
 def _iter_citations(coverage: Dict[str, Any]):
@@ -1725,13 +1784,15 @@ def verify_citations(coverage: Dict[str, Any], text: str) -> Dict[str, Any]:
         excerpt = str(item.get("excerpt", ""))
         words = len(excerpt.split())
         kind = None
+        normalized_excerpt = excerpt
         text_exists = False
         page_matches = False
         if words >= MIN_CITATION_EXCERPT_WORDS:
-            kind = _lenient_excerpt_match_kind(
+            match = _lenient_excerpt_match(
                 page_texts.get(page, ""), excerpt
             )
-            if kind is not None:
+            if match is not None:
+                kind, normalized_excerpt = match
                 text_exists = True
                 page_matches = True
             else:
@@ -1739,9 +1800,9 @@ def verify_citations(coverage: Dict[str, Any], text: str) -> Dict[str, Any]:
                 # one OTHER printed page is a wrong page number, not a
                 # fabricated quote. Relocate it and say so.
                 matches = [
-                    (candidate_page, match_kind)
+                    (candidate_page, candidate_match)
                     for candidate_page, candidate_text in page_texts.items()
-                    if (match_kind := _lenient_excerpt_match_kind(
+                    if (candidate_match := _lenient_excerpt_match(
                         candidate_text, excerpt
                     )) is not None
                 ]
@@ -1749,9 +1810,13 @@ def verify_citations(coverage: Dict[str, Any], text: str) -> Dict[str, Any]:
                 if len(matches) == 1:
                     item["cited_page"] = page
                     item["page"] = matches[0][0]
-                    kind = f"relocated_{matches[0][1]}"
+                    matched_kind, normalized_excerpt = matches[0][1]
+                    kind = f"relocated_{matched_kind}"
                     page_matches = True
                     relocated += 1
+        if kind is not None and "single_word_dropped" in kind:
+            item["cited_excerpt"] = excerpt
+            item["excerpt"] = normalized_excerpt
         item["citation_text_verified"] = text_exists
         item["citation_page_verified"] = page_matches
         item["citation_verified"] = text_exists and page_matches
@@ -2143,6 +2208,7 @@ def validate_audit_payload(
     else:
         orders: List[int] = []
         phases: List[str] = []
+        pages: List[int] = []
         valid_pages = set(
             (page_reference_map or {}).get("valid_citation_pages", [])
         )
@@ -2170,8 +2236,14 @@ def validate_audit_payload(
                 valid_pages and page not in valid_pages
             ):
                 problems.append(f"sequence_ledger[{index}].page invalid")
+            else:
+                pages.append(page)
         if orders != list(range(1, len(ledger) + 1)):
             problems.append("sequence_ledger order must be consecutive from 1")
+        if any(current < previous for previous, current in zip(pages, pages[1:])):
+            problems.append(
+                "sequence_ledger pages must be nondecreasing in literal story order"
+            )
         for required_phase in (
             "climax", "ending", "final_scene", "tag", "aftermath"
         ):
