@@ -3,13 +3,13 @@
 ## Where Were We (WWW)
 <!-- Single source of truth for session continuity. OVERWRITE this whole section on "save" / "wrap up" / end of session — it reflects CURRENT state, not a log. On "www" / "where were we", read this back and summarize. -->
 
-**Last session:** 2026-09-02 (Coverage V1.2 P0 implemented locally)
+**Last session:** 2026-09-02 (Coverage V1.2 paid benchmark gate halted)
 
 **Current state:**
 - Work is on `claude/lemon-dashboard-v9-review-w3nuz0`. Coverage V1.2 changes
-  are limited to `execution/coverage_v1.py`, its offline tests, and this
-  documentation. No paid inference, production-data write, deployment, daemon
-  activation, or V1.2 promotion was performed.
+  remain limited to the engine, offline tests, and documentation. Billy
+  separately authorized the paid 20-script V1.2 rerun. No production-data
+  write, deployment, daemon activation, or V1.2 promotion was performed.
 - The source of truth is Billy's approved audit of all 20 V1.1 benchmark
   reports under `benchmark-artifacts/coverage-v1-audit-packages/`, especially
   `00-CALIBRATION-SYNTHESIS/Coverage-V1.1-Human-Audit-Synthesis.md` and the
@@ -24,23 +24,30 @@
   climax/ending ledger through final scene, tag, and aftermath; and separate
   citation text, page, and relevance verification with layout normalization.
 - Regression fixtures cover W.I.L.L., El Arbol Negro, Terapia, La Ciguena,
-  Sola, and Diablo. No-spend verification passed: 72 focused V1.2 tests, all
-  503 Python execution tests, 1,085 frontend tests across 146 files, and the
-  full TypeScript/Vite production build.
-- The first paid preflight exposed a generic audit-schema defect before the
-  batch proceeded: the model could omit evidence rows and substitute spine
-  claim IDs as citation owners. Audit calls now bind exact runtime IDs and
-  exact row counts. Cosquillitas' validated senior-coverage checkpoint remains
-  reusable; no production data was written.
+  Sola, and Diablo. The latest no-spend verification covers 74 focused V1.2
+  tests and 505 Python execution tests. Frontend proof remains 1,085 tests
+  across 146 files plus the full TypeScript/Vite production build.
+- The paid gate exposed that the provider strips arbitrary array-length
+  constraints: combined audit responses repeatedly omitted/duplicated detail
+  rows and one omitted `final_scene` and `aftermath`; another exhausted the
+  former 6k audit output ceiling. The engine now uses a compact fact/ending
+  tool with five required phase buckets, then a separate required-key detail
+  tool for every evidence path and citation owner. The compact audit core is
+  checkpointed before the detail call so a failure cannot rebuy it.
+- The batch is paused before any V1.2 report completed. Eight settled calls
+  cost exactly $1.756476 with zero uncertain spend. The first batch attempt
+  reached an interrupted coverage call on script 2; all other paid work was
+  the Cosquillitas gate. The remaining 18 scripts were never called. Under the
+  temporary $20 operation cap, $18.243524 remains.
 - The qualitative contract is unchanged: no screenplay scores, no rankability,
   frontend `scoreSource` remains `coverage_unscored`, irrelevant lenses remain
   `not_applicable`, multi-stage climaxes are preserved, and factual audit is
   kept separate from human taste.
 - Coverage remains double-gated and off by default. V9 is still the production
   analyzer and the immutable record for sealed historical analyses. The next
-  gate is a separately authorized paid V1.2 rerun of the same 20 PDFs, then
-  human comparison against the approved audit ledger. Do not infer permission
-  to run it from the earlier V1.1 benchmark authorization.
+  gate is one paid Cosquillitas canary on the split audit contract. Resume the
+  20-script rerun and approved-ledger comparison only after that passes and
+  Billy explicitly says to continue from this failed-gate report.
 
 **Open risks (carried over, not reverified this session):**
 - `VITE_TMDB_API_KEY` may be inlined into local builds. Never run

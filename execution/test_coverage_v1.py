@@ -316,6 +316,35 @@ def supported_audit(coverage: dict) -> dict:
     }
 
 
+def provider_audit_core(coverage: dict) -> dict:
+    """Provider shape: exact sequence phase keys; details use a second tool."""
+    audit = supported_audit(coverage)
+    sequence = {
+        phase: []
+        for phase in ("climax", "ending", "final_scene", "tag", "aftermath")
+    }
+    for row in audit["sequence_ledger"]:
+        sequence[row["phase"]].append({
+            key: value
+            for key, value in row.items()
+            if key not in {"order", "phase"}
+        })
+    return {
+        "verdicts": audit["verdicts"],
+        "sequence_ledger": sequence,
+    }
+
+
+def supported_detail_payload(coverage: dict) -> dict:
+    evidence = cv.build_existing_evidence_checks(coverage, SCREENPLAY_TEXT)
+    return {
+        "results": {
+            row["slot"]: "supported: Confirmed against the screenplay."
+            for row in cv.build_detail_audit_rows(coverage, evidence)
+        }
+    }
+
+
 class FakeTransport:
     """Scripted transport. Each entry: (tool_input, usage) or an Exception."""
 
@@ -1089,8 +1118,6 @@ Los asesinos preparan el campamento y luego mueven el cuerpo.
             owner for owner, _item in cv._iter_citations(coverage)
         ]
         verdicts = schema["properties"]["verdicts"]
-        evidence_rows = schema["properties"]["existing_evidence_verdicts"]
-        citation_rows = schema["properties"]["citation_relevance"]
 
         self.assertEqual(verdicts["minItems"], len(claims))
         self.assertEqual(verdicts["maxItems"], len(claims))
@@ -1098,38 +1125,23 @@ Los asesinos preparan el campamento y luego mueven el cuerpo.
             verdicts["items"]["properties"]["claim_id"]["enum"],
             [claim["claim_id"] for claim in claims],
         )
-        self.assertEqual(evidence_rows["minItems"], len(evidence))
-        self.assertEqual(evidence_rows["maxItems"], len(evidence))
+        self.assertNotIn("existing_evidence_verdicts", schema["properties"])
+        self.assertNotIn("citation_relevance", schema["properties"])
         self.assertEqual(
-            evidence_rows["items"]["properties"]["field_path"]["enum"],
-            [check["field_path"] for check in evidence],
+            set(schema["properties"]["sequence_ledger"]["properties"]),
+            {"climax", "ending", "final_scene", "tag", "aftermath"},
         )
-        self.assertEqual(citation_rows["minItems"], len(citation_owners))
-        self.assertEqual(citation_rows["maxItems"], len(citation_owners))
-        self.assertEqual(
-            citation_rows["items"]["properties"]["owner"]["enum"],
-            citation_owners,
-        )
+        self.assertTrue(evidence)
+        self.assertTrue(citation_owners)
 
     def test_incomplete_audit_details_use_required_unique_slots(self):
         coverage = valid_coverage()
-        audit = supported_audit(coverage)
-        audit["existing_evidence_verdicts"] = audit[
-            "existing_evidence_verdicts"
-        ][:-1]
-        audit["citation_relevance"][-1] = copy.deepcopy(
-            audit["citation_relevance"][0]
-        )
+        audit = provider_audit_core(coverage)
         evidence = cv.build_existing_evidence_checks(
             coverage, SCREENPLAY_TEXT
         )
         rows = cv.build_detail_audit_rows(coverage, evidence)
-        detail_payload = {
-            "results": {
-                row["slot"]: "supported: Confirmed against the screenplay."
-                for row in rows
-            }
-        }
+        detail_payload = supported_detail_payload(coverage)
         transport = FakeTransport(
             [
                 (coverage, settled_usage()),
@@ -1328,6 +1340,35 @@ class TestCheckpointsAndResume(unittest.TestCase):
         self.assertFalse(report["replay"]["audit_replayed"])
         self.assertEqual(report["status"], "sealed")
         # The resumed run's usage carries only the audit call.
+        self.assertEqual(usage["call_count"], 1)
+
+    def test_detail_failure_replays_coverage_and_audit_core_for_free(self):
+        coverage = valid_coverage()
+        store = new_store()
+        first = FakeTransport(
+            [
+                (coverage, settled_usage(200_000)),
+                (provider_audit_core(coverage), settled_usage(80_000)),
+                RuntimeError("proxy died mid-detail-audit"),
+            ]
+        )
+
+        with self.assertRaises(RuntimeError):
+            run_engine(store, first)
+
+        self.assertEqual(len(first.calls), 3)
+        resume = FakeTransport(
+            [(supported_detail_payload(coverage), settled_usage(40_000))]
+        )
+        report, usage = run_engine(store, resume)
+        self.assertEqual(len(resume.calls), 1)
+        self.assertEqual(
+            resume.calls[0]["stage"], "coverage_v1.fact_audit_details"
+        )
+        self.assertTrue(report["replay"]["coverage_replayed"])
+        self.assertTrue(report["replay"]["audit_core_replayed"])
+        self.assertFalse(report["replay"]["audit_replayed"])
+        self.assertEqual(report["status"], "sealed")
         self.assertEqual(usage["call_count"], 1)
 
     def test_full_replay_makes_zero_calls(self):

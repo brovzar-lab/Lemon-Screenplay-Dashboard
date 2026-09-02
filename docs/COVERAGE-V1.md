@@ -1,18 +1,19 @@
 # Coverage V1.2 — qualitative screenplay coverage
 
-**Current status, 2026-09-02:** Coverage V1.2 P0 reliability changes are
-implemented locally and covered by no-spend tests. The implementation is based
-on Billy's approved audits of all 20 V1.1 benchmark reports, preserved under
-`benchmark-artifacts/coverage-v1-audit-packages/`. The audit upheld all 20
-qualitative verdicts, rated 19 reports mostly proper with corrections, and
-found El Arbol Negro materially unreliable because its ending mechanics were
-misread. V1.2 has not been run against the 20 PDFs, promoted, deployed, or used
+**Current status, 2026-09-02:** Coverage V1.2 P0 reliability changes are based
+on Billy's approved audits of all 20 V1.1 benchmark reports under
+`benchmark-artifacts/coverage-v1-audit-packages/`. Billy authorized the paid
+20-script V1.2 rerun, but the pre-batch Cosquillitas gate exposed a systemic
+combined-audit output problem and the batch was halted before any V1.2 report
+completed. Eight settled diagnostic/batch calls cost exactly $1.756476, with
+zero uncertain charges; one interrupted call reached script 2 and the other
+calls were Cosquillitas coverage/audit work. The remaining 18 scripts were not
+called. The audit is now split into a compact fact/ending pass and a separate
+required-key evidence/citation pass, covered by no-spend tests but not yet
+revalidated with paid inference. V1.2 has not been promoted, deployed, or used
 to write production data. V9 remains the production analyzer. Reports remain
 qualitative and unrankable with `analysis_version: "coverage_v1"` and
 `scoreSource: "coverage_unscored"` at the frontend normalization boundary.
-No-spend verification passed on 2026-09-02: 72 focused V1.2 engine tests, 503
-Python execution tests, 1,085 frontend tests across 146 files, and the full
-TypeScript/Vite production build.
 
 **Historical V1.1 canary: PASSED 2026-08-31 — two rounds, $5.02 of the authorized
 $10.** Round 1 ($3.09): human bars passed — Billy confirmed correct story
@@ -64,9 +65,9 @@ across invocations (a per-run store had silently re-bought paid coverage);
 the structure-repair output ceiling is 16k; and any exception becomes a
 failed_closed scorecard row instead of aborting the batch. Canary grant
 closed at ~$9.20 of $10.
-The V1.1 20-script run and its human audit are now complete. That prior spending
-authorization does not authorize a V1.2 rerun. The route remains disabled by
-default in production.
+The V1.1 20-script run and its human audit are complete. Billy separately
+authorized the V1.2 rerun on 2026-09-02; its pre-batch gate is paused as
+described above. The route remains disabled by default in production.
 
 Coverage V1 is the replacement for V9's paid analysis machinery recommended by
 [`SCREENPLAY-DASHBOARD-REASSESSMENT.md`](SCREENPLAY-DASHBOARD-REASSESSMENT.md).
@@ -75,7 +76,7 @@ the default engine until Coverage is deliberately promoted.
 
 ## What it does
 
-The normal path is two paid calls per screenplay, with bounded repair calls and
+The normal path is three paid calls per screenplay, with bounded repair calls and
 a hard local cost cap:
 
 ```
@@ -83,6 +84,7 @@ PDF → [code] parse + typed PDF/printed-page/scene map + hashes                
     → SENIOR COVERAGE   methodology lenses, qualitative native schema          (call 1)
     → [code] validate + normalize citations + build evidence checks/registry   ($0)
     → FACT AUDIT        claims + five reliability guards + ordered ending pass (call 2)
+    → DETAIL AUDIT      required evidence/citation rows, each exactly once    (call 3)
     → [code] adjudicate + bounded repair/re-audit when eligible                (bounded)
     → coverage_v1_reports staging collection, only when separately enabled     ($0)
 ```
@@ -230,7 +232,7 @@ Optional job fields: `format: "tv_pilot"`, `genre_hint: "horror"|"comedy"`,
 | File | What |
 |---|---|
 | `execution/coverage_v1.py` | Engine: schemas, prompts, page map, evidence gates, canonical facts, sequence audit, checkpoints, citation verification, cost split |
-| `execution/test_coverage_v1.py` | 72 offline engine tests (fake transport; no network) |
+| `execution/test_coverage_v1.py` | 74 offline engine tests (fake transport; no network) |
 | `execution/coverage_v1_citation_diag.py` | Offline near-miss vs fabrication diagnostic for unverified citations ($0) |
 | `execution/test_daemon_coverage_route.py` | 8 offline tests for the daemon route |
 | `execution/lenses/` | registry.json, cards/ (15 distilled), skills/ (30 imported sources) |
@@ -239,7 +241,7 @@ Optional job fields: `format: "tv_pilot"`, `genre_hint: "horror"|"comedy"`,
 
 ## Offline guarantees proven by tests
 
-- Normal completion is exactly 2 calls. Structural correction uses at most one
+- Normal completion is exactly 3 calls. Structural correction uses at most one
   shared retry and never resends the screenplay; an eligible factual repair
   must return the complete report and pass a fresh audit.
 - Invalid coverage cannot seal; incomplete audits cannot seal.
@@ -258,9 +260,10 @@ Optional job fields: `format: "tv_pilot"`, `genre_hint: "horror"|"comedy"`,
 - Every development priority and high-risk absolute claim produces a complete-
   screenplay evidence check; the audit cannot pass a conflicting aggregate
   guard over failed detail rows.
-- Each live audit tool is bound to the exact claim IDs, evidence paths, citation
-  owners, and row counts for that report. Generic strings cannot be substituted
-  across audit sections, and omitted rows fail at the schema boundary.
+- The fact/ending tool is bound to exact claim IDs and five required phase
+  buckets. A separate required-key tool gives every evidence path and citation
+  owner one unique slot, because the provider does not enforce arbitrary array
+  lengths. Generic IDs, duplicated rows, and omitted rows cannot pass.
 - The canonical fact registry is checked across the complete report. Eligible
   repairs return the full coverage and are re-audited, preventing a corrected
   spine from coexisting with stale synopsis or lens claims.
@@ -319,8 +322,9 @@ least as useful as the V9 report). Send `scorecard.json` and the
 
 ## Next gate
 
-The V1.1 benchmark and its 20 human-approved audits are complete. V1.2 is only
-implemented and tested locally. The next meaningful experiment is a separately
-authorized paid V1.2 rerun of the same 20 PDFs, followed by a blind comparison
-against the approved audit ledger. Production promotion, daemon activation,
-and production-data writes remain separate decisions after that result.
+The V1.1 benchmark and its 20 human-approved audits are complete. The authorized
+V1.2 rerun is paused after the failed Cosquillitas gate. The next experiment is
+one paid Cosquillitas canary on the split audit contract. Only after that passes
+should the same 20 PDFs resume, followed by a blind comparison against the
+approved audit ledger. Production promotion, daemon activation, and
+production-data writes remain separate decisions after that result.

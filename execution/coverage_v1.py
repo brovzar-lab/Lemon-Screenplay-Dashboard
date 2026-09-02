@@ -9,9 +9,12 @@ Normal path per screenplay:
        screenplay through a configurable stack of methodology lenses
        (execution/lenses/) and returns one structured coverage report.
     2. FACT AUDIT       — one call. A separate, skeptical pass classifies
-       factual claims plus typed page, existing-evidence, cross-field,
-       climax-order, and citation-relevance gates. It never verifies taste.
-    3. REPAIR (optional) — a central partial can re-emit the complete report
+       factual claims plus typed page, cross-field, and climax-order gates.
+       It never verifies taste.
+    3. DETAIL AUDIT     — one call. Required unique slots classify every
+       existing-evidence and citation-relevance target without relying on
+       unsupported array-length constraints.
+    4. REPAIR (optional) — a central partial can re-emit the complete report
        so one corrected fact propagates everywhere, followed by re-audit.
        A contradiction stops for human review. Never a full rerun.
 
@@ -83,12 +86,15 @@ FORMATS = ("feature", "tv_pilot")
 
 MAX_AUDIT_CLAIMS = 25
 MIN_AUDIT_CLAIMS = 6
-MAX_DETAIL_AUDIT_ROWS = 40
+MAX_DETAIL_AUDIT_ROWS = 43
 AUDIT_CLASSIFICATIONS = (
     "supported",
     "partially_supported",
     "unsupported",
     "contradicted",
+)
+AUDIT_SEQUENCE_PHASES = (
+    "climax", "ending", "final_scene", "tag", "aftermath",
 )
 
 # Compiler-safety budget for our strict schemas, MEASURED EMPIRICALLY via
@@ -388,6 +394,23 @@ COVERAGE_TOOL: Dict[str, Any] = {
     },
 }
 
+_AUDIT_SEQUENCE_BEAT_SCHEMA: Dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "actor": {"type": "string"},
+        "action": {"type": "string"},
+        "result": {"type": "string"},
+        "character_knowledge": {"type": "string"},
+        "audience_knowledge": {"type": "string"},
+        "page": {"type": "integer"},
+    },
+    "required": [
+        "actor", "action", "result", "character_knowledge",
+        "audience_knowledge", "page",
+    ],
+}
+
+
 AUDIT_TOOL: Dict[str, Any] = {
     "name": "submit_fact_audit_v1",
     "description": (
@@ -414,73 +437,21 @@ AUDIT_TOOL: Dict[str, Any] = {
                 "minItems": 1,
                 "maxItems": MAX_AUDIT_CLAIMS,
             },
-            "existing_evidence_verdicts": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "field_path": {"type": "string"},
-                        "classification": {
-                            "type": "string",
-                            "enum": list(AUDIT_CLASSIFICATIONS),
-                        },
-                        "note": {"type": "string"},
-                    },
-                    "required": ["field_path", "classification", "note"],
-                },
-                "minItems": 1,
-                "maxItems": 64,
-            },
             "sequence_ledger": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "order": {"type": "integer"},
-                        "phase": {
-                            "type": "string",
-                            "enum": [
-                                "climax", "ending", "final_scene", "tag",
-                                "aftermath",
-                            ],
-                        },
-                        "actor": {"type": "string"},
-                        "action": {"type": "string"},
-                        "result": {"type": "string"},
-                        "character_knowledge": {"type": "string"},
-                        "audience_knowledge": {"type": "string"},
-                        "page": {"type": "integer"},
-                    },
-                    "required": [
-                        "order", "phase", "actor", "action", "result",
-                        "character_knowledge", "audience_knowledge", "page",
-                    ],
+                "type": "object",
+                "properties": {
+                    phase: {
+                        "type": "array",
+                        "items": copy.deepcopy(_AUDIT_SEQUENCE_BEAT_SCHEMA),
+                        "minItems": 1,
+                        "maxItems": 8,
+                    }
+                    for phase in AUDIT_SEQUENCE_PHASES
                 },
-                "minItems": 5,
-                "maxItems": 24,
-            },
-            "citation_relevance": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "owner": {"type": "string"},
-                        "classification": {
-                            "type": "string",
-                            "enum": list(AUDIT_CLASSIFICATIONS),
-                        },
-                        "note": {"type": "string"},
-                    },
-                    "required": ["owner", "classification", "note"],
-                },
-                "minItems": 1,
-                "maxItems": 20,
+                "required": list(AUDIT_SEQUENCE_PHASES),
             },
         },
-        "required": [
-            "verdicts", "existing_evidence_verdicts", "sequence_ledger",
-            "citation_relevance",
-        ],
+        "required": ["verdicts", "sequence_ledger"],
     },
 }
 
@@ -575,10 +546,8 @@ def assert_schemas_compiler_safe() -> None:
 
 def build_audit_tool(
     claims: Sequence[Dict[str, str]],
-    evidence_checks: Sequence[Dict[str, Any]],
-    citation_owners: Sequence[str],
 ) -> Dict[str, Any]:
-    """Bind audit arrays to the exact IDs required for this screenplay."""
+    """Bind the compact fact audit to this screenplay's exact claim IDs."""
     tool = copy.deepcopy(AUDIT_TOOL)
     properties = tool["input_schema"]["properties"]
 
@@ -594,13 +563,30 @@ def build_audit_tool(
         rows["items"]["properties"][id_field]["enum"] = expected
 
     bind("verdicts", "claim_id", [claim["claim_id"] for claim in claims])
-    bind(
-        "existing_evidence_verdicts",
-        "field_path",
-        [str(check["field_path"]) for check in evidence_checks],
-    )
-    bind("citation_relevance", "owner", citation_owners)
     return tool
+
+
+def normalize_audit_tool_input(payload: Any) -> Any:
+    """Flatten provider-enforced phase buckets into the canonical ledger."""
+    if not isinstance(payload, dict):
+        return payload
+    sequence = payload.get("sequence_ledger")
+    if not isinstance(sequence, dict):
+        return payload
+    ledger: List[Dict[str, Any]] = []
+    for phase in AUDIT_SEQUENCE_PHASES:
+        beats = sequence.get(phase)
+        if not isinstance(beats, list):
+            return payload
+        for beat in beats:
+            if not isinstance(beat, dict):
+                return payload
+            ledger.append({
+                "order": len(ledger) + 1,
+                "phase": phase,
+                **copy.deepcopy(beat),
+            })
+    return {**payload, "sequence_ledger": ledger}
 
 
 def build_detail_audit_rows(
@@ -1299,11 +1285,14 @@ def build_audit_user_blocks(
                 "supported only when every item it covers passes. If one "
                 "material item fails, classify the guard partially_supported, "
                 "unsupported, or contradicted and name the exact field and "
-                "citable page in the note. Return every supplied evidence "
-                "check in `existing_evidence_verdicts`, every cited owner in "
-                "`citation_relevance`, and the complete ordered climax/ending "
-                "pass in `sequence_ledger`. Use explicit NOT PRESENT entries "
-                "for a missing tag or aftermath; never invent one."
+                "citable page in the note. Evidence and citation detail rows "
+                "are collected by a separate strict tool; use their supplied "
+                "material to judge the two aggregate guards, but do not emit "
+                "those rows here. In `sequence_ledger`, return every required "
+                "phase key with a non-empty ordered array. Use multiple climax "
+                "or ending beats when the sequence has multiple stages. Use "
+                "an explicit NOT PRESENT beat for a missing tag or aftermath; "
+                "never invent one."
             ),
         },
     ]
@@ -1316,7 +1305,7 @@ def build_detail_audit_user_blocks(
     page_reference_map: PageReferenceMap,
     rows: Sequence[Dict[str, Any]],
 ) -> List[Dict[str, Any]]:
-    """Targeted fallback for detailed rows a combined audit omitted/repeated."""
+    """Separate strict pass for existing-evidence and citation detail rows."""
     return [
         _screenplay_block(text),
         _character_index_block(text),
@@ -2611,6 +2600,16 @@ def run_coverage_v1(
         checkpoint_store.load(checkpoint_key, "audit"), binding, "audit"
     )
     audit_replayed = audit_payload is not None
+    audit_core_payload = (
+        _verified_payload(
+            checkpoint_store.load(checkpoint_key, "audit_core"),
+            binding,
+            "audit_core",
+        )
+        if audit_payload is None
+        else None
+    )
+    audit_core_replayed = audit_core_payload is not None
 
     audit_first_pass_problems: List[str] = []
     audit_model_effective = audit_model_key
@@ -2619,11 +2618,7 @@ def run_coverage_v1(
         coverage_payload, text
     )
     sequence_focus = build_sequence_focus(text)
-    audit_tool = build_audit_tool(
-        claims,
-        existing_evidence_checks,
-        [owner for owner, _item in _iter_citations(coverage_payload)],
-    )
+    audit_tool = build_audit_tool(claims)
     audit_system = [
         {
             "type": "text",
@@ -2706,7 +2701,22 @@ def run_coverage_v1(
             guard.charge(usage)
             return tool_input
 
-        tool_input = _audit_call(audit_model_key)
+        if audit_core_payload is None:
+            tool_input = normalize_audit_tool_input(
+                _audit_call(audit_model_key)
+            )
+        else:
+            tool_input = copy.deepcopy(audit_core_payload["tool_input"])
+            audit_first_pass_problems = list(
+                audit_core_payload.get("first_pass_problems", [])
+            )
+            audit_model_effective = str(
+                audit_core_payload.get("audit_model", audit_model_key)
+            )
+            repair_calls_used = max(
+                repair_calls_used,
+                int(audit_core_payload.get("repair_calls_used", 0)),
+            )
         problems = validate_audit_payload(
             tool_input,
             claims,
@@ -2715,7 +2725,20 @@ def run_coverage_v1(
             existing_evidence_checks,
         )
         if _audit_problems_are_detail_only(problems):
-            audit_first_pass_problems = problems[:8]
+            if audit_core_payload is None:
+                checkpoint_store.save(
+                    checkpoint_key,
+                    "audit_core",
+                    _sealed_record(
+                        binding,
+                        {
+                            "tool_input": tool_input,
+                            "audit_model": audit_model_effective,
+                            "first_pass_problems": audit_first_pass_problems,
+                            "repair_calls_used": repair_calls_used,
+                        },
+                    ),
+                )
             tool_input = _complete_audit_details(
                 tool_input,
                 coverage_payload,
@@ -2735,7 +2758,9 @@ def run_coverage_v1(
             audit_first_pass_problems = problems[:8]
             repair_calls_used += 1
             audit_model_effective = model_key
-            tool_input = _audit_call(model_key)
+            tool_input = normalize_audit_tool_input(
+                _audit_call(model_key)
+            )
             problems = validate_audit_payload(
                 tool_input,
                 claims,
@@ -2744,6 +2769,19 @@ def run_coverage_v1(
                 existing_evidence_checks,
             )
             if _audit_problems_are_detail_only(problems):
+                checkpoint_store.save(
+                    checkpoint_key,
+                    "audit_core",
+                    _sealed_record(
+                        binding,
+                        {
+                            "tool_input": tool_input,
+                            "audit_model": audit_model_effective,
+                            "first_pass_problems": audit_first_pass_problems,
+                            "repair_calls_used": repair_calls_used,
+                        },
+                    ),
+                )
                 tool_input = _complete_audit_details(
                     tool_input,
                     coverage_payload,
@@ -2933,16 +2971,7 @@ def run_coverage_v1(
                 corrected_evidence_checks = build_existing_evidence_checks(
                     corrected_coverage, text
                 )
-                corrected_audit_tool = build_audit_tool(
-                    new_claims,
-                    corrected_evidence_checks,
-                    [
-                        owner
-                        for owner, _item in _iter_citations(
-                            corrected_coverage
-                        )
-                    ],
-                )
+                corrected_audit_tool = build_audit_tool(new_claims)
                 guard.check_before_call()
                 reaudit_input, _text_out, usage = call(
                     system_blocks=audit_system,
@@ -2967,6 +2996,7 @@ def run_coverage_v1(
                 usage_total = _merge_usage(usage_total, usage)
                 _note_usage(usage_sink, usage_total)
                 guard.charge(usage)
+                reaudit_input = normalize_audit_tool_input(reaudit_input)
                 reaudit_problems = validate_audit_payload(
                     reaudit_input,
                     new_claims,
@@ -3309,6 +3339,7 @@ def run_coverage_v1(
         "replay": {
             "coverage_replayed": coverage_replayed,
             "audit_replayed": audit_replayed,
+            "audit_core_replayed": audit_core_replayed,
         },
         "cost": cost,
     }
