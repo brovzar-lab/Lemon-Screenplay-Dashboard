@@ -3,7 +3,7 @@
 ## Where Were We (WWW)
 <!-- Single source of truth for session continuity. OVERWRITE this whole section on "save" / "wrap up" / end of session — it reflects CURRENT state, not a log. On "www" / "where were we", read this back and summarize. -->
 
-**Last session:** 2026-09-02 (Coverage V1.2 paid benchmark gate halted)
+**Last session:** 2026-09-02 (Coverage V1.2 split-contract canary failed safely)
 
 **Current state:**
 - Work is on `claude/lemon-dashboard-v9-review-w3nuz0`. Coverage V1.2 changes
@@ -17,7 +17,7 @@
   proper with corrections; El Arbol Negro was materially unreliable. The two
   critical reading failures were the reversed climax order in W.I.L.L. and the
   misread sacrifice mechanism in El Arbol Negro.
-- Engine version `coverage-v1.2` implements the five audited P0 safeguards:
+- Engine version `coverage-v1.2` contains the five audited P0 safeguards:
   typed PDF/printed/citation-page/scene identities; complete-script evidence
   checks before absolute-negative claims or development priorities; one
   canonical fact registry with complete-report repair and re-audit; an ordered
@@ -34,20 +34,29 @@
   tool with five required phase buckets, then a separate required-key detail
   tool for every evidence path and citation owner. The compact audit core is
   checkpointed before the detail call so a failure cannot rebuy it.
-- The batch is paused before any V1.2 report completed. Eight settled calls
-  cost exactly $1.756476 with zero uncertain spend. The first batch attempt
-  reached an interrupted coverage call on script 2; all other paid work was
-  the Cosquillitas gate. The remaining 18 scripts were never called. Under the
-  temporary $20 operation cap, $18.243524 remains.
+- Billy authorized one split-contract Cosquillitas canary. It completed as
+  `needs_review`, not sealed: `CONSIDER`, medium confidence, 9/10 citations
+  verified, four settled calls, $0.889668 exact cost, zero uncertain spend.
+  The required-key split worked structurally, but the approved-audit comparison
+  still found the two-vs-three bribed-judge count conflict, the Richie/peluca
+  beat ordered after the p.97 trophy despite occurring on p.96 before the
+  exposé, incomplete Richie/camera existing-evidence treatment, and omitted
+  pp.82/85 writer notes. The new citation guard correctly rejected the invented
+  word `escondida` in a p.73 excerpt instead of sealing the report.
+- The paid V1.2 total is now 12 settled calls costing exactly $2.646144, with
+  zero uncertain spend. One V1.2 `needs_review` artifact exists, no V1.2 report
+  is sealed, one interrupted call previously reached script 2, and the
+  remaining 18 scripts were never called. Under the temporary $20 operation
+  cap, $17.353856 remains.
 - The qualitative contract is unchanged: no screenplay scores, no rankability,
   frontend `scoreSource` remains `coverage_unscored`, irrelevant lenses remain
   `not_applicable`, multi-stage climaxes are preserved, and factual audit is
   kept separate from human taste.
 - Coverage remains double-gated and off by default. V9 is still the production
-  analyzer and the immutable record for sealed historical analyses. The next
-  gate is one paid Cosquillitas canary on the split audit contract. Resume the
-  20-script rerun and approved-ledger comparison only after that passes and
-  Billy explicitly says to continue from this failed-gate report.
+  analyzer and the immutable record for sealed historical analyses. Do not
+  resume the other 19 reports. The next step is a no-spend patch and regression
+  tests for the failed Cosquillitas P0 checks. A second paid Cosquillitas canary
+  is a new gate and requires separate authorization after those tests pass.
 
 **Open risks (carried over, not reverified this session):**
 - `VITE_TMDB_API_KEY` may be inlined into local builds. Never run

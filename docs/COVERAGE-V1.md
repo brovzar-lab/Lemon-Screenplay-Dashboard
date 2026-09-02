@@ -3,15 +3,19 @@
 **Current status, 2026-09-02:** Coverage V1.2 P0 reliability changes are based
 on Billy's approved audits of all 20 V1.1 benchmark reports under
 `benchmark-artifacts/coverage-v1-audit-packages/`. Billy authorized the paid
-20-script V1.2 rerun, but the pre-batch Cosquillitas gate exposed a systemic
-combined-audit output problem and the batch was halted before any V1.2 report
-completed. Eight settled diagnostic/batch calls cost exactly $1.756476, with
-zero uncertain charges; one interrupted call reached script 2 and the other
-calls were Cosquillitas coverage/audit work. The remaining 18 scripts were not
-called. The audit is now split into a compact fact/ending pass and a separate
-required-key evidence/citation pass, covered by no-spend tests but not yet
-revalidated with paid inference. V1.2 has not been promoted, deployed, or used
-to write production data. V9 remains the production analyzer. Reports remain
+20-script V1.2 rerun. After the first combined-audit gate failed, Billy
+authorized one paid Cosquillitas canary of the split audit contract. The split
+returned every required fact, ending, evidence, and citation slot, but the
+report correctly stopped as `needs_review`: 9/10 citations verified, one
+invented word in a p.73 excerpt, and the approved-audit comparison found that
+known count, existing-evidence, climax-order, and draft-artifact errors remain.
+That canary used four settled calls and cost exactly $0.889668 with zero
+uncertain spend. Cumulative V1.2 work is 12 settled calls, $2.646144 exact,
+zero uncertain, leaving $17.353856 under the temporary $20 operation cap. One
+V1.2 `needs_review` artifact exists; no V1.2 report is sealed. One earlier
+interrupted call reached script 2; the remaining 18 scripts were never called.
+V1.2 has not been promoted, deployed, or used to write production data. V9
+remains the production analyzer. Reports remain
 qualitative and unrankable with `analysis_version: "coverage_v1"` and
 `scoreSource: "coverage_unscored"` at the frontend normalization boundary.
 
@@ -322,9 +326,11 @@ least as useful as the V9 report). Send `scorecard.json` and the
 
 ## Next gate
 
-The V1.1 benchmark and its 20 human-approved audits are complete. The authorized
-V1.2 rerun is paused after the failed Cosquillitas gate. The next experiment is
-one paid Cosquillitas canary on the split audit contract. Only after that passes
-should the same 20 PDFs resume, followed by a blind comparison against the
-approved audit ledger. Production promotion, daemon activation, and
-production-data writes remain separate decisions after that result.
+The V1.1 benchmark and its 20 human-approved audits are complete. The paid V1.2
+rerun remains paused after the split-contract Cosquillitas canary failed safely.
+Do not run the other 19 reports. First make a no-spend patch for the surviving
+Cosquillitas P0 failures and add regressions. A second paid Cosquillitas canary
+requires separate authorization after those tests pass. Only a sealed canary
+whose approved-audit comparison clears all five P0 contracts can reopen the
+20-PDF run. Production promotion, daemon activation, and production-data writes
+remain separate decisions after that result.
