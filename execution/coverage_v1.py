@@ -69,7 +69,9 @@ DEFAULT_AUDIT_MODEL = "haiku"
 # a live repair on 2026-09-01. Unused headroom costs nothing.
 COVERAGE_MAX_TOKENS = 16_000
 COVERAGE_THINKING_BUDGET = 8_000
-AUDIT_MAX_TOKENS = 6_000
+# Cosquillitas exhausted 6k while emitting the complete V1.2 fact ledger.
+# The higher ceiling prevents truncation; providers charge only tokens used.
+AUDIT_MAX_TOKENS = 8_000
 AUDIT_THINKING_BUDGET = 4_000
 REPAIR_MAX_TOKENS = 4_000
 REPAIR_THINKING_BUDGET = 2_000
