@@ -91,7 +91,7 @@ MAX_DETAIL_AUDIT_ROWS = 43
 MAX_TEXT_DETAIL_RETRY_ROWS = 8
 MAX_COUNT_DETAIL_RETRY_ROWS = 3
 MAX_COUNT_DETAIL_RETRY_TOTAL_ROWS = 9
-DETAIL_AUDIT_CONTRACT_VERSION = "coverage-v1.2-detail-6"
+DETAIL_AUDIT_CONTRACT_VERSION = "coverage-v1.2-detail-8"
 AUDIT_CLASSIFICATIONS = (
     "supported",
     "partially_supported",
@@ -818,6 +818,31 @@ def normalize_audit_tool_input(
     return normalized_payload
 
 
+def _citation_claim_span(item: Dict[str, Any]) -> str:
+    """Return the cited sentence instead of treating a whole lens as one claim."""
+    prose = next(
+        (
+            str(item.get(field, ""))
+            for field in ("analysis", "point")
+            if str(item.get(field, "")).strip()
+        ),
+        "",
+    )
+    page = item.get("page")
+    if type(page) is not int or not prose:
+        return " ".join(prose.split())
+    sentences = re.split(r"(?<=[.!?])\s+(?=[A-ZÁÉÍÓÚÑ])", prose)
+    matches = [
+        " ".join(sentence.split())
+        for sentence in sentences
+        if any(
+            start <= page <= end
+            for start, end in _prose_page_spans(sentence)
+        )
+    ]
+    return matches[0] if len(matches) == 1 else " ".join(prose.split())
+
+
 def build_detail_audit_rows(
     coverage: Dict[str, Any],
     evidence_checks: Sequence[Dict[str, Any]],
@@ -834,7 +859,10 @@ def build_detail_audit_rows(
         rows.append({
             "kind": "citation_relevance",
             "identifier": owner,
-            "subject": copy.deepcopy(item),
+            "subject": {
+                **copy.deepcopy(item),
+                "claim_span": _citation_claim_span(item),
+            },
         })
     for index, row in enumerate(rows, start=1):
         row["slot"] = f"row_{index:03d}"
@@ -971,9 +999,7 @@ def build_count_detail_retry_tool(
                 "type": "string",
                 "enum": list(AUDIT_CLASSIFICATIONS),
             },
-            "claimed_total": {"type": "integer"},
             "observed_total": {"type": "integer", "minimum": 0},
-            "claimed_universe_total": {"type": "integer", "minimum": 0},
             "observed_universe_total": {"type": "integer", "minimum": 0},
             "instances": {
                 "type": "array",
@@ -995,8 +1021,7 @@ def build_count_detail_retry_tool(
             "note": {"type": "string"},
         },
         "required": [
-            "classification", "claimed_total", "observed_total",
-            "claimed_universe_total", "observed_universe_total",
+            "classification", "observed_total", "observed_universe_total",
             "instances", "note",
         ],
     }
@@ -1192,7 +1217,9 @@ def decode_detail_audit_payload(
 _GLOBAL_ABSENCE_CLAIM = re.compile(
     r"(?:\b(?:no|without|never|nowhere|missing|absent)\b.{0,100}"
     r"\b(?:anywhere|elsewhere|screenplay|script|scene|setup|plant|"
-    r"establish(?:es|ed)?|record(?:ed|ing)?|upload(?:ed|ing)?|broadcast)\b|"
+    r"establish(?:es|ed)?|record(?:ed|ing)?|upload(?:ed|ing)?|broadcast|"
+    r"laughs?|jokes?|comic\s+beats?)\b|"
+    r"\blaugh[-–— ]free\b|"
     r"\b(?:ninguna?\s+escena|en\s+ninguna\s+parte|"
     r"sin\s+(?:preparaci[oó]n|planteamiento)|"
     r"no\s+(?:hay|existe|establece|muestra|planta|prepara))\b)",
@@ -1211,6 +1238,11 @@ def _reconcile_citation_relevance_with_evidence(
         for row in detail_rows
         if row.get("kind") == "existing_evidence"
     }
+    citation_subjects = {
+        str(row.get("identifier", "")): row.get("subject", {})
+        for row in detail_rows
+        if row.get("kind") == "citation_relevance"
+    }
     evidence_by_path = {
         str(row.get("field_path", "")): row
         for row in evidence_rows
@@ -1226,10 +1258,18 @@ def _reconcile_citation_relevance_with_evidence(
     for original in citation_rows:
         row = copy.deepcopy(original)
         owner = str(row.get("owner", ""))
+        citation_subject = citation_subjects.get(owner, {})
+        claim_span = str(
+            citation_subject.get("claim_span", "")
+            if isinstance(citation_subject, dict)
+            else ""
+        )
+        global_absence = bool(_GLOBAL_ABSENCE_CLAIM.search(claim_span))
         dependency_pairs = [
             (evidence_by_path[path], subject)
             for path, subject in subjects.items()
-            if isinstance(subject, dict)
+            if global_absence
+            and isinstance(subject, dict)
             and subject.get("trigger") == "absolute_negative"
             and str(subject.get("source_field_path", "")).startswith(
                 owner + "."
@@ -1237,11 +1277,6 @@ def _reconcile_citation_relevance_with_evidence(
             and path in evidence_by_path
         ]
         dependencies = [item for item, _subject in dependency_pairs]
-        global_absence = any(
-            _GLOBAL_ABSENCE_CLAIM.search(str(subject.get("claim", "")))
-            for _item, subject in dependency_pairs
-            if isinstance(subject, dict)
-        )
         if global_absence and row.get("classification") == "supported":
             row["classification_normalized_from"] = "supported"
             row["note_normalized_from"] = str(row.get("note", ""))
@@ -1369,9 +1404,19 @@ def _enforce_count_ledger_uniqueness(
                 break
             row_spans.append(current)
         if invalid_reason:
+            rejected_candidate = {
+                "classification": row.get("classification"),
+                "observed_total": ledger.get("observed_total"),
+                "observed_universe_total": ledger.get(
+                    "observed_universe_total"
+                ),
+                "instances": copy.deepcopy(ledger.get("instances", [])),
+                "note": row.get("note"),
+            }
             row = {
                 "field_path": field_path,
                 **_invalid_count_audit_result(invalid_reason),
+                "rejected_candidate": rejected_candidate,
             }
         else:
             seen.setdefault(source_path, []).extend(row_spans)
@@ -1441,8 +1486,13 @@ def _decode_count_audit_result(
 ) -> Dict[str, Any]:
     """Require a source-backed instance ledger before a count can pass."""
 
+    rejected_candidate: Optional[Dict[str, Any]] = None
+
     def invalid(reason: str) -> Dict[str, Any]:
-        return _invalid_count_audit_result(reason)
+        result = _invalid_count_audit_result(reason)
+        if rejected_candidate is not None:
+            result["rejected_candidate"] = copy.deepcopy(rejected_candidate)
+        return result
 
     if isinstance(value, dict):
         decoded = value
@@ -1453,40 +1503,40 @@ def _decode_count_audit_result(
             return invalid("the detailed auditor returned no JSON ledger")
     else:
         return invalid("the detailed auditor returned no JSON ledger")
+    if isinstance(decoded, dict):
+        rejected_candidate = decoded
     if not isinstance(decoded, dict) or set(decoded) != {
-        "classification", "claimed_total", "observed_total",
-        "claimed_universe_total", "observed_universe_total", "instances",
-        "note",
+        "classification", "observed_total", "observed_universe_total",
+        "instances", "note",
     }:
         return invalid("the ledger fields are incomplete")
 
     classification = decoded.get("classification")
-    claimed_total = decoded.get("claimed_total")
     observed_total = decoded.get("observed_total")
-    claimed_universe_total = decoded.get("claimed_universe_total")
     observed_universe_total = decoded.get("observed_universe_total")
     instances = decoded.get("instances")
-    note = " ".join(str(decoded.get("note", "")).split())
+    raw_note = decoded.get("note")
+    if not isinstance(raw_note, str):
+        return invalid("classification or note is invalid")
+    note = " ".join(raw_note.split())
     expected_total = subject.get("claimed_total")
     if type(expected_total) is not int:
         expected_total = _material_count_claimed_total(
             str(subject.get("claim", ""))
         )
-    expected_universe_total = subject.get("claimed_universe_total", 0)
+    expected_universe_total = subject.get("claimed_universe_total")
     quantifier = str(subject.get("count_quantifier", "exact"))
     if classification not in AUDIT_CLASSIFICATIONS or not note:
         return invalid("classification or note is invalid")
     if quantifier not in {"exact", "minimum", "maximum"}:
         return invalid("count_quantifier is invalid")
-    if type(claimed_total) is not int or claimed_total != expected_total:
-        return invalid("claimed_total does not match the coverage claim")
-    if (
-        type(claimed_universe_total) is not int
-        or claimed_universe_total != expected_universe_total
+    if type(expected_total) is not int:
+        return invalid("the coverage claim has no valid total")
+    if expected_universe_total is not None and (
+        type(expected_universe_total) is not int
+        or expected_universe_total < 0
     ):
-        return invalid(
-            "claimed_universe_total does not match the coverage claim"
-        )
+        return invalid("the coverage claim has no valid universe total")
     if type(observed_total) is not int or observed_total < 0:
         return invalid("observed_total is invalid")
     if (
@@ -1508,9 +1558,15 @@ def _decode_count_audit_result(
             "label", "page", "excerpt", "matches_claim", "multiplicity"
         }):
             return invalid(f"instance {index + 1} fields are incomplete")
-        label = " ".join(str(instance.get("label", "")).split())
+        raw_label = instance.get("label")
+        raw_excerpt = instance.get("excerpt")
+        if not isinstance(raw_label, str):
+            return invalid(f"instance {index + 1} label is invalid")
+        if not isinstance(raw_excerpt, str):
+            return invalid(f"instance {index + 1} excerpt is invalid")
+        label = " ".join(raw_label.split())
         page = instance.get("page")
-        excerpt = " ".join(str(instance.get("excerpt", "")).split())
+        excerpt = " ".join(raw_excerpt.split())
         matches_claim = instance.get("matches_claim")
         multiplicity = instance.get("multiplicity", 1)
         if not label or label.casefold() in labels:
@@ -1565,14 +1621,14 @@ def _decode_count_audit_result(
     if observed_total != matched_total:
         return invalid("observed_total does not match the marked instances")
     if classification == "supported":
-        if quantifier == "minimum" and observed_total < claimed_total:
+        if quantifier == "minimum" and observed_total < expected_total:
             return invalid("the observed total is below the claimed minimum")
-        if quantifier == "maximum" and observed_total > claimed_total:
+        if quantifier == "maximum" and observed_total > expected_total:
             return invalid("the observed total is above the claimed maximum")
-        if quantifier == "exact" and observed_total != claimed_total:
+        if quantifier == "exact" and observed_total != expected_total:
             return invalid("a mismatched observed total cannot be supported")
         if (
-            expected_universe_total
+            expected_universe_total is not None
             and observed_universe_total != expected_universe_total
         ):
             return invalid("the claimed universe total is not supported")
@@ -1582,10 +1638,10 @@ def _decode_count_audit_result(
         "note": note,
         "count_ledger": {
             "valid": True,
-            "claimed_total": claimed_total,
+            "claimed_total": expected_total,
             "observed_total": observed_total,
             "count_quantifier": quantifier,
-            "claimed_universe_total": claimed_universe_total,
+            "claimed_universe_total": expected_universe_total,
             "observed_universe_total": observed_universe_total,
             "instances": normalized_instances,
         },
@@ -1725,6 +1781,11 @@ are permanent and non-negotiable):
    the writer. Report each surviving directive in `continuity_flags` with
    its page. Do not mistake standard screenplay INSERT or ANGLE headings for
    writer notes.
+18. Treat "laugh-free", "no jokes", and "no attempted laughs" as literal
+   factual claims, not shorthand for a taste judgment. Inspect every page in
+   the claimed range for intentional gags, comic lyrics, costume jokes, and
+   buttons. One attempted joke disproves the absolute claim, even if the joke
+   does not land; use "reduced comedy density" for the craft judgment instead.
 """
 
 AUDIT_CHARTER = """\
@@ -1823,6 +1884,10 @@ evidence, narrow the uncertainty to activation or delivery, and never recommend
 creating a new recording or plant. A citation attached to a global absence
 claim is not relevant merely because it quotes the local reveal; rewrite the
 claim so the quote supports the complete proposition.
+
+When a literal claim that a range is laugh-free or contains no attempted jokes
+fails, remove that absolute everywhere. Preserve any still-valid pacing judgment
+only as reduced comedy density and cite the attempted comedy that limits it.
 """
 
 
@@ -1952,10 +2017,11 @@ def ensure_writer_directive_flags(
 
 
 _ABSOLUTE_NEGATIVE = re.compile(
-    r"\b(?:no|never|nothing|entirely|only|first|unstaged|unresolved|"
+    r"(?:\blaugh[-–— ]free\b|\b(?:no|never|nothing|entirely|only|first|"
+    r"unstaged|unresolved|"
     r"unprepared|unseeded|missing|absent|nunca|nada|solamente|s[oó]lo|"
     r"primera?|sin|carece|"
-    r"falta|ausente|irresuelto)\b",
+    r"falta|ausente|irresuelto)\b)",
     re.IGNORECASE,
 )
 _COUNT_VALUES = {
@@ -2338,7 +2404,7 @@ def _first_material_count_claim_details(
             continue
         return {
             "claimed_total": 1 if token == "once" else 2,
-            "claimed_universe_total": 0,
+            "claimed_universe_total": None,
             "count_quantifier": "exact",
             "count_entity": raw_tokens[entity_index],
             "_count_span": (
@@ -2395,7 +2461,7 @@ def _first_material_count_claim_details(
         )
         return {
             "claimed_total": claimed_total,
-            "claimed_universe_total": 0,
+            "claimed_universe_total": None,
             "count_quantifier": quantifier,
             "count_entity": raw_tokens[entity_index],
             "_count_span": (
@@ -2484,7 +2550,7 @@ def _first_material_count_claim_details(
     )
     return {
         "claimed_total": claimed_total,
-        "claimed_universe_total": 0,
+        "claimed_universe_total": None,
         "count_quantifier": quantifier,
         "count_entity": tokens[entity_index],
         "_count_span": (count_match.start(), entity_match.end()),
@@ -2574,12 +2640,11 @@ def _material_count_claims_details(claim: str) -> List[Dict[str, Any]]:
         if not anchor:
             continue
         quantifier, claimed_total = _count_constraint_at(claim, start, count)
-        prior_universe = 0
+        prior_universe = None
         if prior.get("count_quantifier") == "exact":
-            prior_universe = int(
-                prior.get("claimed_universe_total")
-                or prior.get("claimed_total", 0)
-            )
+            prior_universe = prior.get("claimed_universe_total")
+            if prior_universe is None:
+                prior_universe = int(prior.get("claimed_total", 0))
         results.append({
             "claimed_total": claimed_total,
             "claimed_universe_total": prior_universe,
@@ -3322,6 +3387,8 @@ def build_audit_user_blocks(
                 "printed page on which its action begins. If the action spans "
                 "continuous pages, one `pp.X-Y` reference may describe that "
                 "single event, but every other action belongs in its own row. "
+                "When multiple beats begin on the same printed page, preserve "
+                "their literal order in the screenplay text. "
                 "Any page reference in result, character_knowledge, or "
                 "audience_knowledge must fall inside that same action interval; "
                 "never hide earlier actions in those fields. "
@@ -3388,10 +3455,16 @@ def build_detail_audit_user_blocks(
                 "unless the text explicitly says it appears inside the image. "
                 "Keep a dialogue speaker separate from the actor whose later "
                 "physical action pays off the line. For citation rows, decide "
-                "whether the quoted excerpt actually supports its "
-                "attached point, separately from whether the text merely exists. "
+                "whether the quoted excerpt actually supports the exact "
+                "`subject.claim_span`, separately from whether the text merely "
+                "exists. Do not transfer an unrelated factual error elsewhere "
+                "in the same lens or concern onto this citation. "
                 "A local quote can prove that an event occurs; by itself it "
                 "cannot prove a global claim that setup is absent elsewhere. "
+                "Treat `laugh-free`, `no jokes`, and `no attempted laughs` "
+                "literally: one intentional gag, comic lyric, costume joke, "
+                "or button in the claimed range disproves the absolute, even "
+                "when you judge that the joke does not land. "
                 "For a `continuity_flags` row, judge whether the coverage flag "
                 "accurately identifies the screenplay's inconsistency. If the "
                 "flag correctly quotes two conflicting script facts, classify "
@@ -3400,10 +3473,10 @@ def build_detail_audit_user_blocks(
                 "other. "
                 "For every `counting_claim` row, its result value must instead be "
                 "a JSON object with exactly these fields: "
-                "classification, claimed_total, observed_total, "
-                "claimed_universe_total, observed_universe_total, instances, "
-                "note. Copy the code-generated `subject.claimed_total` and "
-                "`subject.claimed_universe_total` exactly. "
+                "classification, observed_total, observed_universe_total, "
+                "instances, note. The code owns the claimed totals; do not echo "
+                "or reinterpret them. A null `subject.claimed_universe_total` "
+                "means the prose stated no denominator. "
                 "The code-generated `subject.count_entity` and "
                 "`subject.count_anchor` identify the exact occurrence to audit; "
                 "never substitute a different entity or event. Sibling predicates "
@@ -4873,6 +4946,12 @@ def run_coverage_v1(
         if audit_payload is None
         else None
     )
+    if (
+        audit_core_payload is not None
+        and audit_core_payload.get("detail_contract_version")
+        != DETAIL_AUDIT_CONTRACT_VERSION
+    ):
+        audit_core_payload = None
     audit_core_replayed = audit_core_payload is not None
 
     audit_first_pass_problems: List[str] = []
@@ -4942,6 +5021,9 @@ def run_coverage_v1(
             (progress or {}).get("text_retry_plan", [])
         )
         retry_plan = list((progress or {}).get("retry_plan", []))
+        count_retry_feedback = copy.deepcopy(
+            (progress or {}).get("count_retry_feedback", {})
+        )
 
         def save_progress() -> None:
             checkpoint_store.save(
@@ -4965,6 +5047,7 @@ def run_coverage_v1(
                         ),
                         "text_retry_plan": text_retry_plan,
                         "retry_plan": retry_plan,
+                        "count_retry_feedback": count_retry_feedback,
                         "evidence_rows": evidence_rows,
                         "citation_rows": citation_rows,
                     },
@@ -5103,8 +5186,8 @@ def run_coverage_v1(
             evidence_rows, rows, text
         )
         if not retry_plan:
-            invalid_count_paths = {
-                str(row.get("field_path", ""))
+            invalid_count_rows = {
+                str(row.get("field_path", "")): row
                 for row in evidence_rows
                 if isinstance(row.get("count_ledger"), dict)
                 and row["count_ledger"].get("valid") is False
@@ -5112,8 +5195,32 @@ def run_coverage_v1(
             retry_plan = [
                 str(row.get("identifier", ""))
                 for row in rows
-                if str(row.get("identifier", "")) in invalid_count_paths
+                if str(row.get("identifier", "")) in invalid_count_rows
             ][:MAX_COUNT_DETAIL_RETRY_TOTAL_ROWS]
+            count_retry_feedback = {
+                identifier: {
+                    "reason": str(
+                        invalid_count_rows[identifier]["count_ledger"].get(
+                            "reason", ""
+                        )
+                    ),
+                    **(
+                        {
+                            "rejected_candidate": invalid_count_rows[
+                                identifier
+                            ]["rejected_candidate"]
+                        }
+                        if isinstance(
+                            invalid_count_rows[identifier].get(
+                                "rejected_candidate"
+                            ),
+                            dict,
+                        )
+                        else {}
+                    ),
+                }
+                for identifier in retry_plan
+            }
             save_progress()
         rows_by_identifier = {
             str(row.get("identifier", "")): row for row in rows
@@ -5129,15 +5236,35 @@ def run_coverage_v1(
             if batch_sha256 in completed_retries:
                 continue
             guard.check_before_call()
+            retry_user_blocks = build_detail_audit_user_blocks(
+                text,
+                title,
+                candidate_coverage,
+                page_reference_map,
+                retry_batch,
+            )
+            retry_user_blocks.append({
+                "type": "text",
+                "text": (
+                    "# COUNT LEDGER CORRECTION\n\nThe previous candidate "
+                    "failed deterministic validation. Correct the exact "
+                    "problems below; all excerpt and page checks remain "
+                    "mandatory.\n\n"
+                    + json.dumps(
+                        {
+                            str(row["identifier"]): count_retry_feedback.get(
+                                str(row["identifier"]), {}
+                            )
+                            for row in retry_batch
+                        },
+                        ensure_ascii=False,
+                        indent=1,
+                    )
+                ),
+            })
             retry_input, _text_out, usage = call(
                 system_blocks=audit_system,
-                user_blocks=build_detail_audit_user_blocks(
-                    text,
-                    title,
-                    candidate_coverage,
-                    page_reference_map,
-                    retry_batch,
-                ),
+                user_blocks=retry_user_blocks,
                 model_key=audit_model_effective,
                 tool=build_count_detail_retry_tool(retry_batch),
                 thinking_budget=AUDIT_THINKING_BUDGET,
@@ -5257,6 +5384,9 @@ def run_coverage_v1(
                     _sealed_record(
                         binding,
                         {
+                            "detail_contract_version": (
+                                DETAIL_AUDIT_CONTRACT_VERSION
+                            ),
                             "tool_input": tool_input,
                             "audit_model": audit_model_effective,
                             "first_pass_problems": audit_first_pass_problems,
@@ -5303,6 +5433,9 @@ def run_coverage_v1(
                     _sealed_record(
                         binding,
                         {
+                            "detail_contract_version": (
+                                DETAIL_AUDIT_CONTRACT_VERSION
+                            ),
                             "tool_input": tool_input,
                             "audit_model": audit_model_effective,
                             "first_pass_problems": audit_first_pass_problems,

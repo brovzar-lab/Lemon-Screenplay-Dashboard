@@ -1272,7 +1272,7 @@ Another video plays on another screen.
                 if claim in claims[:5] or "four-judge" in claim:
                     self.assertEqual(count_check["claimed_universe_total"], 4)
                 else:
-                    self.assertEqual(count_check["claimed_universe_total"], 0)
+                    self.assertIsNone(count_check["claimed_universe_total"])
 
     def test_cosquillitas_methodology_ratio_is_not_a_story_fact_count(self):
         coverage = valid_coverage()
@@ -1351,7 +1351,7 @@ Another video plays on another screen.
         )
 
         self.assertEqual(exact["claimed_total"], 10)
-        self.assertEqual(exact["claimed_universe_total"], 0)
+        self.assertIsNone(exact["claimed_universe_total"])
         self.assertEqual(ratio["claimed_total"], 9)
         self.assertEqual(ratio["claimed_universe_total"], 10)
 
@@ -1409,7 +1409,7 @@ Another video plays on another screen.
                 (row["claimed_total"], row["claimed_universe_total"])
                 for row in checks
             ],
-            [(2, 4), (5, 0)],
+            [(2, 4), (5, None)],
         )
 
     def test_sibling_counts_keep_distinct_entities_and_anchors(self):
@@ -1447,7 +1447,7 @@ Another video plays on another screen.
                 for row in details
             ],
             [
-                (4, 0, "judges", "Four judges"),
+                (4, None, "judges", "Four judges"),
                 (2, 4, "judges", "two are bribed"),
             ],
         )
@@ -1479,11 +1479,7 @@ Another video plays on another screen.
         payload = {"results": {
             row["slot"]: {
                 "classification": "supported",
-                "claimed_total": row["subject"]["claimed_total"],
                 "observed_total": 4 if index == 0 else 2,
-                "claimed_universe_total": (
-                    row["subject"]["claimed_universe_total"]
-                ),
                 "observed_universe_total": 4,
                 "instances": [
                     {
@@ -1528,9 +1524,7 @@ Another video plays on another screen.
         payload = {"results": {
             row["slot"]: {
                 "classification": "supported",
-                "claimed_total": 2,
                 "observed_total": 2,
-                "claimed_universe_total": 0,
                 "observed_universe_total": 2,
                 "instances": [
                     {
@@ -1806,7 +1800,7 @@ Another video plays on another screen.
             "trigger": "counting_claim",
             "claim": "Tony bribes two judges.",
             "claimed_total": 2,
-            "claimed_universe_total": 0,
+            "claimed_universe_total": None,
             "count_quantifier": "exact",
             "count_entity": "judges",
             "count_anchor": "two judges",
@@ -1819,9 +1813,7 @@ Another video plays on another screen.
         }]
         payload = {"results": {"row_001": {
             "classification": "supported",
-            "claimed_total": 2,
             "observed_total": 2,
-            "claimed_universe_total": 0,
             "observed_universe_total": 2,
             "instances": [
                 {
@@ -1856,6 +1848,112 @@ Another video plays on another screen.
         self.assertEqual(first["page_normalized_from"], 95)
         self.assertEqual(len(first["excerpt"].split()), 12)
         self.assertIn("excerpt_normalized_from", first)
+
+    def test_unstated_count_universe_is_not_compared_as_zero(self):
+        source = (
+            "[PAGE 97]\nFirst judge is bribed. Second judge is bribed. "
+            "Third judge refuses. Fourth judge refuses.\n"
+        )
+        claim = "Two judges are bribed."
+        rows = [{
+            "slot": "row_001",
+            "kind": "existing_evidence",
+            "identifier": "synopsis#count_1",
+            "subject": {
+                "field_path": "synopsis#count_1",
+                "source_field_path": "synopsis",
+                "trigger": "counting_claim",
+                "claim": claim,
+                **cv._material_count_claim_details(claim),
+            },
+        }]
+        payload = {"results": {"row_001": {
+            "classification": "supported",
+            "observed_total": 2,
+            "observed_universe_total": 4,
+            "instances": [
+                {
+                    "label": label,
+                    "page": 97,
+                    "excerpt": excerpt,
+                    "matches_claim": index < 2,
+                    "multiplicity": 1,
+                }
+                for index, (label, excerpt) in enumerate((
+                    ("first judge", "First judge is bribed"),
+                    ("second judge", "Second judge is bribed"),
+                    ("third judge", "Third judge refuses"),
+                    ("fourth judge", "Fourth judge refuses"),
+                ))
+            ],
+            "note": "Two of four observed judges are bribed.",
+        }}}
+
+        evidence, _citations = cv.decode_detail_audit_payload(
+            payload, rows, source
+        )
+
+        self.assertEqual(evidence[0]["classification"], "supported")
+        self.assertTrue(evidence[0]["count_ledger"]["valid"])
+        self.assertIsNone(
+            evidence[0]["count_ledger"]["claimed_universe_total"]
+        )
+        self.assertEqual(
+            evidence[0]["count_ledger"]["observed_universe_total"], 4
+        )
+
+    def test_count_ledger_rejects_non_string_prose_in_both_encodings(self):
+        source = "[PAGE 1]\nFirst judge accepts the bribe.\n"
+        subject = {
+            "field_path": "synopsis#count_1",
+            "source_field_path": "synopsis",
+            "trigger": "counting_claim",
+            "claim": "One judge accepts the bribe.",
+            "claimed_total": 1,
+            "claimed_universe_total": None,
+            "count_quantifier": "exact",
+            "count_entity": "judge",
+            "count_anchor": "One judge",
+        }
+        valid = {
+            "classification": "supported",
+            "observed_total": 1,
+            "observed_universe_total": 1,
+            "instances": [{
+                "label": "first judge",
+                "page": 1,
+                "excerpt": "First judge accepts the bribe",
+                "matches_claim": True,
+                "multiplicity": 1,
+            }],
+            "note": "One matching judge appears.",
+        }
+        invalid_values = (False, None, 3, ["text"], {"text": "value"})
+
+        for encoding in ("object", "json_string"):
+            for field in ("note", "label", "excerpt"):
+                for invalid_value in invalid_values:
+                    with self.subTest(
+                        encoding=encoding,
+                        field=field,
+                        invalid_value=invalid_value,
+                    ):
+                        candidate = copy.deepcopy(valid)
+                        if field == "note":
+                            candidate[field] = invalid_value
+                        else:
+                            candidate["instances"][0][field] = invalid_value
+                        value = (
+                            json.dumps(candidate)
+                            if encoding == "json_string"
+                            else candidate
+                        )
+
+                        result = cv._decode_count_audit_result(
+                            value, subject, source
+                        )
+
+                        self.assertFalse(result["count_ledger"]["valid"])
 
     def test_spanish_article_after_entity_is_not_a_count(self):
         self.assertEqual(
@@ -1912,6 +2010,7 @@ Another video plays on another screen.
 
     def test_cosquillitas_reliability_rules_reach_both_readers(self):
         self.assertIn("leftover writer directives", cv.COVERAGE_CHARTER)
+        self.assertIn("reduced comedy density", cv.COVERAGE_CHARTER)
         audit_charter = " ".join(cv.AUDIT_CHARTER.split())
         self.assertIn("enumerate every on-page instance", audit_charter)
         self.assertIn("collapse, coma, and death", audit_charter)
@@ -1928,7 +2027,8 @@ Another video plays on another screen.
         self.assertIn("reveal provenance", detail_text)
         self.assertIn("capture/source", detail_text)
         self.assertIn("continuity_flags", detail_text)
-        self.assertIn("subject.claimed_total", detail_text)
+        self.assertIn("code owns the claimed totals", detail_text.lower())
+        self.assertIn("one intentional gag", detail_text)
         self.assertIn("subject.claimed_universe_total", detail_text)
         self.assertIn("story facts repeated inside the commercial", audit_charter)
         consistency_claim = next(
@@ -1943,6 +2043,7 @@ Another video plays on another screen.
         )
         self.assertIn("logline, synopsis", cv.FACT_REPAIR_CHARTER)
         self.assertIn("never recommend", cv.FACT_REPAIR_CHARTER)
+        self.assertIn("remove that absolute everywhere", cv.FACT_REPAIR_CHARTER)
 
     def test_cosquillitas_writer_directives_are_deterministically_flagged(self):
         screenplay = SCREENPLAY_TEXT.replace(
@@ -3103,6 +3204,49 @@ class TestCheckpointsAndResume(unittest.TestCase):
         self.assertEqual(usage["call_count"], 0)
         self.assertEqual(report["status"], "sealed")
 
+    def test_legacy_audit_core_is_discarded_before_detail_resume(self):
+        coverage = valid_coverage()
+        store = new_store()
+        first = FakeTransport(
+            [
+                (coverage, settled_usage()),
+                (provider_audit_core(coverage), settled_usage()),
+                RuntimeError("proxy died mid-detail-audit"),
+            ]
+        )
+
+        with self.assertRaises(RuntimeError):
+            run_engine(store, first)
+
+        [key_dir] = list(store.root.iterdir())
+        target = key_dir / "audit_core.json"
+        record = json.loads(target.read_text(encoding="utf-8"))
+        record["payload"].pop("detail_contract_version")
+        stale_climax = record["payload"]["tool_input"]["sequence_ledger"][
+            0
+        ]
+        stale_climax["page"] = 6
+        stale_climax["action"] = "The decisive action begins on p.5."
+        record["payload_sha256"] = cv.canonical_json_hash(record["payload"])
+        target.write_text(json.dumps(record), encoding="utf-8")
+
+        resume = FakeTransport(
+            [
+                (provider_audit_core(coverage), settled_usage()),
+                (supported_detail_payload(coverage), settled_usage()),
+            ]
+        )
+        report, usage = run_engine(store, resume)
+
+        self.assertEqual(
+            [call["stage"] for call in resume.calls],
+            ["coverage_v1.fact_audit", "coverage_v1.fact_audit_details"],
+        )
+        self.assertTrue(report["replay"]["coverage_replayed"])
+        self.assertFalse(report["replay"]["audit_core_replayed"])
+        self.assertEqual(usage["call_count"], 2)
+        self.assertEqual(report["status"], "sealed")
+
     def test_full_replay_makes_zero_calls(self):
         coverage = valid_coverage()
         store = new_store()
@@ -3263,6 +3407,112 @@ class TestFactAudit(unittest.TestCase):
             reconciled[0]["classification_normalized_from"], "supported"
         )
 
+    def test_local_citation_ignores_unrelated_global_failure_in_same_lens(self):
+        coverage = valid_coverage()
+        coverage["lens_notes"][0]["analysis"] = (
+            "The COITO sign lands cleanly on p.2. "
+            "The exposé has no camera setup anywhere in the script on p.6."
+        )
+        coverage["lens_notes"][0]["page"] = 2
+        detail_rows = cv.build_detail_audit_rows(
+            coverage,
+            cv.build_existing_evidence_checks(coverage, SCREENPLAY_TEXT),
+        )
+        citation_row = next(
+            row for row in detail_rows
+            if row["kind"] == "citation_relevance"
+            and row["identifier"] == "lens_notes[0]"
+        )
+        evidence = [{
+            "field_path": "lens_notes[0].analysis",
+            "classification": "contradicted",
+            "note": "The camera is planted on page 5.",
+        }]
+        citations = [{
+            "owner": "lens_notes[0]",
+            "classification": "supported",
+            "note": "The excerpt supports the local sign observation.",
+        }]
+
+        reconciled = cv._reconcile_citation_relevance_with_evidence(
+            citations, evidence, detail_rows
+        )
+
+        self.assertEqual(
+            citation_row["subject"]["claim_span"],
+            "The COITO sign lands cleanly on p.2.",
+        )
+        self.assertEqual(reconciled[0]["classification"], "supported")
+
+    def test_same_page_citation_claim_span_stays_conservative(self):
+        local = "The COITO sign lands cleanly on p.2."
+        global_claim = "No attempted joke appears anywhere on p.2."
+
+        for prose in (
+            f"{local} {global_claim}",
+            f"{global_claim} {local}",
+        ):
+            with self.subTest(prose=prose):
+                coverage = valid_coverage()
+                coverage["lens_notes"][0]["analysis"] = prose
+                coverage["lens_notes"][0]["page"] = 2
+                row = next(
+                    item
+                    for item in cv.build_detail_audit_rows(
+                        coverage,
+                        cv.build_existing_evidence_checks(
+                            coverage, SCREENPLAY_TEXT
+                        ),
+                    )
+                    if item["kind"] == "citation_relevance"
+                    and item["identifier"] == "lens_notes[0]"
+                )
+
+                self.assertEqual(row["subject"]["claim_span"], prose)
+
+    def test_bare_laugh_free_claim_gets_full_screenplay_check(self):
+        coverage = valid_coverage()
+        coverage["concerns"][0]["point"] = "Pages 2-4 are laugh-free."
+
+        checks = cv.build_existing_evidence_checks(
+            coverage, SCREENPLAY_TEXT
+        )
+
+        check = next(
+            row for row in checks
+            if row["field_path"] == "concerns[0].point"
+        )
+        self.assertEqual(check["trigger"], "absolute_negative")
+
+    def test_laugh_free_citation_cannot_prove_absence_by_itself(self):
+        coverage = valid_coverage()
+        coverage["concerns"][0]["point"] = (
+            "Pages 2-4 are laugh-free with no attempted jokes."
+        )
+        coverage["concerns"][0]["page"] = 3
+        detail_rows = cv.build_detail_audit_rows(
+            coverage,
+            cv.build_existing_evidence_checks(coverage, SCREENPLAY_TEXT),
+        )
+        evidence = [{
+            "field_path": "concerns[0].point",
+            "classification": "supported",
+            "note": "The complete range was inspected.",
+        }]
+        citations = [{
+            "owner": "concerns[0]",
+            "classification": "supported",
+            "note": "The quoted line appears on page 3.",
+        }]
+
+        reconciled = cv._reconcile_citation_relevance_with_evidence(
+            citations, evidence, detail_rows
+        )
+
+        self.assertEqual(
+            reconciled[0]["classification"], "partially_supported"
+        )
+
     def test_reveal_detail_omitting_source_roles_fails_closed(self):
         coverage = valid_coverage()
         coverage["concerns"][0]["point"] = (
@@ -3386,9 +3636,7 @@ The footage continues.
             "results": {
                 count_row["slot"]: {
                     "classification": "unsupported",
-                    "claimed_total": 3,
                     "observed_total": 0,
-                    "claimed_universe_total": 0,
                     "observed_universe_total": 0,
                     "instances": [],
                     "note": "No bribed judges appear in the test screenplay.",
@@ -3428,6 +3676,60 @@ The footage continues.
             )["property_count"],
             cv.STRICT_BUDGET["property_count"],
         )
+
+    def test_count_retry_receives_rejected_candidate_and_exact_error(self):
+        coverage = valid_coverage()
+        coverage["story_spine"]["opposition"] = (
+            "Tony bribes a trio of judges"
+        )
+        evidence = cv.build_existing_evidence_checks(
+            coverage, SCREENPLAY_TEXT
+        )
+        count_row = next(
+            row for row in cv.build_detail_audit_rows(coverage, evidence)
+            if row["subject"].get("trigger") == "counting_claim"
+        )
+        main_detail = supported_detail_payload(coverage)
+        main_detail["results"][count_row["slot"]] = json.dumps({
+            "classification": "supported",
+            "observed_total": 1,
+            "observed_universe_total": 1,
+            "instances": [{
+                "label": "invented judge",
+                "page": 1,
+                "excerpt": "invented count evidence",
+                "matches_claim": True,
+                "multiplicity": 1,
+            }],
+            "note": "One invented instance was returned.",
+        })
+        corrected_retry = {
+            "results": {
+                count_row["slot"]: {
+                    "classification": "unsupported",
+                    "observed_total": 0,
+                    "observed_universe_total": 0,
+                    "instances": [],
+                    "note": "No bribed judges appear in the test screenplay.",
+                }
+            }
+        }
+        transport = FakeTransport([
+            (coverage, settled_usage()),
+            (provider_audit_core(coverage), settled_usage()),
+            (main_detail, settled_usage()),
+            (corrected_retry, settled_usage()),
+        ])
+
+        report, _usage = run_engine(new_store(), transport)
+
+        self.assertEqual(report["status"], "needs_review")
+        retry_prompt = "\n".join(
+            str(block.get("text", ""))
+            for block in transport.calls[3]["user_blocks"]
+        )
+        self.assertIn("instance 1 excerpt is not on its page", retry_prompt)
+        self.assertIn("invented count evidence", retry_prompt)
 
     def test_malformed_prose_detail_gets_one_typed_retry(self):
         coverage = valid_coverage()
@@ -3614,9 +3916,7 @@ The footage continues.
                 "results": {
                     row["slot"]: {
                         "classification": "unsupported",
-                        "claimed_total": row["subject"]["claimed_total"],
                         "observed_total": 0,
-                        "claimed_universe_total": 0,
                         "observed_universe_total": 0,
                         "instances": [],
                         "note": "No matching judges appear in the screenplay.",
@@ -3677,9 +3977,7 @@ The footage continues.
             "results": {
                 "row_001": json.dumps({
                     "classification": "partially_supported",
-                    "claimed_total": 3,
                     "observed_total": 2,
-                    "claimed_universe_total": 0,
                     "observed_universe_total": 2,
                     "instances": [
                         {
@@ -3725,9 +4023,7 @@ The footage continues.
         }]
         payload = {"results": {"row_001": {
             "classification": "supported",
-            "claimed_total": 3,
             "observed_total": 3,
-            "claimed_universe_total": 0,
             "observed_universe_total": 3,
             "instances": [
                 {
@@ -3765,9 +4061,7 @@ The footage continues.
         }]
         payload = {"results": {"row_001": {
             "classification": "supported",
-            "claimed_total": 2,
             "observed_total": 2,
-            "claimed_universe_total": 0,
             "observed_universe_total": 2,
             "instances": [
                 {
@@ -3809,9 +4103,7 @@ The footage continues.
         }]
         payload = {"results": {"row_001": {
             "classification": "supported",
-            "claimed_total": 2,
             "observed_total": 2,
-            "claimed_universe_total": 0,
             "observed_universe_total": 2,
             "instances": [{
                 "label": "first two judges collectively",
@@ -3852,9 +4144,7 @@ The footage continues.
         def payload_for(row):
             return {"results": {row["slot"]: {
                 "classification": "supported",
-                "claimed_total": 2,
                 "observed_total": 2,
-                "claimed_universe_total": 0,
                 "observed_universe_total": 2,
                 "instances": [
                     {
@@ -3883,6 +4173,14 @@ The footage continues.
 
         self.assertTrue(combined[0]["count_ledger"]["valid"])
         self.assertFalse(combined[1]["count_ledger"]["valid"])
+        self.assertEqual(
+            combined[1]["rejected_candidate"]["instances"],
+            retry[0]["count_ledger"]["instances"],
+        )
+        self.assertIn(
+            "overlaps an instance already used",
+            combined[1]["count_ledger"]["reason"],
+        )
 
     def test_typed_count_ledger_decodes_without_free_form_json(self):
         source = "[PAGE 97]\nTony entrega dinero al primer juez.\n"
@@ -3901,9 +4199,7 @@ The footage continues.
             "results": {
                 "row_001": {
                     "classification": "supported",
-                    "claimed_total": 1,
                     "observed_total": 1,
-                    "claimed_universe_total": 0,
                     "observed_universe_total": 1,
                     "instances": [{
                         "label": "first judge",
@@ -3969,9 +4265,7 @@ The footage continues.
         ]
         payload = {"results": {"row_001": {
             "classification": "supported",
-            "claimed_total": 2,
             "observed_total": 2,
-            "claimed_universe_total": 3,
             "observed_universe_total": 4,
             "instances": instances,
             "note": "Two are bribed, but four judges appear.",
@@ -4018,9 +4312,7 @@ The footage continues.
         ]
         payload = {"results": {"row_001": {
             "classification": "supported",
-            "claimed_total": 2,
             "observed_total": 3,
-            "claimed_universe_total": 4,
             "observed_universe_total": 4,
             "instances": instances,
             "note": "Three of the four judges are bribed.",
