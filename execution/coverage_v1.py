@@ -93,16 +93,14 @@ MAX_AUDIT_CLAIMS = 25
 MIN_AUDIT_CLAIMS = 6
 MAX_DETAIL_AUDIT_ROWS = 64
 MAX_DETAIL_DIRECT_SLOTS = 42
-MAX_TEXT_DETAIL_RETRY_ROWS = 8
-MAX_FOCUSED_DETAIL_RETRY_ROWS = 7
-MAX_GROUNDED_DETAIL_RETRY_ROWS = 3
-MAX_COUNT_DETAIL_RETRY_ROWS = 3
-MAX_COUNT_DETAIL_RETRY_TOTAL_ROWS = 9
 MAX_SEQUENCE_FIELD_REPAIR_SLOTS = 40
-DETAIL_AUDIT_CONTRACT_VERSION = "coverage-v1.2-detail-12"
+AUDIT_CORE_CONTRACT_VERSION = "coverage-v1.2-audit-core-1"
+DETAIL_AUDIT_CONTRACT_VERSION = "coverage-v1.2-detail-13"
+LEGACY_AUDIT_CORE_VERSION = "coverage-v1.2-detail-12"
+LEGACY_DETAIL_PROGRESS_VERSION = "coverage-v1.2-detail-12"
 # Keep already-settled call receipts and budget accounting on the prior
 # binding. Exact request fingerprints still decide whether a receipt replays,
-# while detail checkpoints carry DETAIL_AUDIT_CONTRACT_VERSION and invalidate.
+# while the separately versioned detail/core checkpoints migrate safely.
 DETAIL_AUDIT_BINDING_VERSION = "coverage-v1.2-detail-11"
 BUDGET_LEDGER_VERSION = "coverage-v1.2-budget-2"
 CALL_RECEIPT_VERSION = "coverage-v1.2-call-receipts-1"
@@ -127,6 +125,16 @@ GROUNDED_SEQUENCE_FIELDS = (
 AUDIT_SEQUENCE_PHASES = (
     "climax", "ending", "final_scene", "tag", "aftermath",
 )
+
+
+def _supported_audit_core_checkpoint(payload: Dict[str, Any]) -> bool:
+    """Accept the decoupled core contract and the last sealed legacy core."""
+    return (
+        payload.get("audit_core_contract_version")
+        == AUDIT_CORE_CONTRACT_VERSION
+        or payload.get("detail_contract_version")
+        == LEGACY_AUDIT_CORE_VERSION
+    )
 
 
 def _is_strict_sequence_absence_marker(
@@ -1086,7 +1094,7 @@ def _reusable_detail_seed(
 
 
 def build_detail_audit_tool(rows: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
-    """Build a strict map: required object keys cannot be omitted or repeated."""
+    """Build typed result arrays whose slot set is verified again locally."""
     if not rows or len(rows) > MAX_DETAIL_AUDIT_ROWS:
         raise CoverageContractError(
             "Detailed audit batch must contain 1-"
@@ -1097,15 +1105,173 @@ def build_detail_audit_tool(rows: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
         raise CoverageContractError(
             "Detailed audit slots must be unique and non-empty"
         )
-    overflow_slots = _detail_overflow_slots(rows)
-    direct_slots = [slot for slot in slots if slot not in overflow_slots]
-    result_properties = {
-        slot: {"type": "string"} for slot in direct_slots
+
+    groups: Dict[str, List[Dict[str, Any]]] = {
+        "text_results": [],
+        "focused_results": [],
+        "count_results": [],
+        "citation_results": [],
+        "sequence_results": [],
     }
-    required = list(direct_slots)
-    if overflow_slots:
-        result_properties["overflow_json"] = {"type": "string"}
-        required.append("overflow_json")
+    for row in rows:
+        subject = row.get("subject")
+        if row.get("kind") == "citation_relevance":
+            group = "citation_results"
+        elif row.get("kind") == "sequence_evidence":
+            group = "sequence_results"
+        elif (
+            row.get("kind") == "existing_evidence"
+            and isinstance(subject, dict)
+            and subject.get("trigger") == "counting_claim"
+        ):
+            group = "count_results"
+        elif (
+            row.get("kind") == "existing_evidence"
+            and isinstance(subject, dict)
+            and subject.get("focused_evidence")
+        ):
+            group = "focused_results"
+        elif row.get("kind") == "existing_evidence":
+            group = "text_results"
+        else:
+            raise CoverageContractError(
+                f"Detailed audit row {row.get('slot')!r} has an unknown kind"
+            )
+        groups[group].append(row)
+
+    classification = {
+        "type": "string",
+        "enum": list(AUDIT_CLASSIFICATIONS),
+    }
+    people = {
+        "type": "array",
+        "items": {"type": "string"},
+        "maxItems": 12,
+    }
+    check = {
+        "type": "object",
+        "properties": {
+            "field": {"type": "string"},
+            "page": {"type": "integer"},
+            "excerpt": {"type": "string"},
+            "supports": {"type": "boolean"},
+        },
+        "required": ["field", "page", "excerpt", "supports"],
+    }
+    instance = {
+        "type": "object",
+        "properties": {
+            "label": {"type": "string"},
+            "page": {"type": "integer"},
+            "excerpt": {"type": "string"},
+            "matches_claim": {"type": "boolean"},
+            "multiplicity": {"type": "integer", "minimum": 1},
+        },
+        "required": [
+            "label", "page", "excerpt", "matches_claim", "multiplicity",
+        ],
+    }
+
+    def result_array(
+        group: str,
+        properties: Dict[str, Any],
+        required: Sequence[str],
+    ) -> Dict[str, Any]:
+        group_slots = [str(row["slot"]) for row in groups[group]]
+        item_properties = {
+            "slot": {"type": "string", "enum": group_slots},
+            **properties,
+        }
+        return {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": item_properties,
+                "required": ["slot", *required],
+            },
+            "minItems": len(group_slots),
+            "maxItems": len(group_slots),
+        }
+
+    schemas = {
+        "text_results": (
+            {
+                "classification": classification,
+                "note": {"type": "string"},
+            },
+            ["classification", "note"],
+        ),
+        "focused_results": (
+            {
+                "classification": classification,
+                "note": {"type": "string"},
+                "reviewed_roles": people,
+                "source_status": {
+                    "type": "string",
+                    "enum": list(FOCUSED_EVIDENCE_STATUSES),
+                },
+                "activation_status": {
+                    "type": "string",
+                    "enum": list(FOCUSED_EVIDENCE_STATUSES),
+                },
+            },
+            [
+                "classification", "note", "reviewed_roles",
+                "source_status", "activation_status",
+            ],
+        ),
+        "count_results": (
+            {
+                "classification": classification,
+                "observed_total": {"type": "integer", "minimum": 0},
+                "observed_universe_total": {
+                    "type": "integer", "minimum": 0,
+                },
+                "instances": {"type": "array", "items": instance},
+                "note": {"type": "string"},
+            },
+            [
+                "classification", "observed_total",
+                "observed_universe_total", "instances", "note",
+            ],
+        ),
+        "citation_results": (
+            {
+                "classification": classification,
+                "checks": {
+                    "type": "array",
+                    "items": check,
+                    "minItems": 1,
+                    "maxItems": 1,
+                },
+                "note": {"type": "string"},
+            },
+            ["classification", "checks", "note"],
+        ),
+        "sequence_results": (
+            {
+                "classification": classification,
+                "checks": {
+                    "type": "array",
+                    "items": check,
+                    "minItems": 1,
+                    "maxItems": len(GROUNDED_SEQUENCE_FIELDS),
+                },
+                "note": {"type": "string"},
+                "observed_actors": people,
+                "observed_knowers": people,
+            },
+            [
+                "classification", "checks", "note",
+                "observed_actors", "observed_knowers",
+            ],
+        ),
+    }
+    result_properties = {
+        group: result_array(group, *schemas[group])
+        for group in groups
+        if groups[group]
+    }
     tool = {
         "name": "submit_detail_audit_v1_2",
         "description": (
@@ -1113,14 +1279,8 @@ def build_detail_audit_tool(rows: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
         ),
         "input_schema": {
             "type": "object",
-            "properties": {
-                "results": {
-                    "type": "object",
-                    "properties": result_properties,
-                    "required": required,
-                },
-            },
-            "required": ["results"],
+            "properties": result_properties,
+            "required": list(result_properties),
         },
     }
     stats = strict_schema_complexity(tool["input_schema"])
@@ -1162,337 +1322,100 @@ def _expand_detail_audit_payload(
     payload: Any,
     rows: Sequence[Dict[str, Any]],
 ) -> Dict[str, Any]:
-    """Expand the bounded overflow string so all local checks stay identical."""
+    """Normalize typed arrays or a legacy paid result map to one local map."""
     expected = [str(row["slot"]) for row in rows]
-    overflow_slots = _detail_overflow_slots(rows)
     results = payload.get("results") if isinstance(payload, dict) else None
-    if not isinstance(results, dict):
-        return {"results": {slot: None for slot in expected}}
-    if set(results) == set(expected):
-        return {"results": {slot: results[slot] for slot in expected}}
-    overflow: Any = {}
-    if overflow_slots:
-        try:
-            overflow = json.loads(results.get("overflow_json", ""))
-        except (TypeError, ValueError):
-            overflow = {}
-        if not isinstance(overflow, dict) or set(overflow) != set(
-            overflow_slots
-        ):
-            overflow = {}
-    return {
-        "results": {
-            slot: (
-                overflow.get(slot)
-                if slot in overflow_slots
-                else results.get(slot)
-            )
-            for slot in expected
-        }
-    }
-
-
-def build_text_detail_retry_tool(
-    rows: Sequence[Dict[str, Any]],
-) -> Dict[str, Any]:
-    """Retry malformed prose slots once with typed classification fields."""
-    if not rows or len(rows) > MAX_TEXT_DETAIL_RETRY_ROWS or any(
-        row.get("kind") != "existing_evidence"
-        or not isinstance(row.get("subject"), dict)
-        or (
-            row["subject"].get("trigger") == "counting_claim"
-            or row["subject"].get("focused_evidence")
-        )
-        for row in rows
-    ):
-        raise CoverageContractError(
-            "Text detail retry must contain 1-"
-            f"{MAX_TEXT_DETAIL_RETRY_ROWS} non-count rows"
-        )
-    slots = [str(row.get("slot", "")) for row in rows]
-    if any(not slot for slot in slots) or len(slots) != len(set(slots)):
-        raise CoverageContractError(
-            "Text detail retry slots must be unique and non-empty"
-        )
-    result = {
-        "type": "object",
-        "properties": {
-            "classification": {
-                "type": "string",
-                "enum": list(AUDIT_CLASSIFICATIONS),
-            },
-            "note": {"type": "string"},
-        },
-        "required": ["classification", "note"],
-    }
-    tool = {
-        "name": "submit_text_detail_retry_v1_2",
-        "description": (
-            "Retry only malformed prose detail slots with typed fields."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "results": {
-                    "type": "object",
-                    "properties": {
-                        slot: copy.deepcopy(result) for slot in slots
-                    },
-                    "required": slots,
-                },
-            },
-            "required": ["results"],
-        },
-    }
-    stats = strict_schema_complexity(tool["input_schema"])
-    for metric, ceiling in STRICT_BUDGET.items():
-        if stats[metric] > ceiling:
-            raise CoverageContractError(
-                f"{tool['name']} exceeds strict budget: "
-                f"{metric}={stats[metric]} > {ceiling}"
-            )
-    return tool
-
-
-def build_focused_detail_retry_tool(
-    rows: Sequence[Dict[str, Any]],
-) -> Dict[str, Any]:
-    """Retry focused evidence with typed roles and provenance statuses."""
-    if not rows or len(rows) > MAX_FOCUSED_DETAIL_RETRY_ROWS or any(
-        row.get("kind") != "existing_evidence"
-        or not isinstance(row.get("subject"), dict)
-        or not row["subject"].get("focused_evidence")
-        for row in rows
-    ):
-        raise CoverageContractError(
-            "Focused detail retry must contain 1-"
-            f"{MAX_FOCUSED_DETAIL_RETRY_ROWS} focused evidence rows"
-        )
-    slots = [str(row.get("slot", "")) for row in rows]
-    if any(not slot for slot in slots) or len(slots) != len(set(slots)):
-        raise CoverageContractError(
-            "Focused detail retry slots must be unique and non-empty"
-        )
-    result = {
-        "type": "object",
-        "properties": {
-            "classification": {
-                "type": "string",
-                "enum": list(AUDIT_CLASSIFICATIONS),
-            },
-            "note": {"type": "string"},
-            "reviewed_roles": {
-                "type": "array",
-                "items": {"type": "string"},
-            },
-            "source_status": {
-                "type": "string",
-                "enum": list(FOCUSED_EVIDENCE_STATUSES),
-            },
-            "activation_status": {
-                "type": "string",
-                "enum": list(FOCUSED_EVIDENCE_STATUSES),
-            },
-        },
-        "required": [
-            "classification",
-            "note",
-            "reviewed_roles",
-            "source_status",
-            "activation_status",
-        ],
-    }
-    tool = {
-        "name": "submit_focused_detail_retry_v1_2",
-        "description": (
-            "Retry malformed reveal-provenance rows with typed evidence fields."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "results": {
-                    "type": "object",
-                    "properties": {
-                        slot: copy.deepcopy(result) for slot in slots
-                    },
-                    "required": slots,
-                },
-            },
-            "required": ["results"],
-        },
-    }
-    stats = strict_schema_complexity(tool["input_schema"])
-    for metric, ceiling in STRICT_BUDGET.items():
-        if stats[metric] > ceiling:
-            raise CoverageContractError(
-                f"{tool['name']} exceeds strict budget: "
-                f"{metric}={stats[metric]} > {ceiling}"
-            )
-    return tool
-
-
-def build_grounded_detail_retry_tool(
-    rows: Sequence[Dict[str, Any]],
-) -> Dict[str, Any]:
-    """Retry source-grounded citation and sequence rows once."""
-    if not rows or len(rows) > MAX_GROUNDED_DETAIL_RETRY_ROWS or any(
-        row.get("kind") not in {"citation_relevance", "sequence_evidence"}
-        for row in rows
-    ):
-        raise CoverageContractError(
-            "Grounded detail retry must contain 1-"
-            f"{MAX_GROUNDED_DETAIL_RETRY_ROWS} citation or sequence rows"
-        )
-    slots = [str(row.get("slot", "")) for row in rows]
-    if any(not slot for slot in slots) or len(slots) != len(set(slots)):
-        raise CoverageContractError(
-            "Grounded detail retry slots must be unique and non-empty"
-        )
-    def result_schema(row: Dict[str, Any]) -> Dict[str, Any]:
-        properties: Dict[str, Any] = {
-            "classification": {
-                "type": "string",
-                "enum": list(AUDIT_CLASSIFICATIONS),
-            },
-            "checks": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "field": {"type": "string"},
-                        "page": {"type": "integer"},
-                        "excerpt": {"type": "string"},
-                        "supports": {"type": "boolean"},
-                    },
-                    "required": ["field", "page", "excerpt", "supports"],
-                },
-                "minItems": 1,
-                "maxItems": len(GROUNDED_SEQUENCE_FIELDS),
-            },
-            "note": {"type": "string"},
-        }
-        required = ["classification", "checks", "note"]
-        if row.get("kind") == "sequence_evidence":
-            people = {
-                "type": "array",
-                "items": {"type": "string"},
-                "maxItems": 12,
-            }
-            properties["observed_actors"] = copy.deepcopy(people)
-            properties["observed_knowers"] = copy.deepcopy(people)
-            required.extend(["observed_actors", "observed_knowers"])
+    if isinstance(results, dict):
+        if set(results) == set(expected):
+            return {"results": {slot: results[slot] for slot in expected}}
+        overflow_slots = _detail_overflow_slots(rows)
+        overflow: Any = {}
+        if overflow_slots:
+            try:
+                overflow = json.loads(results.get("overflow_json", ""))
+            except (TypeError, ValueError):
+                overflow = {}
+            if not isinstance(overflow, dict) or set(overflow) != set(
+                overflow_slots
+            ):
+                overflow = {}
         return {
-            "type": "object",
-            "properties": properties,
-            "required": required,
+            "results": {
+                slot: (
+                    overflow.get(slot)
+                    if slot in overflow_slots
+                    else results.get(slot)
+                )
+                for slot in expected
+            }
         }
-    tool = {
-        "name": "submit_grounded_detail_retry_v1_2",
-        "description": (
-            "Retry malformed citation and sequence evidence with exact "
-            "page-bound source checks."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "results": {
-                    "type": "object",
-                    "properties": {
-                        str(row["slot"]): result_schema(row) for row in rows
-                    },
-                    "required": slots,
-                },
-            },
-            "required": ["results"],
-        },
-    }
-    stats = strict_schema_complexity(tool["input_schema"])
-    for metric, ceiling in STRICT_BUDGET.items():
-        if stats[metric] > ceiling:
-            raise CoverageContractError(
-                f"{tool['name']} exceeds strict budget: "
-                f"{metric}={stats[metric]} > {ceiling}"
-            )
-    return tool
 
+    grouped: Dict[str, List[Dict[str, Any]]] = {
+        "text_results": [],
+        "focused_results": [],
+        "count_results": [],
+        "citation_results": [],
+        "sequence_results": [],
+    }
+    for row in rows:
+        subject = row.get("subject")
+        if row.get("kind") == "citation_relevance":
+            group = "citation_results"
+        elif row.get("kind") == "sequence_evidence":
+            group = "sequence_results"
+        elif (
+            row.get("kind") == "existing_evidence"
+            and isinstance(subject, dict)
+            and subject.get("trigger") == "counting_claim"
+        ):
+            group = "count_results"
+        elif (
+            row.get("kind") == "existing_evidence"
+            and isinstance(subject, dict)
+            and subject.get("focused_evidence")
+        ):
+            group = "focused_results"
+        else:
+            group = "text_results"
+        grouped[group].append(row)
+    expected_groups = {group for group, values in grouped.items() if values}
+    if not isinstance(payload, dict) or set(payload) != expected_groups:
+        return {"results": {slot: None for slot in expected}}
 
-def build_count_detail_retry_tool(
-    rows: Sequence[Dict[str, Any]],
-) -> Dict[str, Any]:
-    """Give malformed count slots one typed, bounded retry."""
-    if not rows or len(rows) > MAX_COUNT_DETAIL_RETRY_ROWS or any(
-        row.get("kind") != "existing_evidence"
-        or not isinstance(row.get("subject"), dict)
-        or row["subject"].get("trigger") != "counting_claim"
-        for row in rows
-    ):
-        raise CoverageContractError(
-            "Count detail retry must contain 1-"
-            f"{MAX_COUNT_DETAIL_RETRY_ROWS} counting claims"
-        )
-    slots = [str(row.get("slot", "")) for row in rows]
-    if any(not slot for slot in slots) or len(slots) != len(set(slots)):
-        raise CoverageContractError(
-            "Count detail retry slots must be unique and non-empty"
-        )
-    result = {
-        "type": "object",
-        "properties": {
-            "classification": {
-                "type": "string",
-                "enum": list(AUDIT_CLASSIFICATIONS),
-            },
-            "observed_total": {"type": "integer", "minimum": 0},
-            "observed_universe_total": {"type": "integer", "minimum": 0},
-            "instances": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "label": {"type": "string"},
-                        "page": {"type": "integer"},
-                        "excerpt": {"type": "string"},
-                        "matches_claim": {"type": "boolean"},
-                        "multiplicity": {"type": "integer", "minimum": 1},
-                    },
-                    "required": [
-                        "label", "page", "excerpt", "matches_claim",
-                        "multiplicity",
-                    ],
-                },
-            },
-            "note": {"type": "string"},
-        },
-        "required": [
-            "classification", "observed_total", "observed_universe_total",
-            "instances", "note",
-        ],
-    }
-    tool = {
-        "name": "submit_count_detail_retry_v1_2",
-        "description": "Retry only malformed count ledgers with typed fields.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "results": {
-                    "type": "object",
-                    "properties": {
-                        slot: copy.deepcopy(result) for slot in slots
-                    },
-                    "required": slots,
-                },
-            },
-            "required": ["results"],
-        },
-    }
-    stats = strict_schema_complexity(tool["input_schema"])
-    for metric, ceiling in STRICT_BUDGET.items():
-        if stats[metric] > ceiling:
-            raise CoverageContractError(
-                f"{tool['name']} exceeds strict budget: "
-                f"{metric}={stats[metric]} > {ceiling}"
-            )
-    return tool
+    normalized: Dict[str, Any] = {}
+    for group, group_rows in grouped.items():
+        if not group_rows:
+            continue
+        expected_slots = {str(row["slot"]) for row in group_rows}
+        values = payload.get(group)
+        if not isinstance(values, list) or len(values) != len(group_rows):
+            normalized.update({slot: None for slot in expected_slots})
+            continue
+        by_slot: Dict[str, Dict[str, Any]] = {}
+        duplicate = False
+        for value in values:
+            if not isinstance(value, dict) or not isinstance(
+                value.get("slot"), str
+            ):
+                duplicate = True
+                break
+            slot = str(value["slot"])
+            if slot in by_slot:
+                duplicate = True
+                break
+            by_slot[slot] = value
+        if duplicate or set(by_slot) != expected_slots:
+            normalized.update({slot: None for slot in expected_slots})
+            continue
+        for row in group_rows:
+            slot = str(row["slot"])
+            value = {
+                key: copy.deepcopy(item)
+                for key, item in by_slot[slot].items()
+                if key != "slot"
+            }
+            normalized[slot] = value
+    return {"results": {slot: normalized.get(slot) for slot in expected}}
 
 
 def _decode_text_detail_value(value: Any) -> Optional[Tuple[str, str]]:
@@ -2460,6 +2383,14 @@ def _malformed_text_detail_rows(
             and isinstance(subject, dict)
             and subject.get("trigger") == "counting_claim"
         ):
+            decoded = _decode_count_audit_result(
+                results.get(str(row["slot"])), subject, source_text
+            )
+            if not (
+                isinstance(decoded.get("count_ledger"), dict)
+                and decoded["count_ledger"].get("valid") is True
+            ):
+                malformed.append(row)
             continue
         value = results.get(str(row["slot"]))
         if row.get("kind") in {"citation_relevance", "sequence_evidence"}:
@@ -5160,17 +5091,6 @@ def build_detail_audit_user_blocks(
     rows: Sequence[Dict[str, Any]],
 ) -> List[Dict[str, Any]]:
     """Separate strict pass for existing-evidence and citation detail rows."""
-    overflow_slots = _detail_overflow_slots(rows)
-    overflow_instruction = (
-        "\n\nThe strict tool places these lower-complexity slots inside "
-        "`results.overflow_json`: "
-        + json.dumps(overflow_slots, ensure_ascii=False)
-        + ". That field must be a JSON-encoded object containing exactly "
-        "those slot keys, with the same string-valued result format. Return "
-        "every other slot directly under `results`."
-        if overflow_slots
-        else ""
-    )
     return [
         _screenplay_block(text),
         _character_index_block(text),
@@ -5193,22 +5113,20 @@ def build_detail_audit_user_blocks(
             "text": (
                 f"# REQUIRED DETAIL ROWS — {title}\n\n"
                 + json.dumps(list(rows), ensure_ascii=False, indent=1)
-                + overflow_instruction
-                + "\n\nReturn every slot exactly once in its assigned direct "
-                "or overflow location. Each value "
-                "must be `classification: note`, where classification is "
-                "supported, partially_supported, unsupported, or contradicted "
-                "and note is one factual sentence, except for the typed JSON "
-                "rows described below. For existing-evidence rows, "
+                + "\n\nUse the typed tool arrays. Return every supplied slot "
+                "exactly once in the array matching its row kind: ordinary "
+                "existing_evidence in text_results, focused_evidence in "
+                "focused_results, counting_claim in count_results, "
+                "citation_relevance in citation_results, and "
+                "sequence_evidence in sequence_results. Never put a slot in "
+                "more than one array. Every note must be one concise factual "
+                "sentence. For existing-evidence rows, "
                 "search the COMPLETE screenplay for setup, synonyms, physical "
                 "staging, payoff, and aftermath before deciding. The code-"
                 "generated `focused_evidence` in those rows contains literal "
                 "source windows, not conclusions; inspect every supplied page "
                 "before approving an absence claim. For every row containing "
-                "focused_evidence, its result value must instead be a JSON "
-                "object with exactly classification, note, reviewed_roles, "
-                "source_status, and activation_status, encoded as a JSON "
-                "string for the main string-valued tool. reviewed_roles must "
+                "focused_evidence, reviewed_roles must "
                 "list every supplied role and page exactly once in the form "
                 "role=p.N (for example, source_device=p.73). Both status "
                 "values must be established, inferable, unconfirmed, or "
@@ -5224,8 +5142,7 @@ def build_detail_audit_user_blocks(
                 "unless the text explicitly says it appears inside the image. "
                 "Keep a dialogue speaker separate from the actor whose later "
                 "physical action pays off the line. For every "
-                "citation_relevance row, return a JSON object encoded as a "
-                "string with exactly classification, checks, and note. checks "
+                "citation_relevance row, checks "
                 "must contain exactly one object with field `citation`, the "
                 "bound page, a verbatim 3-12-word excerpt overlapping the bound "
                 "excerpt, and supports. Decide whether that excerpt actually "
@@ -5236,9 +5153,9 @@ def build_detail_audit_user_blocks(
                 "error elsewhere in the same lens or concern onto this citation. "
                 "A local quote can prove that an event occurs; by itself it "
                 "cannot prove a global claim that setup is absent elsewhere. "
-                "For every sequence_evidence row, return the same JSON shape, "
-                "encoded as a string, plus observed_actors and observed_knowers "
-                "arrays. Put one explicitly evidenced person or group in each "
+                "For every sequence_evidence row, include observed_actors and "
+                "observed_knowers arrays. Put one explicitly evidenced person "
+                "or group in each "
                 "array item; use an empty array when the source names none. "
                 "The actor evidence excerpt must contain the complete observed "
                 "roster, and the character_knowledge excerpt must name each "
@@ -5260,10 +5177,8 @@ def build_detail_audit_user_blocks(
                 "the flag supported; do not call the flag contradicted merely "
                 "because the underlying dialogue and staging contradict each "
                 "other. "
-                "For every `counting_claim` row, its result value must instead be "
-                "a JSON object with exactly these fields: "
-                "classification, observed_total, observed_universe_total, "
-                "instances, note. The code owns the claimed totals; do not echo "
+                "For every `counting_claim` row, the code owns the claimed "
+                "totals; do not echo "
                 "or reinterpret them. A null `subject.claimed_universe_total` "
                 "means the prose stated no denominator. "
                 "The code-generated `subject.count_entity` and "
@@ -5279,9 +5194,6 @@ def build_detail_audit_user_blocks(
                 "about an unrelated person cannot prove a distinct instance. "
                 "The code derives identity from the excerpt and binds it to "
                 "`subject.claimed_role_identities`; provider labels never do. "
-                "Follow the tool schema: encode this object as a "
-                "JSON string when the slot is typed as string, or return its "
-                "fields directly when the slot is typed as object. "
                 "Each instance must contain exactly label, page, a verbatim "
                 "3-12-word excerpt from that page, matches_claim, and multiplicity. "
                 "Use multiplicity 1 for one event. When one source line literally "
@@ -5308,6 +5220,42 @@ def build_detail_audit_user_blocks(
             ),
         },
     ]
+
+
+def _grounded_detail_source_packet(
+    text: str,
+    rows: Sequence[Dict[str, Any]],
+) -> str:
+    """Send grounded retries only pages their frozen claims may cite."""
+    _numbers, pages = _marked_page_contents(text)
+    selected: set[int] = set()
+    for row in rows:
+        subject = row.get("subject")
+        if not isinstance(subject, dict):
+            continue
+        page = subject.get("page")
+        if type(page) is int:
+            selected.add(page)
+        beat = subject.get("beat")
+        if not isinstance(beat, dict):
+            continue
+        beat_page = beat.get("page")
+        if type(beat_page) is int:
+            selected.add(beat_page)
+        for field in GROUNDED_SEQUENCE_FIELDS:
+            spans = (
+                _sequence_action_page_spans
+                if field in {"actor", "action"}
+                else _prose_page_spans
+            )(str(beat.get("action" if field == "actor" else field, "")))
+            for start, end in spans:
+                selected.update(range(start, end + 1))
+    selected.intersection_update(pages)
+    if not selected:
+        return text
+    return "\n\n".join(
+        f"[PAGE {page}]\n{pages[page].strip()}" for page in sorted(selected)
+    )
 
 
 # ── Checkpoints ──────────────────────────────────────────────────────────────
@@ -8078,10 +8026,14 @@ def run_coverage_v1(
     )
     if (
         audit_core_payload is not None
-        and audit_core_payload.get("detail_contract_version")
-        != DETAIL_AUDIT_CONTRACT_VERSION
+        and not _supported_audit_core_checkpoint(audit_core_payload)
     ):
         audit_core_payload = None
+    audit_core_needs_reseal = bool(
+        audit_core_payload is not None
+        and audit_core_payload.get("audit_core_contract_version")
+        != AUDIT_CORE_CONTRACT_VERSION
+    )
     audit_core_replayed = audit_core_payload is not None
 
     audit_first_pass_problems: List[str] = []
@@ -8143,8 +8095,10 @@ def run_coverage_v1(
         if (
             progress is not None
             and (
-                progress.get("detail_contract_version")
-                != DETAIL_AUDIT_CONTRACT_VERSION
+                progress.get("detail_contract_version") not in {
+                    DETAIL_AUDIT_CONTRACT_VERSION,
+                    LEGACY_DETAIL_PROGRESS_VERSION,
+                }
                 or progress.get("coverage_sha256") != coverage_sha256
                 or progress.get("candidate_sha256") != candidate_sha256
                 or progress.get("rows_sha256") != rows_sha256
@@ -8161,17 +8115,11 @@ def run_coverage_v1(
         completed_main = set(
             (progress or {}).get("completed_main_batches", [])
         )
-        completed_text_retries = set(
-            (progress or {}).get("completed_text_retry_batches", [])
+        completed_typed_a = set(
+            (progress or {}).get("completed_typed_a_batches", [])
         )
-        completed_focused_retries = set(
-            (progress or {}).get("completed_focused_retry_batches", [])
-        )
-        completed_grounded_retries = set(
-            (progress or {}).get("completed_grounded_retry_batches", [])
-        )
-        completed_retries = set(
-            (progress or {}).get("completed_retry_batches", [])
+        completed_typed_b = set(
+            (progress or {}).get("completed_typed_b_batches", [])
         )
         text_retry_plan = list(
             (progress or {}).get("text_retry_plan", [])
@@ -8182,7 +8130,11 @@ def run_coverage_v1(
         grounded_retry_plan = list(
             (progress or {}).get("grounded_retry_plan", [])
         )
-        retry_plan = list((progress or {}).get("retry_plan", []))
+        typed_a_plan = list((progress or {}).get("typed_a_plan", []))
+        typed_b_plan = list((progress or {}).get("typed_b_plan", []))
+        text_retry_feedback = copy.deepcopy(
+            (progress or {}).get("text_retry_feedback", {})
+        )
         focused_retry_feedback = copy.deepcopy(
             (progress or {}).get("focused_retry_feedback", {})
         )
@@ -8208,22 +8160,18 @@ def run_coverage_v1(
                         "rows_sha256": rows_sha256,
                         "seed_sha256": seed_sha256,
                         "completed_main_batches": sorted(completed_main),
-                        "completed_text_retry_batches": sorted(
-                            completed_text_retries
+                        "completed_typed_a_batches": sorted(
+                            completed_typed_a
                         ),
-                        "completed_focused_retry_batches": sorted(
-                            completed_focused_retries
-                        ),
-                        "completed_grounded_retry_batches": sorted(
-                            completed_grounded_retries
-                        ),
-                        "completed_retry_batches": sorted(
-                            completed_retries
+                        "completed_typed_b_batches": sorted(
+                            completed_typed_b
                         ),
                         "text_retry_plan": text_retry_plan,
                         "focused_retry_plan": focused_retry_plan,
                         "grounded_retry_plan": grounded_retry_plan,
-                        "retry_plan": retry_plan,
+                        "typed_a_plan": typed_a_plan,
+                        "typed_b_plan": typed_b_plan,
+                        "text_retry_feedback": text_retry_feedback,
                         "focused_retry_feedback": focused_retry_feedback,
                         "grounded_retry_feedback": grounded_retry_feedback,
                         "count_retry_feedback": count_retry_feedback,
@@ -8307,11 +8255,36 @@ def run_coverage_v1(
                 )
                 evidence_rows.extend(decoded_evidence)
                 citation_rows.extend(decoded_citations)
-            text_retry_plan.extend(
-                str(row["slot"])
-                for row in plain_malformed
-                if str(row["slot"]) not in text_retry_plan
-            )
+            for row in plain_malformed:
+                slot = str(row["slot"])
+                if slot not in text_retry_plan:
+                    text_retry_plan.append(slot)
+                rejected = detail_input["results"].get(slot)
+                subject = row.get("subject", {})
+                if (
+                    isinstance(subject, dict)
+                    and subject.get("trigger") == "counting_claim"
+                ):
+                    decoded_count = _decode_count_audit_result(
+                        rejected, subject, text
+                    )
+                    ledger = decoded_count.get("count_ledger", {})
+                    reason = str(
+                        ledger.get("reason", "count ledger is invalid")
+                    )
+                    count_retry_feedback[slot] = {
+                        "reason": reason,
+                        "rejected_candidate": rejected,
+                    }
+                else:
+                    reason = (
+                        "result must contain a valid classification and a "
+                        "non-empty factual note"
+                    )
+                text_retry_feedback[slot] = {
+                    "reason": reason,
+                    "rejected_candidate": rejected,
+                }
             for row in focused_malformed:
                 slot = str(row["slot"])
                 if slot not in focused_retry_plan:
@@ -8343,317 +8316,314 @@ def run_coverage_v1(
             completed_main.add(batch_sha256)
             save_progress()
 
-        if len(focused_retry_plan) > MAX_FOCUSED_DETAIL_RETRY_ROWS:
-            raise CoverageContractError(
-                "Detailed audit returned too many malformed focused rows for "
-                "one bounded retry"
-            )
-        if len(grounded_retry_plan) > MAX_GROUNDED_DETAIL_RETRY_ROWS:
-            raise CoverageContractError(
-                "Detailed audit returned too many malformed grounded rows "
-                "for one bounded retry"
-            )
-        if len(text_retry_plan) > MAX_TEXT_DETAIL_RETRY_ROWS:
-            raise CoverageContractError(
-                "Detailed audit returned too many malformed prose rows for "
-                "one bounded retry"
-            )
         rows_by_slot = {str(row["slot"]): row for row in rows}
-        text_retry_rows = [
-            rows_by_slot[slot]
-            for slot in text_retry_plan
-            if slot in rows_by_slot
-        ]
-        for start in range(
-            0, len(text_retry_rows), MAX_TEXT_DETAIL_RETRY_ROWS
-        ):
-            text_retry_batch = text_retry_rows[
-                start:start + MAX_TEXT_DETAIL_RETRY_ROWS
+        invalid_counts = {
+            str(row.get("field_path", "")): row
+            for row in evidence_rows
+            if isinstance(row.get("count_ledger"), dict)
+            and row["count_ledger"].get("valid") is False
+        }
+        if not typed_a_plan:
+            typed_a_slots = {
+                *text_retry_plan,
+                *focused_retry_plan,
+                *(
+                    str(row["slot"])
+                    for row in rows
+                    if str(row.get("identifier", "")) in invalid_counts
+                ),
+            }
+            typed_a_plan = [
+                str(row["slot"])
+                for row in rows
+                if str(row["slot"]) in typed_a_slots
             ]
-            batch_sha256 = canonical_json_hash(text_retry_batch)
-            if batch_sha256 in completed_text_retries:
-                continue
-            retry_user_blocks = build_detail_audit_user_blocks(
-                text,
-                title,
-                candidate_coverage,
-                page_reference_map,
-                text_retry_batch,
+        if not typed_b_plan:
+            typed_b_plan = [
+                str(row["slot"])
+                for row in rows
+                if str(row["slot"]) in set(grounded_retry_plan)
+            ]
+        if (
+            len(typed_a_plan) > MAX_DETAIL_AUDIT_ROWS
+            or len(typed_b_plan) > MAX_DETAIL_AUDIT_ROWS
+        ):
+            raise CoverageContractError(
+                "Detailed audit recovery exceeds its bounded typed batches"
             )
-            retry_user_blocks.append({
-                "type": "text",
-                "text": (
-                    "# FORMAT REPAIR\n\nThe previous response was rejected "
-                    "because these slots did not contain both a valid "
-                    "classification and a non-empty factual note. For this "
-                    "retry only, follow the typed tool schema: return each "
-                    "slot as an object with exactly `classification` and "
-                    "`note`. The schema overrides the earlier string-format "
-                    "instruction. Re-audit only these rows."
-                ),
-            })
-            retry_input, _text_out, usage = call(
-                system_blocks=audit_system,
-                user_blocks=retry_user_blocks,
-                model_key=audit_model_effective,
-                tool=build_text_detail_retry_tool(text_retry_batch),
-                thinking_budget=AUDIT_THINKING_BUDGET,
-                max_tokens=AUDIT_MAX_TOKENS,
-                proxy_url=proxy_url,
-                job_id=job_id,
-                stage=(
-                    stage
-                    + f"_text_retry_{start // MAX_TEXT_DETAIL_RETRY_ROWS + 1}"
-                ),
-                pipeline_pass="coverage_v1",
-            )
-            retried_evidence, retried_citations = (
-                decode_detail_audit_payload(
-                    retry_input, text_retry_batch, text
-                )
-            )
-            evidence_rows.extend(retried_evidence)
-            citation_rows.extend(retried_citations)
-            completed_text_retries.add(batch_sha256)
-            save_progress()
+        save_progress()
 
-        focused_retry_rows = [
+        def merge_rows(
+            originals: Sequence[Dict[str, Any]],
+            replacements: Sequence[Dict[str, Any]],
+            key: str,
+        ) -> List[Dict[str, Any]]:
+            replacement_by_key = {
+                str(row.get(key, "")): copy.deepcopy(row)
+                for row in replacements
+            }
+            merged = [
+                replacement_by_key.get(
+                    str(row.get(key, "")), copy.deepcopy(row)
+                )
+                for row in originals
+            ]
+            present = {str(row.get(key, "")) for row in originals}
+            merged.extend(
+                copy.deepcopy(row)
+                for row in replacements
+                if str(row.get(key, "")) not in present
+            )
+            return merged
+
+        typed_a_rows = [
             rows_by_slot[slot]
-            for slot in focused_retry_plan
+            for slot in typed_a_plan
             if slot in rows_by_slot
         ]
-        if focused_retry_rows:
-            batch_sha256 = canonical_json_hash(focused_retry_rows)
-            if batch_sha256 not in completed_focused_retries:
-                retry_user_blocks = build_detail_audit_user_blocks(
-                    text,
-                    title,
-                    candidate_coverage,
-                    page_reference_map,
-                    focused_retry_rows,
-                )
-                retry_user_blocks.append({
-                    "type": "text",
-                    "text": (
-                        "# FOCUSED EVIDENCE FORMAT REPAIR\n\nThe prior "
-                        "candidates failed deterministic validation. For this "
-                        "typed retry, return each slot as a direct object, not "
-                        "a JSON string. Include exactly classification, note, "
-                        "reviewed_roles, source_status, and activation_status. "
-                        "Review every required role and correct the exact "
-                        "problems below.\n\n"
-                        + json.dumps(
-                            {
-                                str(row["slot"]): focused_retry_feedback.get(
-                                    str(row["slot"]), {}
-                                )
-                                for row in focused_retry_rows
-                            },
-                            ensure_ascii=False,
-                            indent=1,
-                        )
-                    ),
-                })
-                retry_input, _text_out, usage = call(
-                    system_blocks=audit_system,
-                    user_blocks=retry_user_blocks,
-                    model_key=audit_model_effective,
-                    tool=build_focused_detail_retry_tool(
-                        focused_retry_rows
-                    ),
-                    thinking_budget=AUDIT_THINKING_BUDGET,
-                    max_tokens=AUDIT_MAX_TOKENS,
-                    proxy_url=proxy_url,
-                    job_id=job_id,
-                    stage=stage + "_focused_retry_1",
-                    pipeline_pass="coverage_v1",
-                )
-                retried_evidence, _unused_citations = (
-                    decode_detail_audit_payload(
-                        retry_input, focused_retry_rows, text
+        if typed_a_rows:
+            batch_sha256 = canonical_json_hash(typed_a_rows)
+            if batch_sha256 not in completed_typed_a:
+                feedback: Dict[str, Any] = {}
+                for row in typed_a_rows:
+                    slot = str(row["slot"])
+                    identifier = str(row.get("identifier", ""))
+                    prior = (
+                        focused_retry_feedback.get(slot)
+                        or text_retry_feedback.get(slot)
+                        or count_retry_feedback.get(slot)
                     )
-                )
-                evidence_rows.extend(retried_evidence)
-                completed_focused_retries.add(batch_sha256)
-                save_progress()
-
-        grounded_retry_rows = [
-            rows_by_slot[slot]
-            for slot in grounded_retry_plan
-            if slot in rows_by_slot
-        ]
-        if grounded_retry_rows:
-            batch_sha256 = canonical_json_hash(grounded_retry_rows)
-            if batch_sha256 not in completed_grounded_retries:
-                retry_user_blocks = build_detail_audit_user_blocks(
+                    if prior is None and identifier in invalid_counts:
+                        invalid = invalid_counts[identifier]
+                        ledger = invalid.get("count_ledger", {})
+                        prior = {
+                            "reason": str(
+                                ledger.get(
+                                    "reason",
+                                    "legacy count result failed validation",
+                                )
+                            ),
+                            **(
+                                {
+                                    "rejected_candidate": invalid[
+                                        "rejected_candidate"
+                                    ]
+                                }
+                                if isinstance(
+                                    invalid.get("rejected_candidate"), dict
+                                )
+                                else {}
+                            ),
+                        }
+                    feedback[slot] = prior or {
+                        "reason": (
+                            "legacy detail result failed deterministic "
+                            "validation; re-audit this row"
+                        )
+                    }
+                retry_blocks = build_detail_audit_user_blocks(
                     text,
                     title,
                     candidate_coverage,
                     page_reference_map,
-                    grounded_retry_rows,
+                    typed_a_rows,
                 )
-                retry_user_blocks.append({
+                retry_blocks.append({
                     "type": "text",
                     "text": (
-                        "# GROUNDED EVIDENCE FORMAT REPAIR\n\nThe prior "
-                        "candidates failed deterministic validation. Return "
-                        "each slot as a direct object with exactly "
-                        "classification, checks, and note. Every check must "
-                        "contain field, page, a verbatim 3-12-word excerpt, "
-                        "and supports. Correct the exact failures below.\n\n"
-                        + json.dumps(
-                            {
-                                str(row["slot"]): (
-                                    grounded_retry_feedback.get(
-                                        str(row["slot"]), {}
-                                    )
-                                )
-                                for row in grounded_retry_rows
-                            },
-                            ensure_ascii=False,
-                            indent=1,
-                        )
+                        "# TYPED DETAIL RECOVERY A\n\nThe prior opaque "
+                        "results failed deterministic validation. Re-audit "
+                        "every supplied row from the screenplay. Use only "
+                        "text_results, focused_results, and count_results as "
+                        "required by the tool. Do not copy the rejected "
+                        "format. This is the only recovery attempt.\n\n"
+                        "DETERMINISTIC FAILURES:\n"
+                        + json.dumps(feedback, ensure_ascii=False, indent=1)
                     ),
                 })
-                retry_input, _text_out, usage = call(
+                typed_input, _text_out, usage = call(
                     system_blocks=audit_system,
-                    user_blocks=retry_user_blocks,
+                    user_blocks=retry_blocks,
                     model_key=audit_model_effective,
-                    tool=build_grounded_detail_retry_tool(
-                        grounded_retry_rows
-                    ),
+                    tool=build_detail_audit_tool(typed_a_rows),
                     thinking_budget=AUDIT_THINKING_BUDGET,
                     max_tokens=AUDIT_MAX_TOKENS,
                     proxy_url=proxy_url,
                     job_id=job_id,
-                    stage=stage + "_grounded_retry_1",
+                    stage=stage + "_typed_a",
                     pipeline_pass="coverage_v1",
                 )
+                typed_input = _expand_detail_audit_payload(
+                    typed_input, typed_a_rows
+                )
+                malformed = _malformed_text_detail_rows(
+                    typed_input, typed_a_rows, text
+                )
+                if malformed:
+                    raise CoverageContractError(
+                        "Typed detail recovery A returned a malformed result for "
+                        + ", ".join(str(row["slot"]) for row in malformed)
+                    )
                 retried_evidence, retried_citations = (
                     decode_detail_audit_payload(
-                        retry_input, grounded_retry_rows, text
+                        typed_input, typed_a_rows, text
                     )
                 )
-                evidence_rows.extend(retried_evidence)
-                citation_rows.extend(retried_citations)
-                completed_grounded_retries.add(batch_sha256)
+                if retried_citations:
+                    raise CoverageContractError(
+                        "Typed detail recovery A returned grounded rows"
+                    )
+                evidence_rows = merge_rows(
+                    evidence_rows, retried_evidence, "field_path"
+                )
+                completed_typed_a.add(batch_sha256)
+                save_progress()
+
+        typed_b_rows = [
+            rows_by_slot[slot]
+            for slot in typed_b_plan
+            if slot in rows_by_slot
+        ]
+        if typed_b_rows:
+            batch_sha256 = canonical_json_hash(typed_b_rows)
+            if batch_sha256 not in completed_typed_b:
+                feedback = {
+                    str(row["slot"]): grounded_retry_feedback.get(
+                        str(row["slot"]),
+                        {
+                            "reason": (
+                                "legacy grounded result failed deterministic "
+                                "validation; re-audit this row"
+                            )
+                        },
+                    )
+                    for row in typed_b_rows
+                }
+                retry_blocks = build_detail_audit_user_blocks(
+                    _grounded_detail_source_packet(text, typed_b_rows),
+                    title,
+                    candidate_coverage,
+                    page_reference_map,
+                    typed_b_rows,
+                )
+                retry_blocks.append({
+                    "type": "text",
+                    "text": (
+                        "# TYPED DETAIL RECOVERY B\n\nThe prior opaque "
+                        "results failed deterministic validation. Re-audit "
+                        "every supplied citation and sequence row against "
+                        "the authoritative bound pages. Use citation_results "
+                        "and sequence_results exactly as required by the "
+                        "tool. Sequence rows require observed_actors and "
+                        "observed_knowers as well as one check for every "
+                        "required field. This is the only recovery attempt."
+                        "\n\nDETERMINISTIC FAILURES:\n"
+                        + json.dumps(feedback, ensure_ascii=False, indent=1)
+                    ),
+                })
+                typed_input, _text_out, usage = call(
+                    system_blocks=audit_system,
+                    user_blocks=retry_blocks,
+                    model_key=audit_model_effective,
+                    tool=build_detail_audit_tool(typed_b_rows),
+                    thinking_budget=AUDIT_THINKING_BUDGET,
+                    max_tokens=AUDIT_MAX_TOKENS,
+                    proxy_url=proxy_url,
+                    job_id=job_id,
+                    stage=stage + "_typed_b",
+                    pipeline_pass="coverage_v1",
+                )
+                typed_input = _expand_detail_audit_payload(
+                    typed_input, typed_b_rows
+                )
+                malformed = _malformed_text_detail_rows(
+                    typed_input, typed_b_rows, text
+                )
+                if malformed:
+                    raise CoverageContractError(
+                        "Typed detail recovery B returned a malformed result for "
+                        + ", ".join(str(row["slot"]) for row in malformed)
+                    )
+                retried_evidence, retried_citations = (
+                    decode_detail_audit_payload(
+                        typed_input, typed_b_rows, text
+                    )
+                )
+                evidence_rows = merge_rows(
+                    evidence_rows, retried_evidence, "field_path"
+                )
+                citation_rows = merge_rows(
+                    citation_rows, retried_citations, "owner"
+                )
+                completed_typed_b.add(batch_sha256)
                 save_progress()
 
         evidence_rows = _enforce_count_ledger_uniqueness(
             evidence_rows, all_rows, text
         )
-        if not retry_plan:
-            invalid_count_rows = {
-                str(row.get("field_path", "")): row
-                for row in evidence_rows
-                if isinstance(row.get("count_ledger"), dict)
-                and row["count_ledger"].get("valid") is False
-            }
-            retry_plan = [
-                str(row.get("identifier", ""))
-                for row in rows
-                if str(row.get("identifier", "")) in invalid_count_rows
-            ][:MAX_COUNT_DETAIL_RETRY_TOTAL_ROWS]
-            count_retry_feedback = {
-                identifier: {
-                    "reason": str(
-                        invalid_count_rows[identifier]["count_ledger"].get(
-                            "reason", ""
-                        )
-                    ),
-                    **(
-                        {
-                            "rejected_candidate": invalid_count_rows[
-                                identifier
-                            ]["rejected_candidate"]
-                        }
-                        if isinstance(
-                            invalid_count_rows[identifier].get(
-                                "rejected_candidate"
-                            ),
-                            dict,
-                        )
-                        else {}
-                    ),
-                }
-                for identifier in retry_plan
-            }
-            save_progress()
-        rows_by_identifier = {
-            str(row.get("identifier", "")): row for row in rows
-        }
-        retry_rows = [
-            rows_by_identifier[identifier]
-            for identifier in retry_plan
-            if identifier in rows_by_identifier
+        invalid_after_recovery = [
+            row for row in evidence_rows
+            if isinstance(row.get("count_ledger"), dict)
+            and row["count_ledger"].get("valid") is False
         ]
-        for start in range(0, len(retry_rows), MAX_COUNT_DETAIL_RETRY_ROWS):
-            retry_batch = retry_rows[start:start + MAX_COUNT_DETAIL_RETRY_ROWS]
-            batch_sha256 = canonical_json_hash(retry_batch)
-            if batch_sha256 in completed_retries:
-                continue
-            retry_user_blocks = build_detail_audit_user_blocks(
-                text,
-                title,
-                candidate_coverage,
-                page_reference_map,
-                retry_batch,
+        if invalid_after_recovery:
+            raise CoverageContractError(
+                "Typed detail recovery left invalid count ledgers: "
+                + ", ".join(
+                    str(row.get("field_path", ""))
+                    for row in invalid_after_recovery
+                )
             )
-            retry_user_blocks.append({
-                "type": "text",
-                "text": (
-                    "# COUNT LEDGER CORRECTION\n\nThe previous candidate "
-                    "failed deterministic validation. Correct the exact "
-                    "problems below; all excerpt and page checks remain "
-                    "mandatory.\n\n"
-                    + json.dumps(
-                        {
-                            str(row["identifier"]): count_retry_feedback.get(
-                                str(row["identifier"]), {}
-                            )
-                            for row in retry_batch
-                        },
-                        ensure_ascii=False,
-                        indent=1,
-                    )
-                ),
-            })
-            retry_input, _text_out, usage = call(
-                system_blocks=audit_system,
-                user_blocks=retry_user_blocks,
-                model_key=audit_model_effective,
-                tool=build_count_detail_retry_tool(retry_batch),
-                thinking_budget=AUDIT_THINKING_BUDGET,
-                max_tokens=AUDIT_MAX_TOKENS,
-                proxy_url=proxy_url,
-                job_id=job_id,
-                stage=(
-                    stage
-                    + f"_count_retry_{start // MAX_COUNT_DETAIL_RETRY_ROWS + 1}"
-                ),
-                pipeline_pass="coverage_v1",
-            )
-            retried, _unused_citations = decode_detail_audit_payload(
-                retry_input, retry_batch, text
-            )
-            replacements = {
-                str(row["field_path"]): row for row in retried
+        expected_evidence = {
+            str(row["identifier"])
+            for row in all_rows
+            if row.get("kind") in {
+                "existing_evidence", "sequence_evidence",
             }
-            evidence_rows = [
-                replacements.get(str(row.get("field_path", "")), row)
-                for row in evidence_rows
-            ]
-            completed_retries.add(batch_sha256)
-            save_progress()
-        evidence_rows = _enforce_count_ledger_uniqueness(
-            evidence_rows, all_rows, text
-        )
+        }
+        actual_evidence = [
+            str(row.get("field_path", "")) for row in evidence_rows
+        ]
+        expected_citations = {
+            str(row["identifier"])
+            for row in all_rows
+            if row.get("kind") == "citation_relevance"
+        }
+        actual_citations = [str(row.get("owner", "")) for row in citation_rows]
+        if (
+            len(actual_evidence) != len(set(actual_evidence))
+            or set(actual_evidence) != expected_evidence
+            or len(actual_citations) != len(set(actual_citations))
+            or set(actual_citations) != expected_citations
+        ):
+            raise CoverageContractError(
+                "Typed detail recovery did not produce every canonical row"
+            )
+        evidence_by_identifier = {
+            str(row["field_path"]): row for row in evidence_rows
+        }
+        citation_by_identifier = {
+            str(row["owner"]): row for row in citation_rows
+        }
+        evidence_rows = [
+            evidence_by_identifier[str(row["identifier"])]
+            for row in all_rows
+            if row.get("kind") in {
+                "existing_evidence", "sequence_evidence",
+            }
+        ]
+        citation_rows = [
+            citation_by_identifier[str(row["identifier"])]
+            for row in all_rows
+            if row.get("kind") == "citation_relevance"
+        ]
         citation_rows = _reconcile_citation_relevance_with_evidence(
             citation_rows, evidence_rows, all_rows
         )
         return _replace_audit_details(
             candidate, evidence_rows, citation_rows
         )
+
 
     if audit_payload is None:
         audit_user = build_audit_user_blocks(
@@ -8818,15 +8788,15 @@ def run_coverage_v1(
             existing_evidence_checks,
         )
         if _audit_problems_are_detail_only(problems):
-            if audit_core_payload is None:
+            if audit_core_payload is None or audit_core_needs_reseal:
                 checkpoint_store.save(
                     checkpoint_key,
                     "audit_core",
                     _sealed_record(
                         binding,
                         {
-                            "detail_contract_version": (
-                                DETAIL_AUDIT_CONTRACT_VERSION
+                            "audit_core_contract_version": (
+                                AUDIT_CORE_CONTRACT_VERSION
                             ),
                             "tool_input": tool_input,
                             "audit_model": audit_model_effective,
@@ -8881,8 +8851,8 @@ def run_coverage_v1(
                     _sealed_record(
                         binding,
                         {
-                            "detail_contract_version": (
-                                DETAIL_AUDIT_CONTRACT_VERSION
+                            "audit_core_contract_version": (
+                                AUDIT_CORE_CONTRACT_VERSION
                             ),
                             "tool_input": tool_input,
                             "audit_model": audit_model_effective,
@@ -9285,8 +9255,7 @@ def run_coverage_v1(
                 if (
                     reaudit_core is not None
                     and (
-                        reaudit_core.get("detail_contract_version")
-                        != DETAIL_AUDIT_CONTRACT_VERSION
+                        not _supported_audit_core_checkpoint(reaudit_core)
                         or reaudit_core.get("repair_targets") != repair_targets
                         or reaudit_core.get("audit_payload_sha256")
                         != audit_payload_sha256
@@ -9378,8 +9347,8 @@ def run_coverage_v1(
                             _sealed_record(
                                 binding,
                                 {
-                                    "detail_contract_version": (
-                                        DETAIL_AUDIT_CONTRACT_VERSION
+                                    "audit_core_contract_version": (
+                                        AUDIT_CORE_CONTRACT_VERSION
                                     ),
                                     "repair_targets": repair_targets,
                                     "audit_payload_sha256": (

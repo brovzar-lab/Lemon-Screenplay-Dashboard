@@ -483,6 +483,47 @@ def detail_payload_for_rows(
     }
 
 
+def typed_detail_payload_for_rows(
+    rows: list[dict], text: str = SCREENPLAY_TEXT,
+) -> dict:
+    """Provider-shaped typed detail arrays for strict transport tests."""
+    payload: dict[str, list[dict]] = {}
+    for row in rows:
+        subject = row.get("subject", {})
+        if row["kind"] == "citation_relevance":
+            group = "citation_results"
+            value = json.loads(grounded_detail_value(row, text))
+        elif row["kind"] == "sequence_evidence":
+            group = "sequence_results"
+            value = json.loads(grounded_detail_value(row, text))
+        elif subject.get("trigger") == "counting_claim":
+            group = "count_results"
+            value = {
+                "classification": "unsupported",
+                "observed_total": 0,
+                "observed_universe_total": 0,
+                "instances": [],
+                "note": "No matching instances were located in the source.",
+            }
+        elif subject.get("focused_evidence"):
+            group = "focused_results"
+            value = {
+                "classification": "partially_supported",
+                "note": "The supplied windows were reviewed separately.",
+                "reviewed_roles": cv._focused_role_tokens(subject),
+                "source_status": "inferable",
+                "activation_status": "unconfirmed",
+            }
+        else:
+            group = "text_results"
+            value = {
+                "classification": "supported",
+                "note": "Confirmed against the complete screenplay.",
+            }
+        payload.setdefault(group, []).append({"slot": row["slot"], **value})
+    return payload
+
+
 def completed_audit_fixture(
     coverage: dict, audit: dict, text: str = SCREENPLAY_TEXT,
 ) -> dict:
@@ -2440,10 +2481,17 @@ Another video plays on another screen.
         self.assertEqual(len(transport.calls), 3)
         detail_tool = transport.calls[2]["tool"]
         self.assertEqual(detail_tool["name"], "submit_detail_audit_v1_2")
-        result_schema = detail_tool["input_schema"]["properties"]["results"]
+        result_schema = detail_tool["input_schema"]
         slots = [row["slot"] for row in rows]
-        self.assertEqual(result_schema["required"], slots)
-        self.assertEqual(set(result_schema["properties"]), set(slots))
+        returned_slots = [
+            slot
+            for group in result_schema["properties"].values()
+            for slot in group["items"]["properties"]["slot"]["enum"]
+        ]
+        self.assertEqual(set(result_schema["required"]), {
+            "text_results", "citation_results", "sequence_results",
+        })
+        self.assertEqual(returned_slots, slots)
         self.assertLessEqual(
             cv.strict_schema_complexity(detail_tool["input_schema"])[
                 "property_count"
@@ -2464,6 +2512,33 @@ Another video plays on another screen.
         )
         self.assertEqual(usage["call_count"], 3)
 
+    def test_primary_typed_detail_arrays_seal_without_format_retry(self):
+        coverage = valid_coverage()
+        audit = provider_audit_core(coverage)
+        normalized = cv.normalize_audit_tool_input(
+            copy.deepcopy(audit), range(1, 7)
+        )
+        rows = cv.build_detail_audit_rows(
+            coverage,
+            cv.build_existing_evidence_checks(coverage, SCREENPLAY_TEXT),
+            normalized["sequence_ledger"],
+        )
+        transport = FakeTransport([
+            (coverage, settled_usage()),
+            (audit, settled_usage()),
+            (typed_detail_payload_for_rows(rows), settled_usage()),
+        ])
+
+        report, usage = run_engine(new_store(), transport)
+
+        self.assertEqual(report["status"], "sealed")
+        self.assertEqual(usage["call_count"], 3)
+        self.assertEqual(len(transport.calls), 3)
+        self.assertEqual(
+            set(transport.calls[2]["tool"]["input_schema"]["properties"]),
+            {"text_results", "citation_results", "sequence_results"},
+        )
+
     def test_cosquillitas_49_detail_rows_fit_one_strict_call(self):
         rows = [
             {
@@ -2479,7 +2554,7 @@ Another video plays on another screen.
         ]
         overflow = cv._detail_overflow_slots(rows)
         tool = cv.build_detail_audit_tool(rows)
-        result_schema = tool["input_schema"]["properties"]["results"]
+        result_schema = tool["input_schema"]["properties"]["text_results"]
         values = {
             row["slot"]: "supported: checked" for row in rows
         }
@@ -2498,13 +2573,95 @@ Another video plays on another screen.
         expanded = cv._expand_detail_audit_payload(packed, rows)
 
         self.assertEqual(len(overflow), 7)
-        self.assertEqual(len(result_schema["required"]), 43)
+        self.assertEqual(result_schema["minItems"], 49)
+        self.assertEqual(result_schema["maxItems"], 49)
+        self.assertEqual(
+            result_schema["items"]["properties"]["slot"]["enum"],
+            [row["slot"] for row in rows],
+        )
         self.assertEqual(expanded["results"], values)
         self.assertLessEqual(
             cv.strict_schema_complexity(tool["input_schema"])[
                 "property_count"
             ],
             cv.STRICT_BUDGET["property_count"],
+        )
+
+    def test_cosquillitas_55_row_shape_fits_five_typed_arrays(self):
+        rows = []
+
+        def add(count, kind, subject):
+            for _index in range(count):
+                rows.append({
+                    "slot": f"row_{len(rows) + 1:03d}",
+                    "kind": kind,
+                    "identifier": f"field[{len(rows)}]",
+                    "subject": copy.deepcopy(subject),
+                })
+
+        add(19, "existing_evidence", {"trigger": "absolute_negative"})
+        add(2, "existing_evidence", {
+            "focused_evidence": [{"role": "source_device", "page": 1}],
+        })
+        add(4, "existing_evidence", {"trigger": "counting_claim"})
+        add(10, "citation_relevance", {})
+        add(20, "sequence_evidence", {})
+
+        schema = cv.build_detail_audit_tool(rows)["input_schema"]
+        stats = cv.strict_schema_complexity(schema)
+
+        self.assertEqual(schema["required"], [
+            "text_results", "focused_results", "count_results",
+            "citation_results", "sequence_results",
+        ])
+        self.assertEqual(stats, {
+            "object_count": 9,
+            "property_count": 43,
+            "optional_parameter_count": 0,
+            "union_parameter_count": 0,
+            "maximum_depth": 5,
+        })
+
+    def test_typed_detail_arrays_reject_duplicate_or_missing_slots(self):
+        rows = [
+            {
+                "slot": "row_001",
+                "kind": "existing_evidence",
+                "identifier": "field[0]",
+                "subject": {"trigger": "absolute_negative"},
+            },
+            {
+                "slot": "row_002",
+                "kind": "existing_evidence",
+                "identifier": "field[1]",
+                "subject": {"trigger": "absolute_negative"},
+            },
+        ]
+        duplicate = {
+            "text_results": [
+                {
+                    "slot": "row_001",
+                    "classification": "supported",
+                    "note": "Checked once.",
+                },
+                {
+                    "slot": "row_001",
+                    "classification": "supported",
+                    "note": "Checked twice.",
+                },
+            ],
+        }
+
+        expanded = cv._expand_detail_audit_payload(duplicate, rows)
+
+        self.assertEqual(expanded, {
+            "results": {"row_001": None, "row_002": None},
+        })
+        self.assertEqual(
+            [row["slot"] for row in cv._malformed_text_detail_rows(
+                expanded, rows, SCREENPLAY_TEXT
+            )],
+            ["row_001", "row_002"],
         )
 
     def test_large_detail_repair_and_typed_retry_finish_within_seven_calls(self):
@@ -4917,6 +5074,77 @@ class TestCheckpointsAndResume(unittest.TestCase):
         self.assertEqual(report["status"], "sealed")
         self.assertEqual(usage["call_count"], 1)
 
+    def test_legacy_detail_12_progress_resumes_with_typed_a_and_b_only(self):
+        coverage = valid_coverage()
+        audit = provider_audit_core(coverage)
+        normalized = cv.normalize_audit_tool_input(
+            copy.deepcopy(audit), range(1, 7)
+        )
+        rows = cv.build_detail_audit_rows(
+            coverage,
+            cv.build_existing_evidence_checks(coverage, SCREENPLAY_TEXT),
+            normalized["sequence_ledger"],
+        )
+        text_row = next(
+            row for row in rows if row["kind"] == "existing_evidence"
+        )
+        citation_row = next(
+            row for row in rows if row["kind"] == "citation_relevance"
+        )
+        malformed = supported_detail_payload(coverage)
+        malformed["results"][text_row["slot"]] = "supported"
+        malformed["results"][citation_row["slot"]] = "supported"
+        store = new_store()
+        first = FakeTransport([
+            (coverage, settled_usage()),
+            (audit, settled_usage()),
+            (malformed, settled_usage()),
+            RuntimeError("stop before typed recovery A"),
+        ])
+
+        with self.assertRaises(RuntimeError):
+            run_engine(store, first)
+
+        [core_path] = list(store.root.glob("*/audit_core.json"))
+        core = json.loads(core_path.read_text(encoding="utf-8"))
+        core["payload"].pop("audit_core_contract_version")
+        core["payload"]["detail_contract_version"] = (
+            cv.LEGACY_AUDIT_CORE_VERSION
+        )
+        core["payload_sha256"] = cv.canonical_json_hash(core["payload"])
+        core_path.write_text(json.dumps(core), encoding="utf-8")
+        [progress_path] = list(store.root.glob("*/audit_details_progress.json"))
+        progress = json.loads(progress_path.read_text(encoding="utf-8"))
+        progress["payload"]["detail_contract_version"] = (
+            cv.LEGACY_DETAIL_PROGRESS_VERSION
+        )
+        for field in (
+            "typed_a_plan", "typed_b_plan",
+            "completed_typed_a_batches", "completed_typed_b_batches",
+        ):
+            progress["payload"].pop(field, None)
+        progress["payload_sha256"] = cv.canonical_json_hash(
+            progress["payload"]
+        )
+        progress_path.write_text(json.dumps(progress), encoding="utf-8")
+
+        resume = FakeTransport([
+            (typed_detail_payload_for_rows([text_row]), settled_usage()),
+            (typed_detail_payload_for_rows([citation_row]), settled_usage()),
+        ])
+        report, usage = run_engine(store, resume)
+
+        self.assertEqual(
+            [call["stage"] for call in resume.calls],
+            [
+                "coverage_v1.fact_audit_details_typed_a",
+                "coverage_v1.fact_audit_details_typed_b",
+            ],
+        )
+        self.assertTrue(report["replay"]["audit_core_replayed"])
+        self.assertEqual(report["status"], "sealed")
+        self.assertEqual(usage["call_count"], 2)
+
     def test_legacy_detail_audit_is_discarded_without_rebuying_core(self):
         coverage = valid_coverage()
         store = new_store()
@@ -4962,7 +5190,7 @@ class TestCheckpointsAndResume(unittest.TestCase):
 
         [target] = list(store.root.glob("*/audit_core.json"))
         record = json.loads(target.read_text(encoding="utf-8"))
-        record["payload"].pop("detail_contract_version")
+        record["payload"].pop("audit_core_contract_version")
         stale_climax = record["payload"]["tool_input"]["sequence_ledger"][
             0
         ]
@@ -5021,7 +5249,6 @@ class TestCheckpointsAndResume(unittest.TestCase):
             ]),
         )
         drift = FakeTransport([
-            (provider_audit_core(coverage), settled_usage()),
             (supported_detail_payload(coverage), settled_usage()),
         ])
 
@@ -5032,11 +5259,12 @@ class TestCheckpointsAndResume(unittest.TestCase):
 
         self.assertEqual(
             [call["stage"] for call in drift.calls],
-            ["coverage_v1.fact_audit", "coverage_v1.fact_audit_details"],
+            ["coverage_v1.fact_audit_details"],
         )
         self.assertTrue(report["replay"]["coverage_replayed"])
+        self.assertTrue(report["replay"]["audit_core_replayed"])
         self.assertFalse(report["replay"]["audit_replayed"])
-        self.assertEqual(usage["call_count"], 2)
+        self.assertEqual(usage["call_count"], 1)
 
     def test_lens_drift_invalidates_checkpoints(self):
         coverage = valid_coverage()
@@ -5501,7 +5729,7 @@ The footage continues.
         self.assertEqual(usage["call_count"], 4)
         self.assertEqual(
             transport.calls[3]["tool"]["name"],
-            "submit_focused_detail_retry_v1_2",
+            "submit_detail_audit_v1_2",
         )
         retry_prompt = "\n".join(
             str(block.get("text", ""))
@@ -5564,7 +5792,7 @@ The footage continues.
         self.assertEqual(len(transport.calls), 4)
         self.assertEqual(
             transport.calls[3]["tool"]["name"],
-            "submit_count_detail_retry_v1_2",
+            "submit_detail_audit_v1_2",
         )
         self.assertLessEqual(
             cv.strict_schema_complexity(
@@ -5656,10 +5884,10 @@ The footage continues.
         self.assertEqual(usage["call_count"], 4)
         self.assertEqual(
             transport.calls[3]["tool"]["name"],
-            "submit_grounded_detail_retry_v1_2",
+            "submit_detail_audit_v1_2",
         )
         self.assertTrue(
-            transport.calls[3]["stage"].endswith("_grounded_retry_1")
+            transport.calls[3]["stage"].endswith("_typed_b")
         )
         self.assertLessEqual(
             cv.strict_schema_complexity(
@@ -5699,7 +5927,7 @@ The footage continues.
                 self.assertEqual(len(transport.calls), 4)
                 self.assertEqual(
                     transport.calls[3]["tool"]["name"],
-                    "submit_grounded_detail_retry_v1_2",
+                    "submit_detail_audit_v1_2",
                 )
 
     def test_supported_citation_note_cannot_deny_its_own_support(self):
@@ -6571,10 +6799,65 @@ Dante hands cash to the judges as Tony watches.
         self.assertEqual(usage["call_count"], 1)
         self.assertEqual(len(resume.calls), 1)
         self.assertTrue(
-            resume.calls[0]["stage"].endswith("_grounded_retry_1")
+            resume.calls[0]["stage"].endswith("_typed_b")
         )
 
-    def test_all_malformed_counts_retry_in_schema_safe_batches(self):
+    def test_typed_a_checkpoint_resumes_with_only_typed_b(self):
+        coverage = valid_coverage()
+        audit = provider_audit_core(coverage)
+        normalized = cv.normalize_audit_tool_input(
+            copy.deepcopy(audit), range(1, 7)
+        )
+        rows = cv.build_detail_audit_rows(
+            coverage,
+            cv.build_existing_evidence_checks(coverage, SCREENPLAY_TEXT),
+            normalized["sequence_ledger"],
+        )
+        text_row = next(
+            row for row in rows
+            if row["kind"] == "existing_evidence"
+            and row["subject"].get("trigger") != "counting_claim"
+            and not row["subject"].get("focused_evidence")
+        )
+        citation_row = next(
+            row for row in rows if row["kind"] == "citation_relevance"
+        )
+        malformed = supported_detail_payload(coverage)
+        malformed["results"][text_row["slot"]] = "supported"
+        malformed["results"][citation_row["slot"]] = "supported"
+        typed_a = typed_detail_payload_for_rows([text_row])
+        typed_b = typed_detail_payload_for_rows([citation_row])
+        store = new_store()
+        first = FakeTransport([
+            (coverage, settled_usage()),
+            (audit, settled_usage()),
+            (malformed, settled_usage()),
+            (typed_a, settled_usage()),
+            RuntimeError("proxy died before typed B settled"),
+        ])
+
+        with self.assertRaises(RuntimeError):
+            run_engine(store, first)
+
+        self.assertEqual(
+            [call["stage"] for call in first.calls[2:]],
+            [
+                "coverage_v1.fact_audit_details",
+                "coverage_v1.fact_audit_details_typed_a",
+                "coverage_v1.fact_audit_details_typed_b",
+            ],
+        )
+        resume = FakeTransport([(typed_b, settled_usage())])
+        report, usage = run_engine(store, resume)
+
+        self.assertEqual(report["status"], "sealed")
+        self.assertEqual(usage["call_count"], 1)
+        self.assertEqual(
+            [call["stage"] for call in resume.calls],
+            ["coverage_v1.fact_audit_details_typed_b"],
+        )
+
+    def test_all_malformed_counts_retry_in_one_schema_safe_typed_batch(self):
         coverage = valid_coverage()
         coverage["story_spine"].update({
             "opposition": "Two judges oppose Diego.",
@@ -6591,22 +6874,18 @@ Dante hands cash to the judges as Tony watches.
         ]
         self.assertEqual(len(count_rows), 4)
 
-        retry_payloads = []
-        for start in range(0, len(count_rows), cv.MAX_COUNT_DETAIL_RETRY_ROWS):
-            retry_payloads.append({
-                "results": {
-                    row["slot"]: {
+        retry_payload = {
+            "results": {
+                row["slot"]: {
                         "classification": "unsupported",
                         "observed_total": 0,
                         "observed_universe_total": 0,
                         "instances": [],
                         "note": "No matching judges appear in the screenplay.",
-                    }
-                    for row in count_rows[
-                        start:start + cv.MAX_COUNT_DETAIL_RETRY_ROWS
-                    ]
                 }
-            })
+                for row in count_rows
+            }
+        }
         complete_audit = supported_audit(coverage)
         for beat in complete_audit["sequence_ledger"]:
             if beat["action"] != "NOT PRESENT":
@@ -6616,40 +6895,28 @@ Dante hands cash to the judges as Tony watches.
             for beat in beats:
                 if beat["action"] != "NOT PRESENT":
                     beat["action"] = "Diego completes the staged event."
-        store = new_store()
-        first = FakeTransport([
+        transport = FakeTransport([
             (coverage, settled_usage()),
             (provider_audit, settled_usage()),
             (
                 supported_detail_payload(coverage, complete_audit),
                 settled_usage(),
             ),
-            (retry_payloads[0], settled_usage()),
-            RuntimeError("proxy died during count retry batch 2"),
+            (retry_payload, settled_usage()),
         ])
 
-        with self.assertRaises(RuntimeError):
-            run_engine(store, first)
-
-        self.assertEqual(
-            [call["stage"] for call in first.calls[3:]],
-            [
-                "coverage_v1.fact_audit_details_count_retry_1",
-                "coverage_v1.fact_audit_details_count_retry_2",
-            ],
-        )
-        resume = FakeTransport([
-            (retry_payloads[1], settled_usage()),
-        ])
-        report, usage = run_engine(store, resume)
-
+        report, usage = run_engine(new_store(), transport)
         self.assertEqual(report["status"], "needs_review")
-        self.assertEqual(len(resume.calls), 1)
+        self.assertEqual(usage["call_count"], 4)
         self.assertEqual(
-            resume.calls[0]["stage"],
-            "coverage_v1.fact_audit_details_count_retry_2",
+            transport.calls[3]["stage"],
+            "coverage_v1.fact_audit_details_typed_a",
         )
-        self.assertEqual(usage["call_count"], 1)
+        count_schema = transport.calls[3]["tool"]["input_schema"][
+            "properties"
+        ]["count_results"]
+        self.assertEqual(count_schema["minItems"], 4)
+        self.assertEqual(count_schema["maxItems"], 4)
 
     def test_cosquillitas_count_ledger_requires_verbatim_instances(self):
         source = (
@@ -6915,10 +7182,10 @@ Dante hands cash to the judges as Tony watches.
 
         retry_rows = [
             {**rows[0], "slot": f"row_{index:03d}"}
-            for index in range(1, cv.MAX_COUNT_DETAIL_RETRY_ROWS + 1)
+            for index in range(1, 10)
         ]
         stats = cv.strict_schema_complexity(
-            cv.build_count_detail_retry_tool(retry_rows)["input_schema"]
+            cv.build_detail_audit_tool(retry_rows)["input_schema"]
         )
         self.assertLessEqual(stats["property_count"], 44)
         self.assertLessEqual(stats["object_count"], 9)
