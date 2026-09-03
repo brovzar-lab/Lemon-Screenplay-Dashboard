@@ -2664,6 +2664,64 @@ Another video plays on another screen.
             ["row_001", "row_002"],
         )
 
+        unexpected = {
+            "text_results": [
+                {
+                    "slot": slot,
+                    "classification": "supported",
+                    "note": "Checked.",
+                }
+                for slot in ("row_001", "row_002", "row_999")
+            ],
+        }
+        self.assertEqual(
+            cv._expand_detail_audit_payload(unexpected, rows),
+            {"results": {"row_001": None, "row_002": None}},
+        )
+
+    def test_typed_detail_arrays_preserve_unique_siblings_when_one_is_missing(self):
+        rows = [
+            {
+                "slot": f"row_{index:03d}",
+                "kind": "existing_evidence",
+                "identifier": f"field[{index}]",
+                "subject": {"trigger": "absolute_negative"},
+            }
+            for index in range(1, 4)
+        ]
+        partial = {
+            "text_results": [
+                {
+                    "slot": "row_001",
+                    "classification": "supported",
+                    "note": "First row checked.",
+                },
+                {
+                    "slot": "row_003",
+                    "classification": "supported",
+                    "note": "Third row checked.",
+                },
+            ],
+        }
+
+        expanded = cv._expand_detail_audit_payload(partial, rows)
+
+        self.assertEqual(
+            expanded["results"]["row_001"],
+            {"classification": "supported", "note": "First row checked."},
+        )
+        self.assertIsNone(expanded["results"]["row_002"])
+        self.assertEqual(
+            expanded["results"]["row_003"],
+            {"classification": "supported", "note": "Third row checked."},
+        )
+        self.assertEqual(
+            [row["slot"] for row in cv._malformed_text_detail_rows(
+                expanded, rows, SCREENPLAY_TEXT
+            )],
+            ["row_002"],
+        )
+
     def test_large_detail_repair_and_typed_retry_finish_within_seven_calls(self):
         source = SCREENPLAY_TEXT.replace(
             "Diego encuentra a los NIÑOS",
@@ -6855,6 +6913,73 @@ Dante hands cash to the judges as Tony watches.
         self.assertEqual(
             [call["stage"] for call in resume.calls],
             ["coverage_v1.fact_audit_details_typed_b"],
+        )
+
+    def test_partial_typed_a_checkpoints_valid_rows_and_carries_only_failures(self):
+        coverage = valid_coverage()
+        audit = provider_audit_core(coverage)
+        normalized = cv.normalize_audit_tool_input(
+            copy.deepcopy(audit), range(1, 7)
+        )
+        rows = cv.build_detail_audit_rows(
+            coverage,
+            cv.build_existing_evidence_checks(coverage, SCREENPLAY_TEXT),
+            normalized["sequence_ledger"],
+        )
+        text_rows = [
+            row for row in rows
+            if row["kind"] == "existing_evidence"
+            and row["subject"].get("trigger") != "counting_claim"
+            and not row["subject"].get("focused_evidence")
+        ][:2]
+        citation_row = next(
+            row for row in rows if row["kind"] == "citation_relevance"
+        )
+        malformed = supported_detail_payload(coverage)
+        for row in [*text_rows, citation_row]:
+            malformed["results"][row["slot"]] = "supported"
+        partial_a = typed_detail_payload_for_rows([text_rows[0]])
+        combined_b = typed_detail_payload_for_rows([
+            text_rows[1], citation_row,
+        ])
+        store = new_store()
+        first = FakeTransport([
+            (coverage, settled_usage()),
+            (audit, settled_usage()),
+            (malformed, settled_usage()),
+            (partial_a, settled_usage()),
+            RuntimeError("proxy stopped before final recovery"),
+        ])
+
+        with self.assertRaisesRegex(RuntimeError, "final recovery"):
+            run_engine(store, first)
+
+        self.assertEqual(
+            set(first.calls[-1]["tool"]["input_schema"]["properties"]),
+            {"text_results", "citation_results"},
+        )
+        self.assertIn(
+            "# SCREENPLAY TEXT",
+            "\n".join(
+                str(block.get("text", ""))
+                for block in first.calls[-1]["user_blocks"]
+            ),
+        )
+        resume = FakeTransport([(combined_b, settled_usage())])
+        report, usage = run_engine(store, resume)
+
+        self.assertEqual(usage["call_count"], 1)
+        self.assertEqual(
+            [call["stage"] for call in resume.calls],
+            ["coverage_v1.fact_audit_details_typed_b"],
+        )
+        first_identifier = text_rows[0]["identifier"]
+        first_result = next(
+            row for row in report["fact_audit"]["existing_evidence_verdicts"]
+            if row["field_path"] == first_identifier
+        )
+        self.assertEqual(
+            first_result["note"], "Confirmed against the complete screenplay."
         )
 
     def test_all_malformed_counts_retry_in_one_schema_safe_typed_batch(self):

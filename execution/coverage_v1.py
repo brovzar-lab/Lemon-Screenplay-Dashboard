@@ -1388,27 +1388,37 @@ def _expand_detail_audit_payload(
             continue
         expected_slots = {str(row["slot"]) for row in group_rows}
         values = payload.get(group)
-        if not isinstance(values, list) or len(values) != len(group_rows):
+        if not isinstance(values, list):
             normalized.update({slot: None for slot in expected_slots})
             continue
         by_slot: Dict[str, Dict[str, Any]] = {}
-        duplicate = False
+        duplicate_slots: set[str] = set()
+        unexpected = False
         for value in values:
             if not isinstance(value, dict) or not isinstance(
                 value.get("slot"), str
             ):
-                duplicate = True
+                unexpected = True
                 break
             slot = str(value["slot"])
-            if slot in by_slot:
-                duplicate = True
+            if slot not in expected_slots:
+                unexpected = True
                 break
+            if slot in duplicate_slots:
+                continue
+            if slot in by_slot:
+                by_slot.pop(slot)
+                duplicate_slots.add(slot)
+                continue
             by_slot[slot] = value
-        if duplicate or set(by_slot) != expected_slots:
+        if unexpected:
             normalized.update({slot: None for slot in expected_slots})
             continue
         for row in group_rows:
             slot = str(row["slot"])
+            if slot not in by_slot:
+                normalized[slot] = None
+                continue
             value = {
                 key: copy.deepcopy(item)
                 for key, item in by_slot[slot].items()
@@ -8459,23 +8469,88 @@ def run_coverage_v1(
                 malformed = _malformed_text_detail_rows(
                     typed_input, typed_a_rows, text
                 )
+                malformed_slots = {
+                    str(row["slot"]) for row in malformed
+                }
+                valid_rows = [
+                    row for row in typed_a_rows
+                    if str(row["slot"]) not in malformed_slots
+                ]
+                if valid_rows:
+                    valid_input = {
+                        "results": {
+                            str(row["slot"]): typed_input["results"][
+                                str(row["slot"])
+                            ]
+                            for row in valid_rows
+                        }
+                    }
+                    retried_evidence, retried_citations = (
+                        decode_detail_audit_payload(
+                            valid_input, valid_rows, text
+                        )
+                    )
+                    if retried_citations:
+                        raise CoverageContractError(
+                            "Typed detail recovery A returned grounded rows"
+                        )
+                    evidence_rows = merge_rows(
+                        evidence_rows, retried_evidence, "field_path"
+                    )
+                for row in malformed:
+                    slot = str(row["slot"])
+                    rejected = typed_input["results"].get(slot)
+                    subject = row.get("subject", {})
+                    if (
+                        isinstance(subject, dict)
+                        and subject.get("trigger") == "counting_claim"
+                    ):
+                        decoded_count = _decode_count_audit_result(
+                            rejected, subject, text
+                        )
+                        ledger = decoded_count.get("count_ledger", {})
+                        count_retry_feedback[slot] = {
+                            "reason": str(
+                                ledger.get(
+                                    "reason", "count ledger is invalid"
+                                )
+                            ),
+                            "rejected_candidate": rejected,
+                        }
+                    elif (
+                        isinstance(subject, dict)
+                        and subject.get("focused_evidence")
+                    ):
+                        _decoded, reason = _decode_focused_detail_value(
+                            rejected, subject
+                        )
+                        focused_retry_feedback[slot] = {
+                            "reason": reason,
+                            "required_roles": _focused_role_tokens(subject),
+                            "rejected_candidate": rejected,
+                        }
+                    else:
+                        prior = text_retry_feedback.get(slot, {})
+                        text_retry_feedback[slot] = {
+                            "reason": (
+                                "result is missing or not an exact "
+                                "classification/note object"
+                            ),
+                            "rejected_candidate": (
+                                rejected
+                                if rejected is not None
+                                else prior.get("rejected_candidate")
+                            ),
+                        }
+                    if slot not in typed_b_plan:
+                        typed_b_plan.append(slot)
                 if malformed:
-                    raise CoverageContractError(
-                        "Typed detail recovery A returned a malformed result for "
-                        + ", ".join(str(row["slot"]) for row in malformed)
-                    )
-                retried_evidence, retried_citations = (
-                    decode_detail_audit_payload(
-                        typed_input, typed_a_rows, text
-                    )
-                )
-                if retried_citations:
-                    raise CoverageContractError(
-                        "Typed detail recovery A returned grounded rows"
-                    )
-                evidence_rows = merge_rows(
-                    evidence_rows, retried_evidence, "field_path"
-                )
+                    pending_b = set(typed_b_plan)
+                    typed_b_plan = [
+                        str(row["slot"])
+                        for row in rows
+                        if str(row["slot"]) in pending_b
+                    ]
                 completed_typed_a.add(batch_sha256)
                 save_progress()
 
@@ -8487,28 +8562,53 @@ def run_coverage_v1(
         if typed_b_rows:
             batch_sha256 = canonical_json_hash(typed_b_rows)
             if batch_sha256 not in completed_typed_b:
-                feedback = {
-                    str(row["slot"]): grounded_retry_feedback.get(
-                        str(row["slot"]),
-                        {
+                mixed_recovery = any(
+                    row.get("kind") not in {
+                        "citation_relevance", "sequence_evidence",
+                    }
+                    for row in typed_b_rows
+                )
+                feedback = {}
+                for row in typed_b_rows:
+                    slot = str(row["slot"])
+                    feedback[slot] = (
+                        grounded_retry_feedback.get(slot)
+                        or focused_retry_feedback.get(slot)
+                        or count_retry_feedback.get(slot)
+                        or text_retry_feedback.get(slot)
+                        or {
                             "reason": (
-                                "legacy grounded result failed deterministic "
+                                "legacy detail result failed deterministic "
                                 "validation; re-audit this row"
                             )
-                        },
+                        }
                     )
-                    for row in typed_b_rows
-                }
                 retry_blocks = build_detail_audit_user_blocks(
-                    _grounded_detail_source_packet(text, typed_b_rows),
+                    (
+                        text
+                        if mixed_recovery
+                        else _grounded_detail_source_packet(
+                            text, typed_b_rows
+                        )
+                    ),
                     title,
                     candidate_coverage,
                     page_reference_map,
                     typed_b_rows,
                 )
-                retry_blocks.append({
-                    "type": "text",
-                    "text": (
+                recovery_instruction = (
+                    (
+                        "# TYPED DETAIL FINAL RECOVERY\n\nThe prior typed "
+                        "response was incomplete or failed deterministic "
+                        "validation. Re-audit every supplied row against "
+                        "the complete screenplay. Use every result array "
+                        "required by the tool and return every slot exactly "
+                        "once. Sequence rows require observed_actors and "
+                        "observed_knowers as well as one check for every "
+                        "required field. This is the final recovery attempt."
+                    )
+                    if mixed_recovery
+                    else (
                         "# TYPED DETAIL RECOVERY B\n\nThe prior opaque "
                         "results failed deterministic validation. Re-audit "
                         "every supplied citation and sequence row against "
@@ -8517,7 +8617,13 @@ def run_coverage_v1(
                         "tool. Sequence rows require observed_actors and "
                         "observed_knowers as well as one check for every "
                         "required field. This is the only recovery attempt."
-                        "\n\nDETERMINISTIC FAILURES:\n"
+                    )
+                )
+                retry_blocks.append({
+                    "type": "text",
+                    "text": (
+                        recovery_instruction
+                        + "\n\nDETERMINISTIC FAILURES:\n"
                         + json.dumps(feedback, ensure_ascii=False, indent=1)
                     ),
                 })
