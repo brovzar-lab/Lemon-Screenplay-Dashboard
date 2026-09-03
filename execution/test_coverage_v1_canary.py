@@ -164,6 +164,38 @@ class PaidBatchTests(unittest.TestCase):
             {"cost": {"call_count": 8}},
         ]))
 
+    def test_unknown_spend_stops_batch_and_charges_full_reserve(self):
+        class UnknownSpendTransport:
+            def __init__(self):
+                self.calls = []
+
+            def __call__(self, **kwargs):
+                self.calls.append(kwargs)
+                raise OSError("connection ended after dispatch")
+
+        root = Path(tempfile.mkdtemp())
+        transport = UnknownSpendTransport()
+        scorecard = canary.run_canary(
+            make_pdfs(root, 2),
+            out_dir=root / "out",
+            execute=True,
+            transport=transport,
+            parse_fn=fake_parse,
+            parser_version="test-parser",
+            max_total_usd=3.0,
+            max_script_usd=1.5,
+            resume_drill_index=99,
+        )
+
+        self.assertEqual(len(transport.calls), 1)
+        self.assertEqual(len(scorecard["scripts"]), 1)
+        self.assertEqual(
+            scorecard["scripts"][0]["status"],
+            "failed_closed_unknown_spend",
+        )
+        self.assertGreater(scorecard["totals"]["uncertain_usd"], 0)
+        self.assertLessEqual(scorecard["totals"]["charged_usd"], 1.5)
+
     def test_checkpoints_survive_across_canary_invocations(self):
         # Live failure 2026-09-01: the store lived INSIDE the per-run
         # artifacts dir, so a failed run's paid coverage was re-bought by
@@ -171,15 +203,10 @@ class PaidBatchTests(unittest.TestCase):
         root = Path(tempfile.mkdtemp())
         entries = make_pdfs(root, 1)
         coverage = valid_coverage()
-        broken_audit = supported_audit(coverage)
-        broken_audit["verdicts"] = [
-            {"claim_id": "nope", "classification": "supported", "note": "x"}
-        ]
         first = FakeTransport(
             [
                 (coverage, settled_usage(200_000)),
-                (broken_audit, settled_usage()),
-                (broken_audit, settled_usage()),
+                RuntimeError("audit stopped before dispatch"),
             ]
         )
         scorecard1 = canary.run_canary(

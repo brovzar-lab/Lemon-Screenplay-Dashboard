@@ -61,6 +61,8 @@ class CanaryError(RuntimeError):
 class InducedKillError(RuntimeError):
     """Deliberate mid-run kill for the resume drill. Not a real failure."""
 
+    proven_no_spend = True
+
 
 class KillBeforeCall:
     """Transport wrapper that raises before the Nth call (1-based)."""
@@ -238,6 +240,7 @@ def run_canary(
             # not pass one.
             job_id=None,
             max_cost_usd=max_script_usd,
+            max_calls=MAX_CANARY_CALLS_PER_SCRIPT,
         )
 
         def _charged_usd(sink: Dict[str, Any]) -> float:
@@ -284,13 +287,30 @@ def run_canary(
                 report, usage = coverage_v1.run_coverage_v1(
                     transport=transport, usage_sink=run_sink, **run_kwargs
                 )
-        except Exception as error:  # noqa: BLE001 — one bad script must
-            # never abort the batch or lose the spend record (a live
-            # LlmOutputContractError killed a run scorecard-less on
-            # 2026-09-01). Engine errors and transport errors alike become
-            # a failed_closed row; money spent still counts.
+        except Exception as error:  # noqa: BLE001
+            # Ordinary script failures become scorecard rows. Unknown spend
+            # additionally stops the batch because no later dispatch is safe.
+            unresolved_reserve = int(
+                getattr(error, "reserved_microusd", 0) or 0
+            )
+            unresolved_usage = (
+                {
+                    "call_count": 1,
+                    "actual_cost_microusd": unresolved_reserve,
+                    "calls": [{
+                        "usage_accounting_state": (
+                            "conservative_unresolved_request_reserve"
+                        ),
+                        "actual_cost_microusd": unresolved_reserve,
+                    }],
+                }
+                if unresolved_reserve > 0
+                else {}
+            )
             failed_cost = coverage_v1._usage_cost_split(
-                coverage_v1._merge_usage(kill_sink, run_sink)
+                coverage_v1._merge_usage(
+                    kill_sink, run_sink, unresolved_usage
+                )
             )
             charged_total += failed_cost["charged_usd"]
             for field in ("charged_usd", "settled_usd", "uncertain_usd"):
@@ -303,16 +323,17 @@ def run_canary(
             row["charged_usd_before_failure"] = failed_cost["charged_usd"]
             row["cost_before_failure"] = failed_cost
             scorecard["hard_failures"].append(f"#{index} {title}: {error}")
+            if unresolved_reserve > 0:
+                row["status"] = "failed_closed_unknown_spend"
+                row["unresolved_reserve_usd"] = round(
+                    unresolved_reserve / 1_000_000, 6
+                )
+                break
             continue
 
+        # The engine's durable budget ledger already includes calls made by
+        # the killed invocation, so the resumed report is the lifetime total.
         cost = dict(report["cost"])
-        if kill_run_charged:
-            # The killed first run paid for the coverage call; the resumed
-            # run replays (never re-charges) it, so fold the real spend in.
-            kill_cost = coverage_v1._usage_cost_split(kill_sink)
-            for field in ("charged_usd", "settled_usd", "uncertain_usd"):
-                cost[field] = round(cost[field] + kill_cost[field], 6)
-            cost["call_count"] += kill_cost["call_count"]
         charged_total += float(cost["charged_usd"])
         row.update(
             {
