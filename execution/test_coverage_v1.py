@@ -2645,6 +2645,9 @@ Another video plays on another screen.
         bad_core["sequence_ledger"]["final_scene"][0][
             "character_knowledge"
         ] = "Both members know the result."
+        bad_core["sequence_ledger"]["final_scene"][0][
+            "action"
+        ] = "Only Diego sees the final result."
         good_core = copy.deepcopy(bad_core)
         good_core["sequence_ledger"]["climax"][0]["actor"] = "Diego"
         good_core["sequence_ledger"]["final_scene"][0][
@@ -2735,6 +2738,388 @@ Another video plays on another screen.
             run_engine(new_store(), transport, max_cost_usd=5.0)
 
         self.assertEqual(len(transport.calls), 3)
+
+    def test_rejected_sequence_field_gets_one_bounded_micro_retry(self):
+        coverage = valid_coverage()
+        bad_core = provider_audit_core(coverage)
+        bad_core["sequence_ledger"]["climax"][0]["actor"] = "Two members"
+        bad_core["sequence_ledger"]["final_scene"][0][
+            "character_knowledge"
+        ] = "Both members know the result."
+        bad_core["sequence_ledger"]["final_scene"][0][
+            "action"
+        ] = "Only Diego sees the final result."
+        repaired_core = copy.deepcopy(bad_core)
+        repaired_core["sequence_ledger"]["climax"][0]["actor"] = "Diego"
+        repaired_core["sequence_ledger"]["final_scene"][0][
+            "character_knowledge"
+        ] = "Diego knows that the result is final."
+        normalized_repaired = cv.normalize_audit_tool_input(
+            repaired_core, range(1, 7)
+        )
+        first_repair = {
+            "repairs": {
+                "row_000_actor": "Diego",
+                "row_002_character_knowledge": (
+                    "Diego celebrates the result."
+                ),
+            },
+        }
+        micro_repair = {
+            "repairs": {
+                "row_002_character_knowledge": (
+                    "Diego knows that the result is final."
+                ),
+            },
+        }
+        transport = FakeTransport([
+            (coverage, settled_usage()),
+            (bad_core, settled_usage()),
+            (first_repair, settled_usage()),
+            (micro_repair, settled_usage()),
+            (
+                supported_detail_payload(coverage, normalized_repaired),
+                settled_usage(),
+            ),
+        ])
+
+        report, _usage = run_engine(
+            new_store(), transport, max_cost_usd=5.0
+        )
+
+        self.assertEqual(report["status"], "sealed")
+        self.assertEqual(
+            [call["stage"] for call in transport.calls],
+            [
+                "coverage_v1.coverage",
+                "coverage_v1.fact_audit",
+                "coverage_v1.fact_audit_sequence_repair",
+                "coverage_v1.fact_audit_rejected_sequence_field_repair",
+                "coverage_v1.fact_audit_details",
+            ],
+        )
+        micro_call = transport.calls[3]
+        self.assertEqual(micro_call["model_key"], "sonnet")
+        self.assertEqual(
+            micro_call["tool"]["name"],
+            "submit_rejected_sequence_field_repairs_v1_2",
+        )
+        micro_schema = micro_call["tool"]["input_schema"]["properties"][
+            "repairs"
+        ]
+        self.assertEqual(
+            set(micro_schema["properties"]),
+            {"row_002_character_knowledge"},
+        )
+        self.assertEqual(
+            set(micro_schema["properties"]), set(micro_schema["required"])
+        )
+        self.assertNotIn(
+            "sequence_ledger",
+            micro_call["tool"]["input_schema"]["properties"],
+        )
+        micro_text = "\n".join(
+            str(block.get("text", ""))
+            for block in micro_call["user_blocks"]
+        )
+        self.assertIn('"required_knower": "Diego"', micro_text)
+        self.assertIn("Diego celebrates the result.", micro_text)
+        self.assertNotIn("# SCREENPLAY TEXT", micro_text)
+        self.assertEqual(
+            report["fact_audit"]["sequence_ledger"][0]["actor"], "Diego"
+        )
+        self.assertEqual(report["cost"]["repair_calls_used"], 2)
+
+    def test_rejected_sequence_micro_retry_freezes_numbered_roster(self):
+        candidate = {
+            "sequence_ledger": [{
+                "order": 1,
+                "phase": "climax",
+                "actor": "Three judges",
+                "action": (
+                    "Judge 1, Judge 2, Judge 3, and Judge 4 post scores."
+                ),
+                "result": "The scores decide the contest.",
+                "character_knowledge": (
+                    "Judges execute the scheme; runners learn the result."
+                ),
+                "audience_knowledge": "The audience sees every score.",
+                "page": 94,
+            }],
+        }
+        problems = [
+            "sequence_ledger[0].actor uses unverified numeric shorthand; "
+            "name the actors or roles",
+            "sequence_ledger[0].character_knowledge has invalid knowledge "
+            "structure; use one knower roster and exactly one knowledge "
+            "predicate",
+        ]
+        rejected = {"repairs": {
+            "row_000_actor": "Primer Juez, Segundo Juez, and Tercer Juez",
+            "row_000_character_knowledge": "The judges execute the scheme.",
+        }}
+        partial, invalid = cv._apply_sequence_field_repairs(
+            candidate,
+            rejected,
+            problems,
+            defer_invalid_fields=True,
+        )
+        slots = cv._sequence_field_repair_slots(problems)
+        required_actors = cv._required_sequence_actor_repairs(
+            partial, invalid, slots
+        )
+        required_subjects = cv._required_sequence_knower_subjects(
+            partial,
+            rejected["repairs"],
+            invalid,
+            slots,
+            required_actors,
+        )
+        valid = {"repairs": {
+            "row_000_actor": "The judges",
+            "row_000_character_knowledge": "NOT LOCATED",
+        }}
+
+        merged = cv._merge_rejected_sequence_field_repairs(
+            partial,
+            valid,
+            invalid,
+            required_subjects,
+            required_actors,
+            slots,
+        )
+
+        self.assertEqual(
+            merged["sequence_ledger"][0]["actor"],
+            "The judges",
+        )
+        self.assertEqual(
+            merged["sequence_ledger"][0]["character_knowledge"],
+            "NOT LOCATED",
+        )
+        self.assertEqual(required_actors, {"row_000_actor": "The judges"})
+        self.assertEqual(
+            required_subjects,
+            {"row_000_character_knowledge": "NOT LOCATED"},
+        )
+        count_subject = cv._sequence_numbered_role_count_subject(
+            merged["sequence_ledger"][0], 95
+        )
+        self.assertIsNotNone(count_subject)
+        self.assertEqual(count_subject["claimed_total"], 4)
+        for replacement in (
+            "Judge 1, Judge 2, and Judge 3",
+            "Judge 1, Judge 2, Judge 3, Judge 4, and Judge 5",
+            "Carlo 1, Judge 2, Judge 3, and Judge 4",
+        ):
+            with self.subTest(replacement=replacement):
+                malformed = copy.deepcopy(valid)
+                malformed["repairs"]["row_000_actor"] = replacement
+                with self.assertRaisesRegex(
+                    cv.CoverageContractError, "changed its frozen roster"
+                ):
+                    cv._merge_rejected_sequence_field_repairs(
+                        partial,
+                        malformed,
+                        invalid,
+                        required_subjects,
+                        required_actors,
+                        slots,
+                    )
+        for replacement in (
+            "The judges know that the scores decide the contest.",
+            "Judge 1 knows that the scores decide the contest.",
+        ):
+            with self.subTest(knowledge=replacement):
+                malformed = copy.deepcopy(valid)
+                malformed["repairs"][
+                    "row_000_character_knowledge"
+                ] = replacement
+                with self.assertRaisesRegex(
+                    cv.CoverageContractError, "invented an ungrounded knower"
+                ):
+                    cv._merge_rejected_sequence_field_repairs(
+                        partial,
+                        malformed,
+                        invalid,
+                        required_subjects,
+                        required_actors,
+                        slots,
+                    )
+        for malformed in (
+            {"repairs": {"row_000_actor": valid["repairs"]["row_000_actor"]}},
+            {"repairs": {**valid["repairs"], "unexpected": "value"}},
+            {"repairs": {**valid["repairs"], "row_000_actor": ""}},
+            {"repairs": {**valid["repairs"], "row_000_actor": 7}},
+        ):
+            with self.subTest(malformed=malformed):
+                with self.assertRaises(cv.CoverageContractError):
+                    cv._merge_rejected_sequence_field_repairs(
+                        partial,
+                        malformed,
+                        invalid,
+                        required_subjects,
+                        required_actors,
+                        slots,
+                    )
+
+    def test_rejected_sequence_micro_retry_fails_closed_once(self):
+        coverage = valid_coverage()
+        bad_core = provider_audit_core(coverage)
+        bad_core["sequence_ledger"]["final_scene"][0][
+            "character_knowledge"
+        ] = "Both members know the result."
+        bad_core["sequence_ledger"]["final_scene"][0][
+            "action"
+        ] = "Only Diego sees the final result."
+        first_repair = {"repairs": {
+            "row_002_character_knowledge": "Diego celebrates the result."
+        }}
+        malformed_micro = {"repairs": {
+            "row_002_character_knowledge": (
+                "Diego knows that the result is final, and runners know it."
+            )
+        }}
+        transport = FakeTransport([
+            (coverage, settled_usage()),
+            (bad_core, settled_usage()),
+            (first_repair, settled_usage()),
+            (malformed_micro, settled_usage()),
+        ])
+
+        with self.assertRaisesRegex(
+            cv.CoverageContractError, "one checked clause"
+        ):
+            run_engine(new_store(), transport, max_cost_usd=5.0)
+
+        self.assertEqual(len(transport.calls), 4)
+
+    def test_rejected_knowledge_cannot_trust_its_original_knower(self):
+        candidate = {
+            "sequence_ledger": [{
+                "order": 1,
+                "phase": "climax",
+                "actor": "Diego",
+                "action": "Diego announces the result.",
+                "result": "The contest ends.",
+                "character_knowledge": (
+                    "Carlos and two runners know the result."
+                ),
+                "audience_knowledge": "The audience sees the result.",
+                "page": 94,
+            }],
+        }
+        problems = [
+            "sequence_ledger[0].character_knowledge uses unverified "
+            "numeric shorthand; name the actors or roles"
+        ]
+        repaired = {"repairs": {
+            "row_000_character_knowledge": "Carlos knows the result."
+        }}
+
+        partial, invalid = cv._apply_sequence_field_repairs(
+            candidate,
+            repaired,
+            problems,
+            defer_invalid_fields=True,
+        )
+        slots = cv._sequence_field_repair_slots(problems)
+        required = cv._required_sequence_knower_subjects(
+            partial,
+            repaired["repairs"],
+            invalid,
+            slots,
+            {},
+        )
+
+        self.assertEqual(
+            invalid.keys(), {"row_000_character_knowledge"}
+        )
+        self.assertEqual(
+            partial["sequence_ledger"][0]["character_knowledge"],
+            candidate["sequence_ledger"][0]["character_knowledge"],
+        )
+        self.assertEqual(
+            required, {"row_000_character_knowledge": "NOT LOCATED"}
+        )
+        with self.assertRaisesRegex(
+            cv.CoverageContractError,
+            "not named in the preserved action context",
+        ):
+            cv._merge_sequence_field_repairs(
+                candidate, repaired, problems
+            )
+
+    def test_knowledge_repair_uses_action_knower_not_full_actor_roster(self):
+        candidate = {
+            "sequence_ledger": [{
+                "order": 1,
+                "phase": "climax",
+                "actor": "Diego and Carlos",
+                "action": "Only Diego sees the result.",
+                "result": "The contest ends.",
+                "character_knowledge": "Diego celebrates the result.",
+                "audience_knowledge": "The audience sees the result.",
+                "page": 94,
+            }],
+        }
+        problems = [
+            "sequence_ledger[0].character_knowledge has invalid knowledge "
+            "structure; use one knower roster and exactly one knowledge "
+            "predicate"
+        ]
+        first_repair = {"repairs": {
+            "row_000_character_knowledge": "Diego celebrates the result."
+        }}
+        partial, invalid = cv._apply_sequence_field_repairs(
+            candidate,
+            first_repair,
+            problems,
+            defer_invalid_fields=True,
+        )
+        slots = cv._sequence_field_repair_slots(problems)
+        required = cv._required_sequence_knower_subjects(
+            partial,
+            first_repair["repairs"],
+            invalid,
+            slots,
+            {},
+        )
+
+        self.assertEqual(required, {
+            "row_000_character_knowledge": "Diego"
+        })
+        with self.assertRaisesRegex(
+            cv.CoverageContractError, "changed its frozen knower roster"
+        ):
+            cv._merge_rejected_sequence_field_repairs(
+                partial,
+                {"repairs": {
+                    "row_000_character_knowledge": (
+                        "Diego and Carlos know that the result is final."
+                    )
+                }},
+                invalid,
+                required,
+                {},
+                slots,
+            )
+        merged = cv._merge_rejected_sequence_field_repairs(
+            partial,
+            {"repairs": {
+                "row_000_character_knowledge": (
+                    "Diego knows that the result is final."
+                )
+            }},
+            invalid,
+            required,
+            {},
+            slots,
+        )
+        self.assertEqual(
+            merged["sequence_ledger"][0]["character_knowledge"],
+            "Diego knows that the result is final.",
+        )
 
     def test_targeted_sequence_retry_cannot_substitute_the_wrong_actor(self):
         coverage = valid_coverage()
@@ -3247,6 +3632,481 @@ Another video plays on another screen.
                 self.assertTrue(
                     cv._audit_problems_need_only_sequence_retry(problems)
                 )
+
+    def test_knowledge_parser_handles_awareness_and_seeking_literally(self):
+        self.assertTrue(cv._has_exactly_one_knowledge_claim(
+            "Cosquillitas are terrified and aware that the public hates them"
+        ))
+        self.assertTrue(cv._has_exactly_one_knowledge_claim(
+            "Anita learns that her father returned and is seeking reconciliation"
+        ))
+        self.assertFalse(cv._has_exactly_one_knowledge_claim(
+            "Cosquillitas are terrified by the crowd"
+        ))
+        self.assertFalse(cv._has_exactly_one_knowledge_claim(
+            "The judges execute a predetermined bribery scheme"
+        ))
+
+    def test_numbered_human_roles_require_generic_roster_and_count_ledger(self):
+        self.assertTrue(cv._sequence_has_unverified_numeric_shorthand(
+            "Judge 1, Judge 2, Judge 3, and Judge 4"
+        ))
+        for value in (
+            "Four judges",
+            "In Act 3 the panel posts its scores",
+            "Scene 4",
+            "Page 94",
+            "Round 2",
+        ):
+            with self.subTest(value=value):
+                self.assertTrue(
+                    cv._sequence_has_unverified_numeric_shorthand(value)
+                )
+        self.assertEqual(
+            cv._numbered_sequence_role_roster(
+                "Judge 1, Judge 2, Judge 3, and Judge 4 post scores"
+            ),
+            "The judges",
+        )
+        self.assertEqual(
+            cv._numbered_sequence_role_group(
+                "Judge 3 scores, then Judge 4 scores"
+            ),
+            ("The judges", "judges", 2),
+        )
+        self.assertEqual(
+            cv._numbered_sequence_role_group(
+                "Jugadora 1, Jugadora 2, Jugadora 3 y Jugadora 4 anotan"
+            ),
+            ("Las jugadoras", "jugadoras", 4),
+        )
+        self.assertEqual(
+            cv._sequence_numbered_role_count_subject(
+                {
+                    "order": 1,
+                    "page": 4,
+                    "action": (
+                        "Jugadora 1, Jugadora 2, Jugadora 3 y "
+                        "Jugadora 4 anotan"
+                    ),
+                },
+                4,
+            )["claimed_total"],
+            4,
+        )
+        self.assertEqual(
+            cv._numbered_sequence_role_roster(
+                "In Act 3 the panel posts its scores"
+            ),
+            "",
+        )
+
+    def test_ambiguous_numbered_role_actions_fail_closed(self):
+        coverage = valid_coverage()
+        claims = cv.build_audit_claims(coverage)
+        page_map = cv.build_page_reference_map(SCREENPLAY_TEXT, 6, None)
+        evidence = cv.build_existing_evidence_checks(
+            coverage, SCREENPLAY_TEXT
+        )
+        for action in (
+            "Judge 1, 2, 3, and 4 post scores.",
+            "Judge 1, Judge 2, 3, and 4 post scores.",
+            "Judge 1 / Judge 2 / 3 / 4 post scores.",
+            "Judge 1 & Judge 2 & 3 & 4 post scores.",
+            "Judge 1, Judge 2; 3; 4 post scores.",
+            "Judge 1, Judge 2: 3: 4 post scores.",
+            "Judge 1, Judge 2 | 3 | 4 post scores.",
+            "Judge 1 plus Judge 2 plus 3 plus 4 post scores.",
+            "Judge 1, Judge 2 or 3 post scores.",
+            "Juez 1, Juez 2 o 3 califican.",
+            "Judge 1 or Judge 2 posts the deciding score.",
+            "Juez 1 o Juez 2 publica la calificacion decisiva.",
+            "Judge 1 and/or Judge 2 posts the deciding score.",
+            "Neither Judge 1 nor Judge 2 posts a score.",
+            "Ni Juez 1 ni Juez 2 califica.",
+            "Judge 1, but not Judge 2, posts a score.",
+            "Juez 1, pero no Juez 2, publica una calificacion.",
+            "Judge 1 and Judge 2 do not post scores.",
+            "Juez 1 y Juez 2 no califican.",
+            "Judge 1 and Judge 2 are absent.",
+            "Judge 1 and Judge 2 post scores, but neither qualifies.",
+            "Judge 1 watches Judge 2 post the deciding score.",
+            "Referee 1 and Referee 2 post scores.",
+            "Referee 1 and referee 2 post scores.",
+            "referee 1 and referee 2 post scores.",
+            "Árbitro 1 y árbitro 2 califican.",
+            "Referees 1-4 post scores.",
+            "Jueces N.º 1-4 califican.",
+            "Judge 1, Judge 2, and No. 3 post scores.",
+            "First Referee and Second Referee post scores.",
+            "Primer Árbitro y Segundo Árbitro califican.",
+            "Four referees post scores.",
+            "Four corrupt judges post scores.",
+            "The four bribed judges post scores.",
+            "Four of the corrupt judges post scores.",
+            "Four corrupt referees post scores.",
+            "Four corrupt-looking judges post scores.",
+            "Four exceptionally deeply thoroughly corrupt judges post scores.",
+            "Cuatro árbitros califican.",
+            "At least Judge 1 and Judge 2 post scores.",
+            "Al menos Juez 1 y Juez 2 califican.",
+            "Judge 1 and Judge 2 post scores, among others.",
+            "Juez 1 y Juez 2 califican, entre otros.",
+            "Judge 1 and Judge 2 post scores, etc.",
+            "Judge 1 and Judge 2, plus others, post scores.",
+            "Judge 1 and Judge 2 and more judges post scores.",
+            "Juez 1 y Juez 2, además de otros, califican.",
+            "Juez 1 y Juez 2 y los demás califican.",
+            "Judge 1, among others, and Judge 2 post scores.",
+            "Juez 1, entre otros, y Juez 2 califican.",
+            "Judge 1 and Judge 2 post scores, with more judges participating.",
+            "Juez 1 y Juez 2 califican, con más jueces participando.",
+            "Judge 1 and Judge 2 post scores, with one more judge participating.",
+            "Juez 1 y Juez 2 califican, con un juez más participando.",
+            "Judge 1 and Judge 2 post scores, with another judge participating.",
+            "The judges include Judge 1 and Judge 2.",
+            "Los jueces incluyen al Juez 1 y Juez 2.",
+            "Judges such as Judge 1 and Judge 2 post scores.",
+            "Jueces como Juez 1 y Juez 2 califican.",
+            "For example, Judge 1 and Judge 2 post scores.",
+            "Por ejemplo, Juez 1 y Juez 2 califican.",
+            "Some judges, Judge 1 and Judge 2, post scores.",
+            "Judge 1 and Judge 2 post scores, among many.",
+            "Juez 1 y Juez 2 califican, entre varios.",
+            "Judge 1 and Judge 2 post scores, to name a few.",
+            "For instance, Judge 1 and Judge 2 post scores.",
+            "E.g., Judge 1 and Judge 2 post scores.",
+            "Judge 1 and Judge 2 are some of the judges.",
+            "Judge 1 and Judge 2 are among the judges.",
+            "Judge 1 and Judge 2, along with others, post scores.",
+            "Judge 1 and Judge 2, together with others, post scores.",
+            "Judge 1 and Judge 2, as well as others, post scores.",
+            "Juez 1 y Juez 2, junto con otros, califican.",
+            "Además de Juez 1 y Juez 2, otros califican.",
+            "Judge 1 and Judge 2 are in a four-judge panel.",
+            "At a minimum, Judge 1 and Judge 2 post scores.",
+            "At minimum, Judge 1 and Judge 2 post scores.",
+            "Como poco, Juez 1 y Juez 2 califican.",
+            "Judge 1 and Judge 2 don't post scores.",
+            "Judge 1 and Judge 2 cannot post scores.",
+            "Judge 1 and Judge 2 can't post scores.",
+            "Judge 1 and Judge 2 never post scores.",
+            "Juez 1 y Juez 2 nunca califican.",
+            "Juez 1 y Juez 2 tampoco califican.",
+            "Judge 1 and Judge 2 fail to post scores.",
+            "Judge 1 and Judge 2 are among those who score.",
+            "Judge 1 and Judge 2 are part of the panel.",
+            "Judge 1 and Judge 2 might post scores.",
+            "Judge 1 and Judge 2 and Carlos post scores.",
+            "Juez 1 y Juez 2 y Carlos califican.",
+            "Judge 1 and Judge 2, plus Carlos, post scores.",
+            "Judge 1 and Judge 2 with Carlos post scores.",
+            "Judge 1 and Judge 2 alongside Carlos post scores.",
+            "Judge 1 and Judge 2 together with Carlos post scores.",
+            "Judge 1 and Judge 2 as well as Carlos post scores.",
+            "Juez 1 y Juez 2 junto con Carlos califican.",
+            "Juez 1 y Juez 2 con Carlos califican.",
+            "Judge 1 and Judge 2 along with Carlos post scores.",
+            "Judge 1 and Judge 2 with carlos post scores.",
+            "Judge 1, Judge 2, Carlos, and Anita post scores.",
+            "Juez 1, Juez 2, Carlos y Anita califican.",
+            "Judge 1 and Judge 2 with him post scores.",
+            "Juez 1 y Juez 2 con él califican.",
+            "Judge 1 and Judge 2 haven't posted scores.",
+            "Judge 1 and Judge 2 shouldn't post scores.",
+            "Judge 1 and Judge 2 mustn't post scores.",
+            "Judge 1 and Judge 2 refuse to post scores.",
+            "Judge 1 and Judge 2 refrain from posting scores.",
+            "Juez 1 y Juez 2 se niegan a calificar.",
+            "Judge 1 and Judge 2 can post scores.",
+            "Judge 1 and Judge 2 should post scores.",
+            "Judge 1 and Judge 2 will post scores.",
+            "Judge 1 and Judge 2 try to post scores.",
+            "Judge 1 and Judge 2 almost post scores.",
+            "Juez 1 y Juez 2 deben calificar.",
+            "Juez 1 y Juez 2 intentan calificar.",
+            "Juez 1 y Juez 2 casi califican.",
+            "Judge 1 and Judge 2 must post scores.",
+            "Judge 1 and Judge 2 plan to post scores.",
+            "Juez 1 y Juez 2 planean calificar.",
+            "Judge 1 and Judge 2 reportedly post scores.",
+            "Judge 1 and Judge 2 allegedly post scores.",
+            "Judge 1 and Judge 2 supposedly post scores.",
+            "Judge 1 and Judge 2 seemingly post scores.",
+            "Judge 1 and Judge 2 appear to post scores.",
+            "Judge 1 and Judge 2 are said to post scores.",
+            "Juez 1 y Juez 2 supuestamente califican.",
+            "Juez 1 y Juez 2 al parecer califican.",
+            "Juez 1 y Juez 2 aparentemente califican.",
+            "Juez 1 y Juez 2 parecen calificar.",
+            "Judge 1 and Judge 2 post scores if Tony pays them.",
+            "Juez 1 y Juez 2 califican si Tony les paga.",
+            "Judge 1 and Judge 2 post scores provided that Tony pays them.",
+            "Juez 1 y Juez 2 califican siempre que Tony les pague.",
+            "Judge 1 and Judge 2 post scores, amongst others.",
+            "Judge 1 and Judge 2 post scores, et al.",
+            "Judge 1 and Judge 2, plus several unnamed judges, post scores.",
+            "Judge 1 and Judge 2 with unnamed judges post scores.",
+            "Judge 1 and Judge 2 are joined by unnamed judges.",
+            "Judge 1 and Judge 2 represent a subset of the panel.",
+            "Judge 1 and Judge 2 comprise part of the panel.",
+            "Judge 1 and Judge 2 are among a larger group of judges.",
+            (
+                "Judge 1 gives 10, Judge 2 gives 10, Judge 3 gives 5, "
+                "and 4 gives 2."
+            ),
+            "Judge 1 gives 10, Judge 2 gives 5, and 3 gives 2.",
+            (
+                "Judge 1 gives 10, Judge 2 gives 5, and 3 on page 6 "
+                "gives 2."
+            ),
+            "Judge 1 gives 10, Judge 2 gives 5, and 3 from the left gives 2.",
+            "Judge 1 gives 10, Judge 2 gives 5, and 3 to Tony gives 2.",
+            (
+                "Juez 1 da 10, Juez 2 da 5, y 3 en la pagina 6 da 2."
+            ),
+            "Judge 1 gives 10, Judge 2 gives 5, and 3 from the left dissents.",
+            "Juez 1 da 10, Juez 2 da 5, y 3 desde la izquierda disiente.",
+            "Judge 1 and Juez 2 post scores.",
+            "First Judge, Second Judge, Three, and Fourth Judge post scores.",
+            "Judges 1-4 post scores.",
+            "Judges One through Four post scores.",
+            "Judge 1, Judge 2, and Judges 3-4 post scores.",
+            "Judge 1 and Judge 2 score beside Judges 3-4.",
+            "Judge 1 and Judge 2 score; Judges 3-4 score next.",
+            "Judge 1 and Judge 2 score alongside the four judges.",
+            "Four judges post scores.",
+            "Five judges post scores.",
+            "The four judges post scores.",
+            "Los cuatro jueces califican.",
+            "A quartet of judges posts scores.",
+            "Both judges post scores.",
+        ):
+            audit = supported_audit(coverage)
+            audit["sequence_ledger"][0]["actor"] = "The judges"
+            audit["sequence_ledger"][0]["action"] = action
+
+            problems = cv.validate_audit_payload(
+                audit, claims, coverage, page_map, evidence
+            )
+
+            with self.subTest(action=action):
+                self.assertTrue(any(
+                    "action uses ambiguous numbered-role shorthand" in problem
+                    for problem in problems
+                ))
+                self.assertFalse(any(
+                    row["subject"].get("trigger") == "counting_claim"
+                    for row in cv.build_detail_audit_rows(
+                        coverage, evidence, audit["sequence_ledger"]
+                    )
+                ))
+
+        for action, expected_group in (
+            (
+                "Judge 1 and Judge 2 give scores of 5 and 2.",
+                ("The judges", "judges", 2),
+            ),
+            (
+                "Juez 1 y Juez 2 califican con 5 y 2.",
+                ("Los jueces", "jueces", 2),
+            ),
+            (
+                "Judge 1 scores, followed by Judge 2.",
+                ("The judges", "judges", 2),
+            ),
+            (
+                "Juez 1 califica, seguido por Juez 2.",
+                ("Los jueces", "jueces", 2),
+            ),
+            (
+                "Judge 1 and Judge 2 each give at least 5 points.",
+                ("The judges", "judges", 2),
+            ),
+            (
+                "Judge 1 and Judge 2 post scores, including a perfect 10.",
+                ("The judges", "judges", 2),
+            ),
+            (
+                "Judge 1 and Judge 2 include Tony in the decision.",
+                ("The judges", "judges", 2),
+            ),
+            (
+                "On page 94, Judge 1 and Judge 2 post scores.",
+                ("The judges", "judges", 2),
+            ),
+            (
+                "Simultaneously, Judge 1 and Judge 2 post scores.",
+                ("The judges", "judges", 2),
+            ),
+            (
+                "On pp.94-95, Judge 1 and Judge 2 post scores.",
+                ("The judges", "judges", 2),
+            ),
+            (
+                "First, Judge 1 and Judge 2 post scores.",
+                ("The judges", "judges", 2),
+            ),
+            (
+                "Juez 1 y Jueza 2 califican.",
+                ("Los jueces", "jueces", 2),
+            ),
+            (
+                "Jugador 1 y Jugadora 2 anotan.",
+                ("Los jugadores", "jugadores", 2),
+            ),
+            (
+                "Juez N.º1 y Juez N.º2 califican.",
+                ("Los jueces", "jueces", 2),
+            ),
+            (
+                "Juez N°1 y Juez N°2 califican.",
+                ("Los jueces", "jueces", 2),
+            ),
+            (
+                "Judge No.1 and Judge No.2 post scores.",
+                ("The judges", "judges", 2),
+            ),
+            (
+                "Judge 1 and Judge 2 give scores of 5 and 2 to decide "
+                "the winner.",
+                ("The judges", "judges", 2),
+            ),
+            (
+                "Judge 1 and Judge 2 give scores of 5 and 2 in the "
+                "final round.",
+                ("The judges", "judges", 2),
+            ),
+            (
+                "Judge 1 and Judge 2 give scores of 5 and 2, enough "
+                "to win.",
+                ("The judges", "judges", 2),
+            ),
+            (
+                "Judge 1 and Judge 2 tell Carlos the score.",
+                ("The judges", "judges", 2),
+            ),
+            (
+                "Judge 1 and Judge 2 execute the scheme arranged by "
+                "Tony.",
+                ("The judges", "judges", 2),
+            ),
+            (
+                "Award rigged scores: Judge 1 gives 10, Judge 2 gives 10, "
+                "Judge 3 (briefed by Tony) gives 5, Judge 4 (bribed) gives "
+                "2 (as per Tony's instruction, seen earlier on p. 87)",
+                ("The judges", "judges", 4),
+            ),
+        ):
+            audit = supported_audit(coverage)
+            audit["sequence_ledger"][0]["actor"] = "The judges"
+            audit["sequence_ledger"][0]["action"] = action
+
+            problems = cv.validate_audit_payload(
+                audit, claims, coverage, page_map, evidence
+            )
+
+            with self.subTest(action=action):
+                self.assertFalse(any(
+                    "action uses ambiguous numbered-role shorthand" in problem
+                    for problem in problems
+                ))
+                self.assertEqual(
+                    cv._numbered_sequence_role_group(action),
+                    expected_group,
+                )
+
+        for action in (
+            "Carlos gives 5 and Anita gives 2.",
+            "Carlos da 5 y Anita da 2.",
+            "Carlos califica con 5 y Anita califica con 2.",
+            "The score is 5 and the rating is 2.",
+            "Carlos rates it 5 and Anita rates it 2.",
+            "Carlos gives him 5 and Anita gives him 2.",
+            "Los Chavos win 3-2.",
+            "They win 3 to 2.",
+            "The match ends 3-2.",
+            "Diego scores to make it 3-2.",
+            "They tie 2-2.",
+            "Four red cars arrive.",
+            "Four cars hit corrupt judges.",
+            "Two bells ring, then Carlos scores.",
+            "Dos campanas suenan, luego Carlos califica.",
+            "Once judges arrive, the contest begins.",
+            (
+                "Announces that the peso has strengthened so that one peso "
+                "now equals three dollars."
+            ),
+        ):
+            audit = supported_audit(coverage)
+            audit["sequence_ledger"][0]["action"] = action
+            problems = cv.validate_audit_payload(
+                audit, claims, coverage, page_map, evidence
+            )
+            with self.subTest(score_action=action):
+                self.assertFalse(cv._sequence_action_has_role_count_syntax(
+                    action
+                ))
+                self.assertFalse(any(
+                    "action uses ambiguous numbered-role shorthand" in problem
+                    for problem in problems
+                ))
+
+        lowercase_action = (
+            "Judge 1, Judge 2, and judge 3 post scores."
+        )
+        lowercase_beat = {
+            "order": 1,
+            "phase": "climax",
+            "actor": "The judges",
+            "action": lowercase_action,
+            "result": "The judges decide the contest.",
+            "character_knowledge": "NOT LOCATED",
+            "audience_knowledge": "The audience sees the scores.",
+            "page": 6,
+        }
+        lowercase_subject = cv._sequence_numbered_role_count_subject(
+            lowercase_beat, 6
+        )
+        self.assertIsNotNone(lowercase_subject)
+        self.assertEqual(
+            lowercase_subject["claimed_role_identities"], [1, 2, 3]
+        )
+        for action in (
+            (
+                "First Judge, Second Judge, Third Judge, and Fourth Judge "
+                "post scores."
+            ),
+            (
+                "Judge One, Judge Two, Judge Three, and Judge Four "
+                "post scores."
+            ),
+            (
+                "Primer Juez, Segundo Juez, Tercer Juez y Cuarto Juez "
+                "dan notas."
+            ),
+        ):
+            word_beat = {**lowercase_beat, "action": action}
+            word_subject = cv._sequence_numbered_role_count_subject(
+                word_beat, 6
+            )
+            with self.subTest(word_action=action):
+                self.assertIsNotNone(word_subject)
+                self.assertEqual(
+                    word_subject["claimed_role_identities"], [1, 2, 3, 4]
+                )
+
+        abbreviation_subject = cv._sequence_numbered_role_count_subject(
+            {
+                **lowercase_beat,
+                "action": "Juez N.º 1 y Juez N.º 2 califican.",
+            },
+            6,
+        )
+        self.assertIsNotNone(abbreviation_subject)
+        self.assertEqual(
+            abbreviation_subject["claimed_role_identities"], [1, 2]
+        )
 
     def test_provider_shaped_fact_repair_reuses_unchanged_details(self):
         coverage = valid_coverage()
@@ -3833,6 +4693,37 @@ class TestVerdictRules(unittest.TestCase):
         self.assertEqual(report["status"], "needs_review")
         self.assertEqual(report["confidence"], "medium")
         self.assertEqual(report["coverage"]["confidence"], "medium")
+        self.assertTrue(report["confidence_adjustments"])
+
+    def test_unlocated_sequence_knowledge_cannot_seal_high_confidence(self):
+        coverage = valid_coverage()
+        complete_audit = supported_audit(coverage)
+        for beat in complete_audit["sequence_ledger"]:
+            if beat["action"] != "NOT PRESENT":
+                beat["character_knowledge"] = "NOT LOCATED"
+        provider_audit = provider_audit_core(coverage)
+        for beats in provider_audit["sequence_ledger"].values():
+            for beat in beats:
+                if beat["action"] != "NOT PRESENT":
+                    beat["character_knowledge"] = "NOT LOCATED"
+        transport = FakeTransport([
+            (coverage, settled_usage()),
+            (provider_audit, settled_usage()),
+            (
+                supported_detail_payload(coverage, complete_audit),
+                settled_usage(),
+            ),
+        ])
+
+        report, _usage = run_engine(new_store(), transport)
+
+        self.assertEqual(report["status"], "needs_review")
+        self.assertEqual(report["confidence"], "medium")
+        self.assertTrue(report["human_review_recommended"])
+        self.assertTrue(any(
+            "character knowledge was not located" in reason
+            for reason in report["review_reasons"]
+        ))
         self.assertTrue(report["confidence_adjustments"])
 
 
@@ -4897,6 +5788,308 @@ The footage continues.
             or "knower roles are absent" in str(reason)
         )
 
+    def test_cosquillitas_numbered_judges_accept_bound_spanish_role_evidence(self):
+        source = (
+            "[PAGE 94]\n"
+            "Los jueces alzan sus paletas de calificaciones.\n"
+            "Vemos al primer Juez. Primer calificación... 10.\n"
+            "Es turno del segundo Juez. Segundo Juez... 10!\n"
+            "El tercer Juez alza su paleta. Voltea a ver a Tony.\n"
+            "Tercer Juez... Tercer Juez confirma su nota.\n"
+            "El quinto Juez muestra una calificacion distinta.\n"
+            "The 5th judge reveals a different score.\n"
+            "El publico vuelve a exclamar.\n"
+            "[PAGE 95]\n"
+            "El Juez la levanta y sonríe maliciosamente.\n"
+            "Los nuevos reyes y ganadores del CINLTT, LOS CHAVOS.\n"
+        )
+        beat = {
+            "order": 1,
+            "phase": "climax",
+            "actor": "The judges",
+            "action": (
+                "Judge 1 gives 10, Judge 2 gives 10, Judge 3 gives 5, "
+                "and Judge 4 gives 2 on pp.94-95."
+            ),
+            "result": "Los Chavos are declared winners on p.95.",
+            "character_knowledge": "NOT LOCATED",
+            "audience_knowledge": (
+                "The audience sees every score on pp.94-95."
+            ),
+            "page": 94,
+        }
+        rows = cv.build_detail_audit_rows({}, [], [beat])
+        count_target = next(
+            row for row in rows
+            if row["subject"].get("trigger") == "counting_claim"
+        )
+        target = next(row for row in rows if row["kind"] == "sequence_evidence")
+        excerpts = {
+            "actor": "Los jueces alzan sus paletas de calificaciones",
+            "action": "Los jueces alzan sus paletas de calificaciones",
+            "result": "Los nuevos reyes y ganadores del CINLTT",
+            "audience_knowledge": "El publico vuelve a exclamar",
+        }
+        pages = {
+            "actor": 94,
+            "action": 94,
+            "result": 95,
+            "audience_knowledge": 94,
+        }
+        value = {
+            "classification": "supported",
+            "checks": [
+                {
+                    "field": field,
+                    "page": pages[field],
+                    "excerpt": excerpts[field],
+                    "supports": True,
+                }
+                for field in target["subject"]["required_fields"]
+            ],
+            "observed_actors": ["Los jueces"],
+            "observed_knowers": [],
+            "note": "The bound Spanish passage supports the judge sequence.",
+        }
+        count_value = {
+            "classification": "supported",
+            "observed_total": 4,
+            "observed_universe_total": 4,
+            "instances": [
+                {
+                    "label": "first judge",
+                    "page": 94,
+                    "excerpt": "Vemos al primer Juez",
+                    "matches_claim": True,
+                    "multiplicity": 1,
+                },
+                {
+                    "label": "second judge",
+                    "page": 94,
+                    "excerpt": "Es turno del segundo Juez",
+                    "matches_claim": True,
+                    "multiplicity": 1,
+                },
+                {
+                    "label": "third judge",
+                    "page": 94,
+                    "excerpt": "El tercer Juez alza su paleta",
+                    "matches_claim": True,
+                    "multiplicity": 1,
+                },
+                {
+                    "label": "fourth judge",
+                    "page": 95,
+                    "excerpt": "El Juez la levanta y sonríe maliciosamente",
+                    "matches_claim": True,
+                    "multiplicity": 1,
+                },
+            ],
+            "note": "Four distinct judge score beats are staged on pages 94-95.",
+        }
+
+        decoded, reason = cv._decode_grounded_detail_value(
+            value, target, source
+        )
+        decoded_count = cv._decode_count_audit_result(
+            count_value, count_target["subject"], source
+        )
+
+        self.assertIsNone(reason)
+        self.assertIsNotNone(decoded)
+        self.assertEqual(decoded["observed_actors"], ["Los jueces"])
+        self.assertTrue(decoded_count["count_ledger"]["valid"])
+        self.assertEqual(decoded_count["count_ledger"]["observed_total"], 4)
+        self.assertEqual(
+            [
+                instance["source_identity"]
+                for instance in decoded_count["count_ledger"]["instances"]
+            ],
+            ["role:1", "role:2", "role:3", "role:unlabeled"],
+        )
+
+        five_judges = copy.deepcopy(beat)
+        five_judges["action"] = (
+            "Judge 1 gives 10, Judge 2 gives 10, Judge 3 gives 5, "
+            "Judge 4 gives 2, and Judge 5 gives 1 on pp.94-95."
+        )
+        five_subject = cv._sequence_numbered_role_count_subject(
+            five_judges, 95
+        )
+        self.assertIsNotNone(five_subject)
+        rejected_count = cv._decode_count_audit_result(
+            count_value, five_subject, source
+        )
+        self.assertFalse(rejected_count["count_ledger"]["valid"])
+        self.assertIn(
+            "mismatched observed total",
+            rejected_count["count_ledger"]["reason"],
+        )
+        word_five = copy.deepcopy(beat)
+        word_five["action"] = (
+            "First Judge scores, Second Judge scores, Third Judge scores, "
+            "Fourth Judge scores, and Fifth Judge scores on pp.94-95."
+        )
+        word_five_subject = cv._sequence_numbered_role_count_subject(
+            word_five, 95
+        )
+        self.assertIsNotNone(word_five_subject)
+        rejected_word_five = cv._decode_count_audit_result(
+            count_value, word_five_subject, source
+        )
+        self.assertFalse(rejected_word_five["count_ledger"]["valid"])
+        self.assertIn(
+            "mismatched observed total",
+            rejected_word_five["count_ledger"]["reason"],
+        )
+        for subject in (count_target["subject"], five_subject):
+            claimed_total = subject["claimed_total"]
+            generic_multiplicity = {
+                "classification": "supported",
+                "observed_total": claimed_total,
+                "observed_universe_total": claimed_total,
+                "instances": [{
+                    "label": "generic judge group",
+                    "page": 94,
+                    "excerpt": (
+                        "Los jueces alzan sus paletas de calificaciones"
+                    ),
+                    "matches_claim": True,
+                    "multiplicity": claimed_total,
+                }],
+                "note": "A generic group reference cannot prove its size.",
+            }
+            with self.subTest(generic_multiplicity=claimed_total):
+                rejected_generic = cv._decode_count_audit_result(
+                    generic_multiplicity, subject, source
+                )
+                self.assertFalse(
+                    rejected_generic["count_ledger"]["valid"]
+                )
+                self.assertIn(
+                    "must represent one distinct role",
+                    rejected_generic["count_ledger"]["reason"],
+                )
+
+        for false_fifth_excerpt, expected_reason in (
+            (
+                "Los jueces alzan sus paletas de calificaciones",
+                "collective role reference",
+            ),
+            (
+                "El publico vuelve a exclamar",
+                "does not name the counted role",
+            ),
+        ):
+            false_five = copy.deepcopy(count_value)
+            false_five["observed_total"] = 5
+            false_five["observed_universe_total"] = 5
+            false_five["instances"].append({
+                "label": "provider supplied fifth judge",
+                "page": 94,
+                "excerpt": false_fifth_excerpt,
+                "matches_claim": True,
+                "multiplicity": 1,
+            })
+            with self.subTest(false_fifth_excerpt=false_fifth_excerpt):
+                rejected_fifth = cv._decode_count_audit_result(
+                    false_five, five_subject, source
+                )
+                self.assertFalse(rejected_fifth["count_ledger"]["valid"])
+                self.assertIn(
+                    expected_reason,
+                    rejected_fifth["count_ledger"]["reason"],
+                )
+
+        repeated_third = copy.deepcopy(count_value)
+        repeated_third["observed_total"] = 5
+        repeated_third["observed_universe_total"] = 5
+        repeated_third["instances"].insert(3, {
+            "label": "provider relabeled third judge",
+            "page": 94,
+            "excerpt": "Tercer Juez... Tercer Juez confirma su nota",
+            "matches_claim": True,
+            "multiplicity": 1,
+        })
+        rejected_duplicate = cv._decode_count_audit_result(
+            repeated_third, five_subject, source
+        )
+        self.assertFalse(rejected_duplicate["count_ledger"]["valid"])
+        self.assertIn(
+            "duplicates a counted role identity",
+            rejected_duplicate["count_ledger"]["reason"],
+        )
+
+        wrong_four = copy.deepcopy(count_value)
+        wrong_four["instances"][-1] = {
+            "label": "provider substituted fifth judge",
+            "page": 94,
+            "excerpt": "El quinto Juez muestra una calificacion distinta",
+            "matches_claim": True,
+            "multiplicity": 1,
+        }
+        rejected_wrong_identity = cv._decode_count_audit_result(
+            wrong_four, count_target["subject"], source
+        )
+        self.assertFalse(rejected_wrong_identity["count_ledger"]["valid"])
+        self.assertIn(
+            "outside the frozen action",
+            rejected_wrong_identity["count_ledger"]["reason"],
+        )
+        for excerpt, expected_identity in (
+            ("The 5th judge reveals a different score", "role:5"),
+            ("The Judge Five reveals a different score", "role:5"),
+            ("The Judge No. 5 reveals a different score", "role:5"),
+            ("The Judge #5 reveals a different score", "role:5"),
+            ("El Juez Cinco muestra una nota distinta", "role:5"),
+            ("El Juez número cinco muestra una nota distinta", "role:5"),
+            ("El 4.º Juez muestra una nota distinta", "role:4"),
+            ("La Jueza 4th muestra una nota distinta", "role:4"),
+        ):
+            with self.subTest(identity_excerpt=excerpt):
+                identity, identity_error = cv._sequence_distinct_role_identity(
+                    excerpt, count_target["subject"]
+                )
+                self.assertIsNone(identity_error)
+                self.assertEqual(identity, expected_identity)
+
+        numeric_suffix_attack = copy.deepcopy(count_value)
+        numeric_suffix_attack["instances"][-1] = {
+            "label": "provider called this the fourth judge",
+            "page": 94,
+            "excerpt": "The 5th judge reveals a different score",
+            "matches_claim": True,
+            "multiplicity": 1,
+        }
+        rejected_numeric_suffix = cv._decode_count_audit_result(
+            numeric_suffix_attack, count_target["subject"], source
+        )
+        self.assertFalse(rejected_numeric_suffix["count_ledger"]["valid"])
+        self.assertIn(
+            "outside the frozen action",
+            rejected_numeric_suffix["count_ledger"]["reason"],
+        )
+
+        judges_three_four = copy.deepcopy(beat)
+        judges_three_four["action"] = (
+            "Judge 3 gives 5 and Judge 4 gives 2 on pp.94-95."
+        )
+        three_four_subject = cv._sequence_numbered_role_count_subject(
+            judges_three_four, 95
+        )
+        one_two = copy.deepcopy(count_value)
+        one_two["observed_total"] = 2
+        one_two["observed_universe_total"] = 2
+        one_two["instances"] = one_two["instances"][:2]
+        rejected_wrong_range = cv._decode_count_audit_result(
+            one_two, three_four_subject, source
+        )
+        self.assertFalse(rejected_wrong_range["count_ledger"]["valid"])
+        self.assertIn(
+            "outside the frozen action",
+            rejected_wrong_range["count_ledger"]["reason"],
+        )
+
     def test_observed_actor_name_requires_a_full_word_boundary(self):
         people, reason = cv._normalize_observed_people(
             ["Carlo"],
@@ -5414,11 +6607,23 @@ Dante hands cash to the judges as Tony watches.
                     ]
                 }
             })
+        complete_audit = supported_audit(coverage)
+        for beat in complete_audit["sequence_ledger"]:
+            if beat["action"] != "NOT PRESENT":
+                beat["action"] = "Diego completes the staged event."
+        provider_audit = provider_audit_core(coverage)
+        for beats in provider_audit["sequence_ledger"].values():
+            for beat in beats:
+                if beat["action"] != "NOT PRESENT":
+                    beat["action"] = "Diego completes the staged event."
         store = new_store()
         first = FakeTransport([
             (coverage, settled_usage()),
-            (provider_audit_core(coverage), settled_usage()),
-            (supported_detail_payload(coverage), settled_usage()),
+            (provider_audit, settled_usage()),
+            (
+                supported_detail_payload(coverage, complete_audit),
+                settled_usage(),
+            ),
             (retry_payloads[0], settled_usage()),
             RuntimeError("proxy died during count retry batch 2"),
         ])
@@ -6967,6 +8172,134 @@ class TestBudget(unittest.TestCase):
         self.assertEqual(len(resume.calls), 2)
         self.assertEqual(usage["call_count"], 2)
         self.assertEqual(report["cost"]["call_count"], 3)
+        self.assertEqual(report["status"], "sealed")
+
+    def test_sequence_micro_receipt_replays_after_audit_core_crash(self):
+        class FailAuditCoreSaveOnce(cv.LocalCheckpointStore):
+            def __init__(self, root: Path):
+                super().__init__(root)
+                self.failed = False
+
+            def save(self, key: str, stage: str, record: dict) -> None:
+                if stage == "audit_core" and not self.failed:
+                    self.failed = True
+                    raise RuntimeError("crash before audit core checkpoint")
+                super().save(key, stage, record)
+
+        coverage = valid_coverage()
+        bad_core = provider_audit_core(coverage)
+        bad_core["sequence_ledger"]["final_scene"][0][
+            "character_knowledge"
+        ] = "Both members know the result."
+        bad_core["sequence_ledger"]["final_scene"][0][
+            "action"
+        ] = "Only Diego sees the final result."
+        repaired_core = copy.deepcopy(bad_core)
+        repaired_core["sequence_ledger"]["final_scene"][0][
+            "character_knowledge"
+        ] = "Diego knows that the result is final."
+        normalized_repaired = cv.normalize_audit_tool_input(
+            repaired_core, range(1, 7)
+        )
+        first_repair = {"repairs": {
+            "row_002_character_knowledge": "Diego celebrates the result."
+        }}
+        micro_repair = {"repairs": {
+            "row_002_character_knowledge": (
+                "Diego knows that the result is final."
+            )
+        }}
+        store = FailAuditCoreSaveOnce(Path(tempfile.mkdtemp()) / "cv1")
+        first = FakeTransport([
+            (coverage, settled_usage()),
+            (bad_core, settled_usage()),
+            (first_repair, settled_usage()),
+            (micro_repair, settled_usage()),
+        ])
+
+        with self.assertRaisesRegex(RuntimeError, "audit core checkpoint"):
+            run_engine(store, first, max_cost_usd=5.0)
+
+        resume = FakeTransport([(
+            supported_detail_payload(coverage, normalized_repaired),
+            settled_usage(),
+        )])
+        report, usage = run_engine(store, resume, max_cost_usd=5.0)
+
+        self.assertEqual(len(first.calls), 4)
+        self.assertEqual(len(resume.calls), 1)
+        self.assertEqual(
+            resume.calls[0]["stage"], "coverage_v1.fact_audit_details"
+        )
+        self.assertEqual(usage["call_count"], 1)
+        self.assertEqual(report["cost"]["call_count"], 5)
+        self.assertEqual(report["status"], "sealed")
+
+    def test_detail_contract_bump_preserves_three_settled_receipts(self):
+        coverage = valid_coverage()
+        bad_core = provider_audit_core(coverage)
+        bad_core["sequence_ledger"]["final_scene"][0][
+            "character_knowledge"
+        ] = "Both members know the result."
+        bad_core["sequence_ledger"]["final_scene"][0][
+            "action"
+        ] = "Only Diego sees the final result."
+        repaired_core = copy.deepcopy(bad_core)
+        repaired_core["sequence_ledger"]["final_scene"][0][
+            "character_knowledge"
+        ] = "Diego knows that the result is final."
+        normalized_repaired = cv.normalize_audit_tool_input(
+            repaired_core, range(1, 7)
+        )
+        first_repair = {"repairs": {
+            "row_002_character_knowledge": "Diego celebrates the result."
+        }}
+        store = new_store()
+        first = FakeTransport([
+            (coverage, settled_usage()),
+            (bad_core, settled_usage()),
+            (first_repair, settled_usage()),
+        ])
+
+        with patch.object(
+            cv, "DETAIL_AUDIT_CONTRACT_VERSION", "coverage-v1.2-detail-11"
+        ):
+            with self.assertRaisesRegex(
+                cv.CoverageBudgetExceededError, "call cap reached: 3 of 3"
+            ):
+                run_engine(
+                    store, first, max_calls=3, max_cost_usd=5.0
+                )
+
+        [prior_budget] = list(store.root.glob("*/budget.json"))
+        resume = FakeTransport([
+            ({"repairs": {
+                "row_002_character_knowledge": (
+                    "Diego knows that the result is final."
+                )
+            }}, settled_usage()),
+            (
+                supported_detail_payload(coverage, normalized_repaired),
+                settled_usage(),
+            ),
+        ])
+        report, usage = run_engine(
+            store, resume, max_calls=5, max_cost_usd=5.0
+        )
+
+        self.assertEqual(len(first.calls), 3)
+        self.assertEqual(
+            [call["stage"] for call in resume.calls],
+            [
+                "coverage_v1.fact_audit_rejected_sequence_field_repair",
+                "coverage_v1.fact_audit_details",
+            ],
+        )
+        [current_budget] = list(store.root.glob("*/budget.json"))
+        self.assertEqual(current_budget.parent, prior_budget.parent)
+        self.assertEqual(usage["call_count"], 2)
+        self.assertEqual(report["cost"]["call_count"], 5)
+        self.assertAlmostEqual(report["cost"]["charged_usd"], 0.3)
         self.assertEqual(report["status"], "sealed")
 
     def test_rejected_repair_admission_keeps_paid_coverage_receipt(self):

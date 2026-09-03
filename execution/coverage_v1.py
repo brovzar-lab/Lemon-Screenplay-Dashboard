@@ -99,7 +99,11 @@ MAX_GROUNDED_DETAIL_RETRY_ROWS = 3
 MAX_COUNT_DETAIL_RETRY_ROWS = 3
 MAX_COUNT_DETAIL_RETRY_TOTAL_ROWS = 9
 MAX_SEQUENCE_FIELD_REPAIR_SLOTS = 40
-DETAIL_AUDIT_CONTRACT_VERSION = "coverage-v1.2-detail-11"
+DETAIL_AUDIT_CONTRACT_VERSION = "coverage-v1.2-detail-12"
+# Keep already-settled call receipts and budget accounting on the prior
+# binding. Exact request fingerprints still decide whether a receipt replays,
+# while detail checkpoints carry DETAIL_AUDIT_CONTRACT_VERSION and invalidate.
+DETAIL_AUDIT_BINDING_VERSION = "coverage-v1.2-detail-11"
 BUDGET_LEDGER_VERSION = "coverage-v1.2-budget-2"
 CALL_RECEIPT_VERSION = "coverage-v1.2-call-receipts-1"
 REQUEST_ENVELOPE_OVERHEAD_BYTES = 16_384
@@ -926,7 +930,7 @@ def build_detail_audit_rows(
                 }),
             },
         })
-    for beat in sequence_ledger:
+    for beat_index, beat in enumerate(sequence_ledger):
         if (
             not isinstance(beat, dict)
             or _is_strict_sequence_absence_marker(
@@ -937,7 +941,30 @@ def build_detail_audit_rows(
             )
         ):
             continue
+        next_page = next(
+            (
+                later.get("page")
+                for later in sequence_ledger[beat_index + 1:]
+                if isinstance(later, dict)
+                and type(later.get("page")) is int
+                and not _is_strict_sequence_absence_marker(later)
+            ),
+            beat.get("page"),
+        )
+        count_subject = _sequence_numbered_role_count_subject(
+            beat, next_page
+        )
+        if count_subject is not None:
+            rows.append({
+                "kind": "existing_evidence",
+                "identifier": count_subject["field_path"],
+                "subject": count_subject,
+            })
         required_fields = list(GROUNDED_SEQUENCE_FIELDS)
+        if str(beat.get("character_knowledge", "")).strip().upper() == (
+            "NOT LOCATED"
+        ):
+            required_fields.remove("character_knowledge")
         rows.append({
             "kind": "sequence_evidence",
             "identifier": f"sequence_ledger[{beat.get('order')}]",
@@ -1566,7 +1593,7 @@ _SUPPORTED_NOTE_CONTRADICTION = re.compile(
 )
 _SEQUENCE_ACTOR_STOPWORDS = frozenset(
     "A Alongside An And Audience Characters Con El Ella He Junto Juntos Juntas "
-    "La Las Los N/A No None Not Present The They We With Y Yo"
+    "La Las Los N/A No None Not Only Present Solo Sólo The They We With Y Yo"
     .casefold()
     .split()
 )
@@ -1574,6 +1601,436 @@ _SEQUENCE_ROLE_STOPWORDS = frozenset(
     "a alongside an and as at by con de del e el en for from in junto juntos "
     "juntas la las los o of on or para por the to un una unas unos with y".split()
 )
+_SEQUENCE_NUMBERED_ROLE = re.compile(
+    r"(?<!\w)([A-ZÁÉÍÓÚÜÑ][A-Za-zÁÉÍÓÚÜÑáéíóúüñ]{1,})\s+"
+    r"(\d+)(?!\w)"
+)
+_SEQUENCE_NUMBERED_HUMAN_ROLE_GROUPS = {
+    "actor": ("The actors", "actors"),
+    "actress": ("The actresses", "actresses"),
+    "actriz": ("Las actrices", "actrices"),
+    "agent": ("The agents", "agents"),
+    "agente": ("Los agentes", "agentes"),
+    "contestant": ("The contestants", "contestants"),
+    "concursante": ("Los concursantes", "concursantes"),
+    "guard": ("The guards", "guards"),
+    "guardia": ("Los guardias", "guardias"),
+    "judge": ("The judges", "judges"),
+    "juez": ("Los jueces", "jueces"),
+    "jueza": ("Las juezas", "juezas"),
+    "juror": ("The jurors", "jurors"),
+    "jurado": ("Los jurados", "jurados"),
+    "jurada": ("Las juradas", "juradas"),
+    "member": ("The members", "members"),
+    "miembro": ("Los miembros", "miembros"),
+    "officer": ("The officers", "officers"),
+    "oficial": ("Los oficiales", "oficiales"),
+    "panelist": ("The panelists", "panelists"),
+    "panelista": ("Los panelistas", "panelistas"),
+    "participant": ("The participants", "participants"),
+    "participante": ("Los participantes", "participantes"),
+    "player": ("The players", "players"),
+    "jugador": ("Los jugadores", "jugadores"),
+    "jugadora": ("Las jugadoras", "jugadoras"),
+    "runner": ("The runners", "runners"),
+    "corredor": ("Los corredores", "corredores"),
+    "corredora": ("Las corredoras", "corredoras"),
+    "soldier": ("The soldiers", "soldiers"),
+    "soldado": ("Los soldados", "soldados"),
+    "soldada": ("Las soldadas", "soldadas"),
+    "spectator": ("The spectators", "spectators"),
+    "espectador": ("Los espectadores", "espectadores"),
+    "espectadora": ("Las espectadoras", "espectadoras"),
+    "victim": ("The victims", "victims"),
+    "víctima": ("Las víctimas", "víctimas"),
+}
+_SEQUENCE_ROLE_EQUIVALENT_GROUPS = (
+    frozenset(("actress", "actriz")),
+    frozenset(("agent", "agente")),
+    frozenset(("contestant", "concursante")),
+    frozenset(("guard", "guardia")),
+    frozenset(("judge", "juez", "jueza")),
+    frozenset(("juror", "jurado", "jurada")),
+    frozenset(("member", "miembro")),
+    frozenset(("officer", "oficial")),
+    frozenset(("panelist", "panelista")),
+    frozenset(("participant", "participante")),
+    frozenset(("player", "jugador", "jugadora")),
+    frozenset(("runner", "corredor", "corredora")),
+    frozenset(("soldier", "soldado", "soldada")),
+    frozenset(("spectator", "espectador", "espectadora")),
+    frozenset(("victim", "víctima")),
+)
+_SEQUENCE_ROLE_IDENTITY_WORDS = {
+    "first": 1, "primer": 1, "primero": 1, "primera": 1,
+    "one": 1, "uno": 1, "una": 1,
+    "second": 2, "segundo": 2, "segunda": 2,
+    "two": 2, "dos": 2,
+    "third": 3, "tercer": 3, "tercero": 3, "tercera": 3,
+    "three": 3, "tres": 3,
+    "fourth": 4, "cuarto": 4, "cuarta": 4,
+    "four": 4, "cuatro": 4,
+    "fifth": 5, "quinto": 5, "quinta": 5,
+    "five": 5, "cinco": 5,
+    "sixth": 6, "sexto": 6, "sexta": 6,
+    "six": 6, "seis": 6,
+    "seventh": 7, "septimo": 7, "septima": 7,
+    "seven": 7, "siete": 7,
+    "eighth": 8, "octavo": 8, "octava": 8,
+    "eight": 8, "ocho": 8,
+    "ninth": 9, "noveno": 9, "novena": 9,
+    "nine": 9, "nueve": 9,
+    "tenth": 10, "decimo": 10, "decima": 10,
+    "ten": 10, "diez": 10,
+}
+_SEQUENCE_NUMERIC_ORDINAL_SUFFIX = (
+    r"(?:\.?(?:st|nd|rd|th|er|ro|ra|do|da|to|ta|mo|ma|vo|va|no|na|o|a))?"
+)
+_SEQUENCE_ROLE_IDENTITY_WORD_PATTERN = "(?:" + "|".join(
+    sorted(map(re.escape, _SEQUENCE_ROLE_IDENTITY_WORDS), key=len, reverse=True)
+) + ")"
+_SEQUENCE_ROLE_NUMERIC_IDENTITY_PATTERN = (
+    rf"\d+{_SEQUENCE_NUMERIC_ORDINAL_SUFFIX}\.?"
+)
+_SEQUENCE_ROLE_NUMBER_LABEL_PATTERN = (
+    r"(?:number|numero|num|nro|n(?:\.?[o°]))\.?"
+)
+_SEQUENCE_ROLE_ANY_IDENTITY_PATTERN = (
+    rf"(?:(?:{_SEQUENCE_ROLE_NUMBER_LABEL_PATTERN})\s+|#\s*)?"
+    rf"(?:{_SEQUENCE_ROLE_NUMERIC_IDENTITY_PATTERN}|"
+    rf"{_SEQUENCE_ROLE_IDENTITY_WORD_PATTERN})"
+)
+_SEQUENCE_ELIDED_ROLE_IDENTITY = re.compile(
+    rf"(?:[,;&|:]\s*|\s*/\s*|\s+\b(?:plus|mas)\b\s*|"
+    rf"\b(?:and|or|y|o)\b\s*)"
+    rf"(?P<identity>{_SEQUENCE_ROLE_ANY_IDENTITY_PATTERN})\b",
+    re.IGNORECASE,
+)
+_SEQUENCE_NON_ROLE_NUMBER_LABELS = frozenset(
+    "act acto cent cents chapter chapters day days dollar dollars draft "
+    "drafts episode episodes euro euros hour hours minute minutes month "
+    "months mxn p page pages pagina paginas peso pesos point points pound "
+    "pounds pp rating ratings round rounds scene scenes score scores season "
+    "seasons take takes usd version versions week weeks year years yen yuan".split()
+)
+
+
+def _sequence_role_evidence_terms(role: str) -> Tuple[List[str], List[str]]:
+    aliases = next(
+        (group for group in _SEQUENCE_ROLE_EQUIVALENT_GROUPS if role in group),
+        frozenset((role,)),
+    )
+    return (
+        sorted(aliases),
+        sorted({
+            _SEQUENCE_NUMBERED_HUMAN_ROLE_GROUPS[alias][1]
+            for alias in aliases
+        }),
+    )
+
+
+def _sequence_action_role_identity_mentions(
+    value: str,
+) -> List[Tuple[str, int, int, int]]:
+    """Parse explicit role identities in either English or Spanish."""
+    folded = _fold_evidence_text(value)
+    role_lookup = {
+        _fold_evidence_text(role): role
+        for role in _SEQUENCE_NUMBERED_HUMAN_ROLE_GROUPS
+    }
+    mentions: Dict[Tuple[int, int], Tuple[str, int, int, int]] = {}
+    for folded_role, role in role_lookup.items():
+        role_pattern = rf"\b{re.escape(folded_role)}\b"
+        patterns = (
+            re.compile(
+                rf"(?P<identity>\d+){_SEQUENCE_NUMERIC_ORDINAL_SUFFIX}\.?"
+                rf"\s+(?P<role>{role_pattern})",
+                re.IGNORECASE,
+            ),
+            re.compile(
+                rf"(?P<role>{role_pattern})\s+"
+                rf"(?:{_SEQUENCE_ROLE_NUMBER_LABEL_PATTERN}\s*|#\s*)?"
+                rf"(?P<identity>\d+){_SEQUENCE_NUMERIC_ORDINAL_SUFFIX}\b",
+                re.IGNORECASE,
+            ),
+            re.compile(
+                rf"(?P<identity_word>{_SEQUENCE_ROLE_IDENTITY_WORD_PATTERN})"
+                rf"\s+(?P<role>{role_pattern})",
+                re.IGNORECASE,
+            ),
+            re.compile(
+                rf"(?P<role>{role_pattern})\s+"
+                rf"(?:{_SEQUENCE_ROLE_NUMBER_LABEL_PATTERN}\s*)?"
+                rf"(?P<identity_word>{_SEQUENCE_ROLE_IDENTITY_WORD_PATTERN})\b",
+                re.IGNORECASE,
+            ),
+        )
+        for pattern in patterns:
+            for match in pattern.finditer(folded):
+                raw_identity = match.groupdict().get("identity")
+                identity_word = match.groupdict().get("identity_word")
+                identity = (
+                    int(raw_identity)
+                    if raw_identity is not None
+                    else _SEQUENCE_ROLE_IDENTITY_WORDS[str(identity_word)]
+                )
+                if identity > 0:
+                    start, end = match.span()
+                    mentions[(start, end)] = (role, identity, start, end)
+    return sorted(mentions.values(), key=lambda item: (item[2], item[3]))
+
+
+def _sequence_role_count_syntax_positions(value: str) -> List[int]:
+    """Locate every broad role/count assertion that strict parsing must own."""
+    folded = _fold_evidence_text(value)
+    strict_mentions = _sequence_action_role_identity_mentions(value)
+    singular_terms = {
+        _fold_evidence_text(role)
+        for role in _SEQUENCE_NUMBERED_HUMAN_ROLE_GROUPS
+    } | {"arbitro", "referee"}
+    collective_terms = {
+        _fold_evidence_text(group[1])
+        for group in _SEQUENCE_NUMBERED_HUMAN_ROLE_GROUPS.values()
+    } | {"arbitros", "referees"}
+    all_roles = "(?:" + "|".join(
+        sorted(
+            map(re.escape, singular_terms | collective_terms),
+            key=len,
+            reverse=True,
+        )
+    ) + ")"
+    collective_roles = "(?:" + "|".join(
+        sorted(map(re.escape, collective_terms), key=len, reverse=True)
+    ) + ")"
+    identity = _SEQUENCE_ROLE_ANY_IDENTITY_PATTERN
+    broad_count = (
+        rf"(?:{_COUNT_TOKEN_PATTERN}|{_SEQUENCE_ROLE_IDENTITY_WORD_PATTERN})"
+    )
+    spanish_eleven = any(
+        detail.get("claimed_total") == 11
+        for detail in _material_count_claims_details(value)
+    )
+    positions: set[int] = set()
+    for pattern in (
+        re.compile(
+            rf"\b(?:(?:a|an|the|los|las|un|una)\s+)?"
+            rf"(?P<identity>{broad_count})(?:\s+|[-–—])"
+            rf"(?:(?:of|de)\s+(?:(?:the|los|las)\s+)?)?"
+            rf"(?:(?!(?:a|an|and|el|la|las|los|o|or|the|un|una|y|"
+            rf"{broad_count}|[a-z]+s)\b)[a-z]+(?:[-–—][a-z]+)*\s+)*"
+            rf"{all_roles}\b",
+            re.IGNORECASE,
+        ),
+        re.compile(
+            rf"\b{collective_roles}\s+(?P<identity>{identity})\b",
+            re.IGNORECASE,
+        ),
+    ):
+        for match in pattern.finditer(folded):
+            if (
+                _fold_evidence_text(match.group("identity")) == "once"
+                and not spanish_eleven
+            ):
+                continue
+            context_tokens = re.findall(
+                r"[a-z]+", folded[:match.start("identity")]
+            )
+            intervening_tokens = re.findall(
+                r"[a-z]+",
+                folded[match.end("identity"):match.end()],
+            )
+            if (
+                context_tokens
+                and context_tokens[-1] in _SEQUENCE_NON_ROLE_NUMBER_LABELS
+            ) or any(
+                token in _SEQUENCE_NON_ROLE_NUMBER_LABELS
+                for token in intervening_tokens
+            ):
+                continue
+            positions.add(match.start("identity"))
+    range_pattern = re.compile(
+        rf"\b{all_roles}\s+{identity}\s*"
+        rf"(?:[-–—]|through|to|a|al)\s*"
+        rf"(?P<upper>{identity})\b",
+        re.IGNORECASE,
+    )
+    positions.update(
+        match.start("upper") for match in range_pattern.finditer(folded)
+    )
+    if positions or strict_mentions:
+        score_words = {
+            _fold_evidence_text(word) for word in _COUNT_SCORE_WORDS
+        }
+        score_units = {
+            "calificacion", "calificaciones", "point", "points",
+            "puntuacion", "puntuaciones", "rating", "ratings",
+        }
+        for match in _SEQUENCE_ELIDED_ROLE_IDENTITY.finditer(folded):
+            prior_role_end = max(
+                (
+                    end for _role, _identity, _start, end in strict_mentions
+                    if end <= match.start()
+                ),
+                default=0,
+            )
+            prior_tokens = re.findall(
+                r"[a-z]+|\d+", folded[prior_role_end:match.start()]
+            )
+            trailing_score_value = bool(prior_tokens) and (
+                _count_token_value(prior_tokens[-1]) is not None
+                or prior_tokens[-1] == "once"
+                or (
+                    len(prior_tokens) > 1
+                    and prior_tokens[-1] in score_units
+                    and (
+                        _count_token_value(prior_tokens[-2]) is not None
+                        or prior_tokens[-2] == "once"
+                    )
+                )
+            )
+            following_clause = re.split(
+                r"[.!?;\n]", folded[match.end():], maxsplit=1
+            )[0]
+            following_tokens = re.findall(r"[a-z]+", following_clause)
+            score_tail = re.fullmatch(
+                r"\s*(?:,\s*)?(?:"
+                r"(?:apiece|each|respectively)|"
+                r"(?:points?|puntos?)|"
+                r"(?:in|en)\s+(?:(?:the|el|la)\s+)?"
+                r"(?:final(?:\s+round)?|round\s+final)|"
+                r"(?:to|para)\s+(?:break|decide|determine|settle|"
+                r"desempatar|decidir|determinar)\b(?:\s+[a-z]+){0,4}|"
+                r"(?:enough|suficiente)\s+(?:para|to)\s+"
+                r"(?:advance|qualify|win|avanzar|ganar|clasificar)"
+                r")?\s*",
+                following_clause,
+            )
+            if (
+                trailing_score_value
+                and any(token in score_words for token in prior_tokens)
+                and not any(token in score_words for token in following_tokens)
+                and score_tail is not None
+            ):
+                continue
+            positions.add(match.start("identity"))
+    return sorted(positions)
+
+
+def _sequence_has_unbound_role_identity(
+    value: str,
+    mentions: Sequence[Tuple[str, int, int, int]],
+) -> bool:
+    return any(
+        not any(start <= position < end for _, _, start, end in mentions)
+        for position in _sequence_role_count_syntax_positions(value)
+    )
+
+
+def _sequence_action_has_role_count_syntax(value: str) -> bool:
+    mentions = _sequence_action_role_identity_mentions(value)
+    folded = _fold_evidence_text(value)
+    identity = _SEQUENCE_ROLE_ANY_IDENTITY_PATTERN
+    non_role_labels = (
+        _SEQUENCE_NON_ROLE_NUMBER_LABELS
+        | _SEQUENCE_ROLE_STOPWORDS
+        | frozenset(_fold_evidence_text(word) for word in _COUNT_SCORE_WORDS)
+        | frozenset({
+            "am", "are", "be", "been", "being", "equal", "equals",
+            "era", "eran", "es", "esta", "estaba", "estan", "fue",
+            "fueron", "is", "suma", "suman", "son", "total", "totals",
+            "was", "were",
+        })
+    )
+    generic_role = r"(?P<role>[a-z]{2,})"
+    generic_role_mentions = [
+        (match.group("role"), match.start())
+        for pattern in (
+            re.compile(
+                rf"\b{generic_role}\s+{identity}\b"
+            ),
+            re.compile(rf"\b{identity}\s+{generic_role}\b"),
+        )
+        for match in pattern.finditer(folded)
+        if match.group("role") not in non_role_labels
+    ]
+    item_boundary = re.compile(
+        r"(?:^|[,;:.!?\n]\s*|\b(?:and|despues|luego|then|y)\s+)"
+        r"(?:(?:a|an|el|la|las|los|the|un|una)\s+)?$"
+    )
+    return bool(
+        mentions
+        or _sequence_role_count_syntax_positions(value)
+        or any(
+            sum(candidate == role for candidate, _start in generic_role_mentions)
+            > 1
+            and any(
+                item_boundary.search(folded[:start])
+                for candidate, start in generic_role_mentions
+                if candidate == role
+            )
+            for role in {candidate for candidate, _start in generic_role_mentions}
+        )
+    )
+
+
+def _sequence_distinct_role_identity(
+    excerpt: str,
+    subject: Dict[str, Any],
+) -> Tuple[Optional[str], Optional[str]]:
+    """Derive count identity from source text, never provider labels."""
+    singular_terms = subject.get("distinct_role_terms")
+    collective_terms = subject.get("collective_role_terms")
+    if (
+        not isinstance(singular_terms, list)
+        or not singular_terms
+        or any(not isinstance(term, str) or not term for term in singular_terms)
+        or not isinstance(collective_terms, list)
+        or any(not isinstance(term, str) or not term for term in collective_terms)
+    ):
+        return None, "distinct role evidence terms are invalid"
+
+    folded_excerpt = _fold_evidence_text(excerpt)
+    tokens = re.findall(r"[a-z]+|\d+", folded_excerpt)
+    singular = {_fold_evidence_text(term) for term in singular_terms}
+    collective = {_fold_evidence_text(term) for term in collective_terms}
+    if any(token in collective for token in tokens):
+        return None, "a collective role reference cannot prove one distinct role"
+
+    if not any(token in singular for token in tokens):
+        return None, "the evidence excerpt does not name the counted role"
+
+    identities: set[int] = set()
+    for role in singular:
+        role_pattern = rf"\b{re.escape(role)}\b"
+        for identity_word, identity in _SEQUENCE_ROLE_IDENTITY_WORDS.items():
+            if re.search(
+                rf"(?:\b{re.escape(identity_word)}\s+{role_pattern}|"
+                rf"{role_pattern}\s+"
+                rf"(?:{_SEQUENCE_ROLE_NUMBER_LABEL_PATTERN}\s*)?"
+                rf"{re.escape(identity_word)}\b)",
+                folded_excerpt,
+            ):
+                identities.add(identity)
+        for pattern in (
+            rf"{role_pattern}\s+(\d+){_SEQUENCE_NUMERIC_ORDINAL_SUFFIX}\b",
+            rf"\b(\d+){_SEQUENCE_NUMERIC_ORDINAL_SUFFIX}\.?\s+{role_pattern}",
+            rf"{role_pattern}\s+{_SEQUENCE_ROLE_NUMBER_LABEL_PATTERN}\s*"
+            rf"(\d+){_SEQUENCE_NUMERIC_ORDINAL_SUFFIX}\b",
+            rf"{role_pattern}\s+#\s*(\d+)\b",
+        ):
+            for match in re.finditer(pattern, folded_excerpt):
+                identity = int(match.group(1))
+                if identity > 0:
+                    identities.add(identity)
+    if len(identities) > 1:
+        return None, "the evidence excerpt names multiple role identities"
+    if identities:
+        return f"role:{next(iter(identities))}", None
+    return "role:unlabeled", None
+
+
+def _sequence_has_numbered_human_role(value: str) -> bool:
+    return bool(_sequence_action_role_identity_mentions(value))
 
 
 def _sequence_named_actors(value: str) -> List[str]:
@@ -1601,7 +2058,8 @@ def _sequence_claimed_knowers(value: str) -> List[str]:
 _SEQUENCE_EXPLICIT_KNOWLEDGE_VERB = re.compile(
     r"\b(?:knows?|learns?|discovers?|realizes?|understands?|sees?|hears?|"
     r"witnesses?|believes?|thinks?|recognizes?|observes?|notices?|"
-    r"finds?\s+out|becomes?\s+aware|(?:is|are|was|were)\s+(?:un)?aware|"
+    r"finds?\s+out|becomes?\s+aware|(?:is|are|was|were)\s+"
+    r"(?:[a-záéíóúüñ-]+\s+and\s+)?(?:un)?aware|"
     r"sabe[n]?|aprende[n]?|descubre[n]?|entiende[n]?|ve[n]?|oye[n]?|"
     r"escucha[n]?|presencia[n]?|cree[n]?|reconoce[n]?|observa[n]?|"
     r"nota[n]?|se\s+entera[n]?|se\s+vuelve[n]?\s+consciente[s]?|"
@@ -1634,7 +2092,7 @@ _SEQUENCE_KNOWLEDGE_COORDINATED_BREAK = re.compile(
     r"finds?\s+out|becomes?\s+aware|is\s+aware|are\s+aware|"
     r"sabe[n]?|aprende[n]?|descubre[n]?|entiende[n]?|ve[n]?|oye[n]?|"
     r"escucha[n]?|presencia[n]?|cree[n]?|reconoce[n]?|observa[n]?|"
-    r"nota[n]?|se\s+entera[n]?))",
+    r"nota[n]?|se\s+entera[n]?)\b)",
     re.IGNORECASE,
 )
 
@@ -2062,9 +2520,20 @@ def decode_detail_audit_payload(
             and isinstance(subject, dict)
             and subject.get("trigger") == "counting_claim"
         ):
+            decoded_count = _decode_count_audit_result(
+                value, subject, source_text
+            )
+            if str(row["identifier"]).startswith("sequence_ledger["):
+                decoded_count["claim_sha256"] = str(
+                    subject.get("claim_sha256", "")
+                )
+                decoded_count["grounding_valid"] = bool(
+                    isinstance(decoded_count.get("count_ledger"), dict)
+                    and decoded_count["count_ledger"].get("valid") is True
+                )
             evidence.append({
                 "field_path": str(row["identifier"]),
-                **_decode_count_audit_result(value, subject, source_text),
+                **decoded_count,
             })
             continue
         identifier = str(row["identifier"])
@@ -2492,6 +2961,22 @@ def _decode_count_audit_result(
 
     _numbers, pages = _marked_page_contents(source_text)
     labels: set[str] = set()
+    source_identities: set[str] = set()
+    claimed_role_identities = subject.get("claimed_role_identities")
+    expected_source_identities: set[str] = set()
+    if subject.get("require_distinct_instances") is True:
+        if (
+            not isinstance(claimed_role_identities, list)
+            or not claimed_role_identities
+            or any(
+                type(identity) is not int or identity < 1
+                for identity in claimed_role_identities
+            )
+        ):
+            return invalid("claimed role identities are invalid")
+        expected_source_identities = {
+            f"role:{identity}" for identity in claimed_role_identities
+        }
     evidence_spans: Dict[int, List[Tuple[int, int]]] = {}
     normalized_instances: List[Dict[str, Any]] = []
     for index, instance in enumerate(instances):
@@ -2519,15 +3004,42 @@ def _decode_count_audit_result(
             return invalid(f"instance {index + 1} matches_claim is invalid")
         if type(multiplicity) is not int or multiplicity < 1:
             return invalid(f"instance {index + 1} multiplicity is invalid")
+        if (
+            subject.get("require_distinct_instances") is True
+            and multiplicity != 1
+        ):
+            return invalid(
+                f"instance {index + 1} must represent one distinct role"
+            )
         anchor = _normalize_count_evidence_anchor(page, excerpt, pages)
         page = anchor["page"]
         excerpt = anchor["excerpt"]
         if type(page) is not int or page not in pages:
             return invalid(f"instance {index + 1} page is invalid")
+        allowed_pages = subject.get("allowed_pages")
+        if (
+            isinstance(allowed_pages, list)
+            and page not in allowed_pages
+        ):
+            return invalid(
+                f"instance {index + 1} is outside the sequence beat pages"
+            )
         if not MIN_CITATION_EXCERPT_WORDS <= len(excerpt.split()) <= 12:
             return invalid(f"instance {index + 1} excerpt must be 3-12 words")
         if _lenient_excerpt_match_kind(pages[page], excerpt) is None:
             return invalid(f"instance {index + 1} excerpt is not on its page")
+        source_identity: Optional[str] = None
+        if subject.get("require_distinct_instances") is True:
+            source_identity, identity_error = _sequence_distinct_role_identity(
+                excerpt, subject
+            )
+            if identity_error is not None:
+                return invalid(f"instance {index + 1} {identity_error}")
+            if source_identity in source_identities:
+                return invalid(
+                    f"instance {index + 1} duplicates a counted role identity"
+                )
+            source_identities.add(str(source_identity))
         source_span = _canonical_excerpt_span(pages[page], excerpt)
         if source_span is None:
             return invalid(f"instance {index + 1} has no canonical source span")
@@ -2543,6 +3055,7 @@ def _decode_count_audit_result(
             "excerpt": excerpt,
             "matches_claim": matches_claim,
             "multiplicity": multiplicity,
+            **({"source_identity": source_identity} if source_identity else {}),
             **{
                 key: anchor[key]
                 for key in (
@@ -2579,6 +3092,18 @@ def _decode_count_audit_result(
             and observed_universe_total != expected_universe_total
         ):
             return invalid("the claimed universe total is not supported")
+        if subject.get("require_distinct_instances") is True:
+            explicit_identities = source_identities - {"role:unlabeled"}
+            if not explicit_identities.issubset(expected_source_identities):
+                return invalid(
+                    "supported instances name a role outside the frozen action"
+                )
+            missing_identities = expected_source_identities - explicit_identities
+            unlabeled_count = int("role:unlabeled" in source_identities)
+            if len(missing_identities) != unlabeled_count:
+                return invalid(
+                    "supported instances do not cover the frozen role identities"
+                )
 
     return {
         "classification": classification,
@@ -3064,7 +3589,8 @@ _COUNT_SCORE_WORDS = frozenset(
     """
     award awarded awards da dan dieron dio give gave gives giving
     califica califican calificó calificaron puntua puntuan puntúa puntúan
-    otorga otorgan otorgaron otorgó score scored scores scoring
+    otorga otorgan otorgaron otorgó rate rated rates rating ratings score
+    scored scores scoring
     """.split()
 )
 _COLLECTIVE_COUNT_TOKENS = frozenset(
@@ -4541,6 +5067,91 @@ def build_sequence_retry_user_blocks(
     ]
 
 
+def build_rejected_sequence_field_retry_user_blocks(
+    text: str,
+    title: str,
+    candidate: Dict[str, Any],
+    page_reference_map: PageReferenceMap,
+    sequence_focus: Dict[str, Any],
+    rejected_values: Dict[str, Any],
+    invalid_slots: Dict[str, str],
+    required_subjects: Dict[str, str],
+    required_actors: Dict[str, str],
+    all_slots: Dict[str, Tuple[int, str]],
+) -> List[Dict[str, Any]]:
+    """Build a bounded retry for only rejected scalar fields."""
+    slot_targets: Dict[str, Dict[str, Any]] = {}
+    synthetic_problems: List[str] = []
+    rows = candidate.get("sequence_ledger")
+    if not isinstance(rows, list):
+        raise CoverageContractError(
+            "Targeted knowledge repair received a malformed ledger"
+        )
+    for slot, failure in invalid_slots.items():
+        index, field = all_slots[slot]
+        if index >= len(rows) or not isinstance(rows[index], dict):
+            raise CoverageContractError(
+                "Rejected sequence repair received an invalid field slot"
+            )
+        row = rows[index]
+        slot_targets[slot] = {
+            "field_path": f"sequence_ledger[{index}].{field}",
+            "required_value": (
+                required_actors[slot]
+                if field == "actor"
+                else (
+                    "NOT LOCATED"
+                    if required_subjects[slot] == "NOT LOCATED"
+                    else None
+                )
+            ),
+            "required_knower": (
+                required_subjects[slot]
+                if field == "character_knowledge"
+                else None
+            ),
+            "frozen_actor": row.get("actor"),
+            "frozen_action": row.get("action"),
+            "rejected_value": rejected_values.get(slot),
+            "deterministic_failure": failure,
+        }
+        synthetic_problems.append(
+            _problem_for_sequence_repair_slot(slot, all_slots)
+        )
+    source_blocks = build_sequence_retry_user_blocks(
+        text,
+        title,
+        candidate,
+        page_reference_map,
+        sequence_focus,
+        synthetic_problems,
+    )[:3]
+    return [
+        *source_blocks,
+        {
+            "type": "text",
+            "text": (
+                f"# REJECTED SEQUENCE FIELD REPAIR — {title}\n\n"
+                "Return exactly one replacement string for each required "
+                "slot and nothing else. For an actor slot, copy its non-null "
+                "`required_value` exactly. For a character_knowledge slot with "
+                "a non-null `required_value`, copy that value exactly. Otherwise "
+                "copy its non-null `required_knower` without adding, removing, "
+                "renaming, or abbreviating anyone, then use `know that` or "
+                "`knows that` followed by one atomic, screenplay-supported "
+                "fact. After the required_knower, do not add a second knower, "
+                "predicate, fact clause, citation, parenthesis, bracket, "
+                "slash, semicolon, colon, dash, or newline. The ledger, "
+                "verdicts, accepted repairs, pages, actors, actions, results, "
+                "order, phases, and metadata are frozen in code. Use only "
+                "the supplied source pages.\n\n"
+                "REQUIRED REPLACEMENT SLOTS:\n"
+                + json.dumps(slot_targets, ensure_ascii=False, indent=1)
+            ),
+        },
+    ]
+
+
 def build_detail_audit_user_blocks(
     text: str,
     title: str,
@@ -4660,6 +5271,14 @@ def build_detail_audit_user_blocks(
                 "never substitute a different entity or event. Sibling predicates "
                 "about the same entity may enumerate the same universe, but each "
                 "matches_claim value must answer its own count anchor literally. "
+                "When `subject.allowed_pages` is present, every instance must use "
+                "one of those pages. When `subject.require_distinct_instances` "
+                "is true, every instance must have multiplicity 1 and its "
+                "excerpt must name one singular role from "
+                "`subject.distinct_role_terms`. A collective plural or text "
+                "about an unrelated person cannot prove a distinct instance. "
+                "The code derives identity from the excerpt and binds it to "
+                "`subject.claimed_role_identities`; provider labels never do. "
                 "Follow the tool schema: encode this object as a "
                 "JSON string when the slot is typed as string, or return its "
                 "fields directly when the slot is typed as object. "
@@ -5655,7 +6274,22 @@ def validate_audit_payload(
                 value = str(beat.get(field, "")).strip()
                 if not value:
                     problems.append(f"sequence_ledger[{index}].{field} missing")
-                elif field != "action" and _material_count_claims_details(value):
+                elif (
+                    field == "action"
+                    and _sequence_action_has_role_count_syntax(value)
+                    and _sequence_numbered_role_count_subject(
+                        beat, beat.get("page")
+                    ) is None
+                ):
+                    problems.append(
+                        f"sequence_ledger[{index}].action uses ambiguous "
+                        "numbered-role shorthand; repeat one role before every "
+                        "number so the count ledger can bind it"
+                    )
+                elif (
+                    field != "action"
+                    and _sequence_has_unverified_numeric_shorthand(value)
+                ):
                     problems.append(
                         f"sequence_ledger[{index}].{field} uses unverified "
                         "numeric shorthand; name the actors or roles"
@@ -5663,6 +6297,7 @@ def validate_audit_payload(
                 elif (
                     field == "character_knowledge"
                     and not strict_absence
+                    and value.upper() != "NOT LOCATED"
                     and not _has_exactly_one_knowledge_claim(value)
                 ):
                     problems.append(
@@ -5698,6 +6333,7 @@ def validate_audit_payload(
         str(row["identifier"]): row["subject"]
         for row in sequence_subject_rows
         if row.get("kind") == "sequence_evidence"
+        or str(row.get("identifier", "")).startswith("sequence_ledger[")
     }
     sequence_rows = validate_rows(
         "sequence_evidence", "field_path", list(sequence_subjects)
@@ -5842,6 +6478,51 @@ def build_sequence_field_repair_tool(
     return tool
 
 
+def build_rejected_sequence_field_repair_tool(
+    invalid_slots: Sequence[str],
+) -> Dict[str, Any]:
+    """Require one replacement string for each rejected scalar slot."""
+    slots = list(invalid_slots)
+    if (
+        not slots
+        or len(slots) != len(set(slots))
+        or any(not re.fullmatch(
+            r"row_\d{3}_(?:actor|character_knowledge)", slot
+        ) for slot in slots)
+    ):
+        raise CoverageContractError(
+            "Rejected sequence repair received invalid field slots"
+        )
+    tool = {
+        "name": "submit_rejected_sequence_field_repairs_v1_2",
+        "description": (
+            "Return only the corrected string for every rejected sequence "
+            "field. The ledger and accepted repairs remain frozen."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "repairs": {
+                    "type": "object",
+                    "properties": {
+                        slot: {"type": "string"} for slot in slots
+                    },
+                    "required": slots,
+                },
+            },
+            "required": ["repairs"],
+        },
+    }
+    stats = strict_schema_complexity(tool["input_schema"])
+    for metric, ceiling in STRICT_BUDGET.items():
+        if stats[metric] > ceiling:
+            raise CoverageContractError(
+                f"{tool['name']} exceeds strict budget: "
+                f"{metric}={stats[metric]} > {ceiling}"
+            )
+    return tool
+
+
 def _audit_problems_need_only_sequence_retry(
     problems: Sequence[str],
 ) -> bool:
@@ -5850,15 +6531,76 @@ def _audit_problems_need_only_sequence_retry(
     return bool(slots) and len(slots) <= MAX_SEQUENCE_FIELD_REPAIR_SLOTS
 
 
-def _merge_sequence_field_repairs(
+def _sequence_knower_subject(value: str) -> str:
+    clauses = _sequence_knowledge_clauses(value)
+    if not clauses:
+        return ""
+    predicate = _SEQUENCE_KNOWLEDGE_SUBJECT_PREDICATE.search(clauses[0])
+    return clauses[0][:predicate.start()].strip() if predicate else ""
+
+
+def _sequence_subject_is_in_context(subject: str, context: str) -> bool:
+    context_words = set(re.findall(
+        r"\b[a-záéíóúüñ]+\b", _fold_evidence_text(context)
+    ))
+    return (
+        not _sequence_has_unverified_numeric_shorthand(subject)
+        and all(
+            _fold_evidence_text(name) in context_words
+            for name in _sequence_named_actors(subject)
+        )
+        and _sequence_subject_matches_context(
+            subject, context, knowledge=False
+        )
+    )
+
+
+def _sequence_action_knower_subject(action: str, actor: str) -> str:
+    """Return only a knower literally established by the frozen action."""
+    knowledge_clauses = [
+        clause for clause in _sequence_knowledge_clauses(action)
+        if _SEQUENCE_KNOWLEDGE_SUBJECT_PREDICATE.search(clause)
+    ]
+    if (
+        len(knowledge_clauses) != 1
+        or len(_SEQUENCE_EXPLICIT_KNOWLEDGE_VERB.findall(action)) != 1
+    ):
+        return "NOT LOCATED"
+    action_subject = _sequence_knower_subject(knowledge_clauses[0])
+    action_subject_keys = {
+        _fold_evidence_text(name)
+        for name in _sequence_named_actors(action_subject)
+    }
+    shared_actor_names = [
+        name for name in _sequence_named_actors(actor)
+        if _fold_evidence_text(name) in action_subject_keys
+    ]
+    candidates = (
+        [" and ".join(shared_actor_names)] if shared_actor_names else []
+    )
+    candidates.append(action_subject)
+    return next(
+        (
+            subject for subject in candidates
+            if subject and _sequence_subject_is_in_context(subject, action)
+        ),
+        "NOT LOCATED",
+    )
+
+
+def _apply_sequence_field_repairs(
     candidate: Dict[str, Any],
     repaired: Any,
     problems: Sequence[str],
-) -> Any:
-    """Apply only named field repairs while preserving every material beat."""
+    *,
+    defer_invalid_fields: bool,
+) -> Tuple[Dict[str, Any], Dict[str, str]]:
+    """Apply valid named fields and optionally defer rejected scalars."""
     slots = _sequence_field_repair_slots(problems)
     original_rows = candidate.get("sequence_ledger")
-    repaired_values = repaired.get("repairs") if isinstance(repaired, dict) else None
+    repaired_values = (
+        repaired.get("repairs") if isinstance(repaired, dict) else None
+    )
     if (
         not slots
         or not isinstance(original_rows, list)
@@ -5876,8 +6618,16 @@ def _merge_sequence_field_repairs(
         )
         for phase in {"tag", "aftermath"}
     }
-    for slot, (index, field) in slots.items():
-        if index >= len(original_rows) or not isinstance(original_rows[index], dict):
+    invalid_fields: Dict[str, str] = {}
+    ordered_slots = sorted(
+        slots.items(),
+        key=lambda item: (item[1][1] != "actor", item[1][0], item[0]),
+    )
+    for slot, (index, field) in ordered_slots:
+        if (
+            index >= len(original_rows)
+            or not isinstance(original_rows[index], dict)
+        ):
             raise CoverageContractError(
                 "Targeted sequence repair received a malformed original beat"
             )
@@ -5887,55 +6637,532 @@ def _merge_sequence_field_repairs(
             phase_size=phase_sizes.get(str(original.get("phase", "")), 0),
         )
         corrected_value = repaired_values[slot]
+        failures: List[str] = []
         if not isinstance(corrected_value, str) or not corrected_value.strip():
-            raise CoverageContractError(
+            failures.append(
                 f"Targeted sequence repair {field} is empty"
             )
-        if field == "character_knowledge" and not strict_absence and not _has_exactly_one_knowledge_claim(
-            corrected_value
+        elif _sequence_has_unverified_numeric_shorthand(corrected_value):
+            failures.append(
+                f"Targeted sequence repair {field} still uses numeric shorthand"
+            )
+        elif (
+            field == "character_knowledge"
+            and not strict_absence
+            and corrected_value.strip().upper() != "NOT LOCATED"
+            and not _has_exactly_one_knowledge_claim(corrected_value)
         ):
-            raise CoverageContractError(
+            failures.append(
                 "Targeted sequence repair character_knowledge must contain "
                 "exactly one checked clause"
             )
-        names = (
-            _sequence_named_actors(corrected_value)
-            if field == "actor"
-            else _sequence_claimed_knowers(corrected_value)
-        )
-        source_fields = ("action",) if field == "actor" else (
-            "actor", "action"
-        )
-        source_text = " ".join(
-            str(original.get(source_field, ""))
-            for source_field in source_fields
-        )
-        source_words = set(re.findall(
-            r"\b[a-záéíóúüñ]+\b", _fold_evidence_text(source_text)
-        ))
-        context_matches = (
-            bool(_sequence_role_subject(
-                corrected_value,
-                knowledge=field == "character_knowledge",
-            ).strip())
-            and all(
-                _fold_evidence_text(name) in source_words
-                for name in names
+        if (
+            isinstance(corrected_value, str)
+            and corrected_value.strip()
+            and corrected_value.strip().upper() != "NOT LOCATED"
+        ):
+            current = updated["sequence_ledger"][index]
+            names = (
+                _sequence_named_actors(corrected_value)
+                if field == "actor"
+                else _sequence_claimed_knowers(corrected_value)
             )
-            and _sequence_subject_matches_context(
-                corrected_value,
-                source_text,
-                knowledge=field == "character_knowledge",
-                allow_sentinel=strict_absence,
+            if field == "actor":
+                source_text = str(current.get("action", ""))
+            else:
+                actor_slot = f"row_{index:03d}_actor"
+                accepted_actor = (
+                    "" if actor_slot in invalid_fields
+                    else str(current.get("actor", ""))
+                )
+                source_text = str(current.get("action", ""))
+            source_words = set(re.findall(
+                r"\b[a-záéíóúüñ]+\b", _fold_evidence_text(source_text)
+            ))
+            context_matches = (
+                bool(_sequence_role_subject(
+                    corrected_value,
+                    knowledge=field == "character_knowledge",
+                ).strip())
+                and all(
+                    _fold_evidence_text(name) in source_words
+                    for name in names
+                )
+                and _sequence_subject_matches_context(
+                    corrected_value,
+                    source_text,
+                    knowledge=field == "character_knowledge",
+                    allow_sentinel=strict_absence,
+                )
             )
-        )
-        if not context_matches:
-            raise CoverageContractError(
-                f"Targeted sequence repair {field} is not named in the "
-                "preserved action context"
+            if field == "character_knowledge":
+                required_knower = _sequence_action_knower_subject(
+                    source_text, accepted_actor
+                )
+                context_matches = (
+                    required_knower != "NOT LOCATED"
+                    and _fold_evidence_text(_sequence_knower_subject(
+                        corrected_value
+                    )) == _fold_evidence_text(required_knower)
+                )
+            if not context_matches:
+                failures.append(
+                    f"Targeted sequence repair {field} is not named in the "
+                    "preserved action context"
+                )
+            page = current.get("page")
+            permitted_end = current.get(
+                "_sequence_effective_end_page", page
             )
+            if any(
+                type(page) is not int
+                or type(permitted_end) is not int
+                or start < page
+                or end > permitted_end
+                for start, end in _prose_page_spans(corrected_value)
+            ):
+                failures.append(
+                    f"Targeted sequence repair {field} has a page reference "
+                    "outside the frozen action interval"
+                )
+        if failures:
+            if defer_invalid_fields:
+                invalid_fields[slot] = "; ".join(failures)
+                continue
+            raise CoverageContractError(failures[0])
         updated["sequence_ledger"][index][field] = corrected_value
     updated.pop("_sequence_normalization_errors", None)
+    return updated, invalid_fields
+
+
+def _merge_sequence_field_repairs(
+    candidate: Dict[str, Any],
+    repaired: Any,
+    problems: Sequence[str],
+) -> Any:
+    """Apply only named field repairs while preserving every material beat."""
+    updated, _invalid = _apply_sequence_field_repairs(
+        candidate,
+        repaired,
+        problems,
+        defer_invalid_fields=False,
+    )
+    return updated
+
+
+def _numbered_sequence_role_group(
+    value: str,
+) -> Optional[Tuple[str, str, int]]:
+    matches = _sequence_action_role_identity_mentions(value)
+    if _sequence_has_unbound_role_identity(value, matches):
+        return None
+    if len(matches) < 2:
+        return None
+    folded = _fold_evidence_text(value)
+    prefix = folded[:matches[0][2]]
+    canonical_prefix = re.compile(
+        r"\s*(?:(?:afterward|at\s+the\s+same\s+time|despues|finally|"
+        r"finalmente|first|luego|meanwhile|mientras\s+tanto|next|primero|"
+        r"simultaneously|simultaneamente|then|(?:on\s+(?:page|pages|p\.?|"
+        r"pp\.?)|"
+        r"en\s+(?:la\s+)?pagina)\s*\d+(?:\s*[-–—]\s*\d+)?)"
+        r"[,:]?\s+)?(?:(?:el|la|las|los|the)\s+)?"
+    )
+    prefix_tokens = re.findall(r"[a-z]+", prefix)
+    score_label_prefix = (
+        prefix.rstrip().endswith(":")
+        and bool(prefix_tokens)
+        and prefix_tokens[0] in {
+            _fold_evidence_text(word) for word in _COUNT_SCORE_WORDS
+        }
+    )
+    if canonical_prefix.fullmatch(prefix) is None and not score_label_prefix:
+        return None
+    exclusion = re.compile(
+        r"\b(?:absent|ausente|ausentes|but|cannot|except|excepto|jamas|"
+        r"if|missing|neither|never|ni|ninguno|no|nor|not|nunca|o|or|pero|"
+        r"salvo|sin|tampoco|unable|without)\b|"
+        r"\b(?:can['’]?t|won['’]?t|(?:are|could|did|do|does|had|has|have|"
+        r"is|must|shall|should|was|were|will|would)n['’]?t|"
+        r"fail(?:ed|s)?\s+to|incapaz\s+de|refus(?:e|ed|es)\s+to|"
+        r"refrain(?:ed|s)?\s+from|se\s+niega[n]?\s+a|si|unless|"
+        r"(?:provided|providing)\s+that|(?:as|so)\s+long\s+as|"
+        r"on\s+condition\s+that|assuming|supposing|siempre\s+que|"
+        r"con\s+tal\s+de\s+que|a\s+condicion\s+de\s+que|"
+        r"suponiendo\s+que)\b"
+    )
+    uncertain = re.compile(
+        r"\b(?:al\s+parecer|allegedly|almost|aparentemente|apparently|"
+        r"appear(?:s|ed)?|"
+        r"can|casi|could|debe[n]?|intenta[n]?|likely|may|might|must|"
+        r"perhaps|planea[n]?|plan(?:ned|s)?\s+to|possibly|probably|"
+        r"puede[n]?|podria[n]?|"
+        r"presumably|quiza|quizas|reportedly|seem|seems|parece[n]?|should|"
+        r"seemingly|supposedly|supuestamente|tal\s+vez|"
+        r"tr(?:y|ied|ies)\s+to|will|"
+        r"would|(?:are|is|was|were)\s+said\s+to)\b"
+    )
+    collective_roles = "(?:" + "|".join(sorted(
+        {
+            _fold_evidence_text(group[1])
+            for group in _SEQUENCE_NUMBERED_HUMAN_ROLE_GROUPS.values()
+        },
+        key=len,
+        reverse=True,
+    )) + ")"
+    singular_roles = "(?:" + "|".join(sorted(
+        {
+            _fold_evidence_text(role)
+            for role in _SEQUENCE_NUMBERED_HUMAN_ROLE_GROUPS
+        },
+        key=len,
+        reverse=True,
+    )) + ")"
+    known_roles = (
+        rf"(?:(?:the|los|las)\s+)?(?:{collective_roles}|{singular_roles})"
+    )
+    non_exact = re.compile(
+        r"\b(?:among(?:st)?\s+(?:many|others|several)|and\s+others|"
+        r"entre\s+(?:otros|varias|varios)|etc|etcetera|"
+        r"et\s+al|to\s+name\s+a\s+few|y\s+otros|"
+        r"ademas\s+de\s+(?:(?:los|las)\s+)?(?:others?|otros?|otras?)|"
+        r"(?:and|plus|y)\s+(?:(?:the|los|las)\s+)?"
+        rf"(?:additional|demas|extra|mas|more|others?|otros?|otras?|remaining)"
+        rf"(?:\s+{collective_roles})?|"
+        rf"(?:additional|extra|other|remaining|otros?|otras?)\s+"
+        rf"{collective_roles}|(?:demas|mas|more)\s+{collective_roles})\b"
+        rf"|\b(?:(?:one|un|una)\s+"
+        rf"(?:(?:additional|extra|mas|more)\s+{singular_roles}|"
+        rf"{singular_roles}\s+(?:additional|extra|mas|more))|"
+        rf"(?:another|extra|otra|otro)\s+{singular_roles}|"
+        rf"(?:algunas|algunos|some)\s+(?:(?:of|de)\s+)?{known_roles}|"
+        rf"(?:among|entre)\s+{known_roles}|"
+        r"(?:are|estan|son)\s+among\s+those|"
+        r"(?:are|estan|forman|son)\s+(?:(?:a|una?)\s+)?"
+        r"(?:part|parte)\s+(?:of|de)\s+(?:the\s+|la\s+|el\s+)?"
+        r"(?:panel|group|grupo|jurado)|"
+        rf"(?:along\s+with|as\s+well\s+as|junto\s+con|together\s+with)"
+        rf"\s+(?:others?|otros?|otras?|{known_roles})|"
+        rf"(?:include(?:d|s)?|including|incluye[n]?|incluyendo|such\s+as)"
+        rf"\s+(?:others?|otros?|otras?|{known_roles})|"
+        rf"(?:jueces|judges)\s+(?:como|such\s+as)|"
+        r"(?:comprise|represent)\s+(?:(?:a|the)\s+)?(?:part|subset)\s+of|"
+        r"(?:are|is|son)\s+among\s+(?:(?:a|the)\s+)?larger\s+group|"
+        r"(?:are|is|son)\s+joined\s+by)\b"
+    )
+    roster_bound = re.compile(
+        r"\b(?:al\s+menos|at\s+a\s+minimum|at\s+least|at\s+minimum|"
+        r"at\s+most|como\s+maximo|como\s+minimo|como\s+poco|"
+        r"cuando\s+menos|por\s+lo\s+menos)\s*[,]?\s*$"
+    )
+    parallel_link = re.compile(
+        r"(?:[,;.!?:]|\n)\s*(?:(?:and|despues|followed\s+by|luego|"
+        r"seguid[oa]s?\s+por|then|y)\s*)?$|"
+        r"\b(?:and|despues|followed\s+by|luego|seguid[oa]s?\s+por|then|y)"
+        r"\b\s*$"
+    )
+    suffix = folded[matches[-1][3]:]
+    suffix_coactor = re.match(
+        r"\s*,?\s*(?:along\s+with|alongside|as\s+well\s+as|con|"
+        r"junto\s+con|plus|together\s+with|with)\s+"
+        r"(?P<tail>[^,.;:!?]{1,80})",
+        suffix,
+    )
+    suffix_bare_name = re.match(
+        r"\s*,\s*(?P<name>[a-z]+)\b",
+        suffix,
+    )
+    suffix_coactor_pronoun = re.match(
+        r"\s*,?\s*(?:along\s+with|alongside|as\s+well\s+as|con|"
+        r"junto\s+con|plus|together\s+with|with)\s+"
+        r"(?:el|ella|ellas|ellos|her|him|them)\b",
+        suffix,
+    )
+    named_actors = {
+        _fold_evidence_text(name) for name in _sequence_named_actors(value)
+    }
+    if (
+        exclusion.search(prefix)
+        or exclusion.search(suffix)
+        or uncertain.search(suffix)
+        or non_exact.search(folded)
+        or roster_bound.search(prefix)
+        or re.match(r"\s*,?\s*(?:and|y)\b", suffix)
+        or suffix_coactor is not None
+        or (
+            suffix_bare_name is not None
+            and suffix_bare_name.group("name") in named_actors
+        )
+        or suffix_coactor_pronoun is not None
+    ):
+        return None
+    for left, right in zip(matches, matches[1:]):
+        gap = folded[left[3]:right[2]]
+        if (
+            exclusion.search(gap)
+            or uncertain.search(gap)
+            or non_exact.search(gap)
+            or roster_bound.search(gap)
+            or not parallel_link.search(gap)
+        ):
+            return None
+    roles = [role for role, _identity, _start, _end in matches]
+    role_family = next(
+        (
+            aliases for aliases in _SEQUENCE_ROLE_EQUIVALENT_GROUPS
+            if roles[0] in aliases
+        ),
+        frozenset((roles[0],)),
+    )
+    role_languages = {
+        "en" if _SEQUENCE_NUMBERED_HUMAN_ROLE_GROUPS[role][0].startswith(
+            "The "
+        ) else "es"
+        for role in roles
+    }
+    family_terms = {_fold_evidence_text(role) for role in role_family} | {
+        _fold_evidence_text(_SEQUENCE_NUMBERED_HUMAN_ROLE_GROUPS[role][1])
+        for role in role_family
+    }
+    if any(
+        not any(
+            start <= role_match.start() and role_match.end() <= end
+            for _role, _identity, start, end in matches
+        )
+        for term in family_terms
+        for role_match in re.finditer(rf"\b{re.escape(term)}\b", folded)
+    ):
+        return None
+    numbers = sorted({identity for _role, identity, _start, _end in matches})
+    if (
+        any(role not in role_family for role in roles)
+        or len(role_languages) != 1
+        or len(numbers) < 2
+        or numbers != list(range(min(numbers), max(numbers) + 1))
+    ):
+        return None
+    group, entity = _SEQUENCE_NUMBERED_HUMAN_ROLE_GROUPS[roles[0]]
+    return group, entity, len(numbers)
+
+
+def _numbered_sequence_role_roster(action: str) -> str:
+    group = _numbered_sequence_role_group(action)
+    return group[0] if group else ""
+
+
+def _sequence_numbered_role_count_subject(
+    beat: Dict[str, Any],
+    next_page: Any,
+) -> Optional[Dict[str, Any]]:
+    action = str(beat.get("action", ""))
+    group = _numbered_sequence_role_group(action)
+    page = beat.get("page")
+    if group is None or type(page) is not int:
+        return None
+    group_label, count_entity, count = group
+    role_mentions = _sequence_action_role_identity_mentions(action)
+    distinct_role_terms, collective_role_terms = _sequence_role_evidence_terms(
+        role_mentions[0][0]
+    )
+    claimed_role_identities = sorted({
+        identity for _role, identity, _start, _end in role_mentions
+    })
+    end_page = next_page if type(next_page) is int and next_page >= page else page
+    allowed_page_set = set(range(page, end_page + 1))
+    for start, end in _sequence_action_page_spans(action):
+        if start >= page and end >= start:
+            allowed_page_set.update(range(start, end + 1))
+    allowed_pages = sorted(allowed_page_set)
+    field_path = (
+        f"sequence_ledger[{beat.get('order')}].action#numbered_role_count"
+    )
+    subject = {
+        "field_path": field_path,
+        "source_field_path": f"sequence_ledger[{beat.get('order')}].action",
+        "trigger": "counting_claim",
+        "claim": f"Exactly {count} {count_entity} perform this action: {action}",
+        "count_entity": count_entity,
+        "count_anchor": group_label,
+        "claimed_total": count,
+        "claimed_max_total": None,
+        "claimed_universe_total": count,
+        "count_quantifier": "exact",
+        "require_distinct_instances": True,
+        "claimed_role_identities": claimed_role_identities,
+        "distinct_role_terms": distinct_role_terms,
+        "collective_role_terms": collective_role_terms,
+        "search_terms": [count_entity],
+        "matched_pages": allowed_pages,
+        "allowed_pages": allowed_pages,
+        "full_screenplay_searched": True,
+    }
+    subject["claim_sha256"] = canonical_json_hash(subject)
+    return subject
+
+
+def _sequence_has_unverified_numeric_shorthand(value: str) -> bool:
+    if _SEQUENCE_NUMBERED_ROLE.search(value):
+        return True
+    return bool(_material_count_claims_details(value))
+
+
+def _required_sequence_actor_repairs(
+    candidate: Dict[str, Any],
+    invalid_slots: Dict[str, str],
+    all_slots: Dict[str, Tuple[int, str]],
+) -> Dict[str, str]:
+    rows = candidate.get("sequence_ledger")
+    if not isinstance(rows, list):
+        raise CoverageContractError(
+            "Rejected sequence repair received a malformed ledger"
+        )
+    required: Dict[str, str] = {}
+    for slot in invalid_slots:
+        index, field = all_slots[slot]
+        if field != "actor":
+            continue
+        if index >= len(rows) or not isinstance(rows[index], dict):
+            raise CoverageContractError(
+                "Rejected sequence repair received an invalid actor slot"
+            )
+        required[slot] = _numbered_sequence_role_roster(
+            str(rows[index].get("action", ""))
+        )
+        if not required[slot]:
+            raise CoverageContractError(
+                "Targeted sequence repair actor is not named in the "
+                "preserved action context"
+            )
+    return required
+
+
+def _required_sequence_knower_subjects(
+    candidate: Dict[str, Any],
+    _rejected_values: Dict[str, Any],
+    invalid_slots: Dict[str, str],
+    all_slots: Dict[str, Tuple[int, str]],
+    required_actors: Dict[str, str],
+) -> Dict[str, str]:
+    rows = candidate.get("sequence_ledger")
+    if not isinstance(rows, list):
+        raise CoverageContractError(
+            "Targeted knowledge repair received a malformed ledger"
+        )
+    actor_slots = {
+        index: slot
+        for slot, (index, field) in all_slots.items()
+        if field == "actor"
+    }
+    required: Dict[str, str] = {}
+    for slot in invalid_slots:
+        index, field = all_slots[slot]
+        if field != "character_knowledge":
+            continue
+        if index >= len(rows) or not isinstance(rows[index], dict):
+            raise CoverageContractError(
+                "Targeted knowledge repair received an invalid field slot"
+            )
+        row = rows[index]
+        actor_slot = actor_slots.get(index)
+        accepted_actor = (
+            required_actors.get(actor_slot, str(row.get("actor", "")))
+            if actor_slot
+            else str(row.get("actor", ""))
+        )
+        action = str(row.get("action", ""))
+        required[slot] = _sequence_action_knower_subject(
+            action, accepted_actor
+        )
+    return required
+
+
+def _problem_for_sequence_repair_slot(
+    slot: str,
+    all_slots: Dict[str, Tuple[int, str]],
+) -> str:
+    index, field = all_slots[slot]
+    if field == "actor":
+        return (
+            f"sequence_ledger[{index}].actor uses unverified numeric "
+            "shorthand; name the actors or roles"
+        )
+    return (
+        f"sequence_ledger[{index}].character_knowledge has invalid "
+        "knowledge structure; use one knower roster and exactly one "
+        "knowledge predicate"
+    )
+
+
+def _merge_rejected_sequence_field_repairs(
+    candidate: Dict[str, Any],
+    repaired: Any,
+    invalid_slots: Dict[str, str],
+    required_subjects: Dict[str, str],
+    required_actors: Dict[str, str],
+    all_slots: Dict[str, Tuple[int, str]],
+) -> Dict[str, Any]:
+    values = repaired.get("repairs") if isinstance(repaired, dict) else None
+    actor_slots = {
+        slot for slot in invalid_slots if all_slots[slot][1] == "actor"
+    }
+    knowledge_slots = set(invalid_slots) - actor_slots
+    if (
+        not invalid_slots
+        or not isinstance(values, dict)
+        or set(values) != set(invalid_slots)
+        or set(required_subjects) != knowledge_slots
+        or set(required_actors) != actor_slots
+    ):
+        raise CoverageContractError(
+            "Rejected sequence repair did not return every required field"
+        )
+    for slot in invalid_slots:
+        value = values[slot]
+        if not isinstance(value, str) or not value.strip():
+            raise CoverageContractError(
+                "Rejected sequence repair contains an invalid value"
+            )
+        _index, field = all_slots[slot]
+        if field == "actor":
+            if (
+                _fold_evidence_text(value)
+                != _fold_evidence_text(required_actors[slot])
+            ):
+                raise CoverageContractError(
+                    "Rejected actor repair changed its frozen roster"
+                )
+            continue
+        subject = _sequence_knower_subject(value)
+        required_subject = required_subjects[slot]
+        if required_subject == "NOT LOCATED":
+            if value.strip().upper() != "NOT LOCATED":
+                raise CoverageContractError(
+                    "Targeted knowledge repair invented an ungrounded knower"
+                )
+            continue
+        predicate_tail = value[len(subject):].lstrip()
+        if (
+            _fold_evidence_text(subject)
+            != _fold_evidence_text(required_subject)
+            or re.match(r"knows?\s+that\b", predicate_tail, re.I) is None
+        ):
+            raise CoverageContractError(
+                "Targeted knowledge repair changed its frozen knower roster"
+            )
+        if not _has_exactly_one_knowledge_claim(value):
+            raise CoverageContractError(
+                "Targeted knowledge repair must contain one checked clause"
+            )
+    synthetic_problems = [
+        _problem_for_sequence_repair_slot(slot, all_slots)
+        for slot in invalid_slots
+    ]
+    updated, _invalid = _apply_sequence_field_repairs(
+        candidate,
+        repaired,
+        synthetic_problems,
+        defer_invalid_fields=False,
+    )
     return updated
 
 
@@ -6651,7 +7878,7 @@ def run_coverage_v1(
             "audit": AUDIT_TOOL["input_schema"],
             "repair": REPAIR_TOOL["input_schema"],
             "fact_repair": FACT_REPAIR_TOOL["input_schema"],
-            "detail_contract_version": DETAIL_AUDIT_CONTRACT_VERSION,
+            "detail_contract_version": DETAIL_AUDIT_BINDING_VERSION,
             "budget_ledger_version": BUDGET_LEDGER_VERSION,
         }
     )
@@ -7475,6 +8702,7 @@ def run_coverage_v1(
             candidate: Dict[str, Any],
             validation_problems: Sequence[str],
         ) -> Any:
+            nonlocal repair_calls_used
             repaired, _text_out, usage = call(
                 system_blocks=audit_system,
                 user_blocks=build_sequence_retry_user_blocks(
@@ -7496,8 +8724,66 @@ def run_coverage_v1(
                 stage="coverage_v1.fact_audit_sequence_repair",
                 pipeline_pass="coverage_v1",
             )
-            return _merge_sequence_field_repairs(
-                candidate, repaired, validation_problems
+            partially_repaired, invalid_fields = (
+                _apply_sequence_field_repairs(
+                    candidate,
+                    repaired,
+                    validation_problems,
+                    defer_invalid_fields=True,
+                )
+            )
+            if not invalid_fields:
+                return partially_repaired
+            repaired_values = repaired.get("repairs")
+            all_slots = _sequence_field_repair_slots(validation_problems)
+            required_actors = _required_sequence_actor_repairs(
+                partially_repaired,
+                invalid_fields,
+                all_slots,
+            )
+            required_subjects = _required_sequence_knower_subjects(
+                partially_repaired,
+                repaired_values,
+                invalid_fields,
+                all_slots,
+                required_actors,
+            )
+            rejected_field_repair, _text_out, usage = call(
+                system_blocks=audit_system,
+                user_blocks=build_rejected_sequence_field_retry_user_blocks(
+                    text,
+                    title,
+                    partially_repaired,
+                    page_reference_map,
+                    sequence_focus,
+                    repaired_values,
+                    invalid_fields,
+                    required_subjects,
+                    required_actors,
+                    all_slots,
+                ),
+                model_key=route,
+                tool=build_rejected_sequence_field_repair_tool(
+                    list(invalid_fields)
+                ),
+                thinking_budget=REPAIR_THINKING_BUDGET,
+                max_tokens=REPAIR_MAX_TOKENS,
+                proxy_url=proxy_url,
+                job_id=job_id,
+                stage=(
+                    "coverage_v1."
+                    "fact_audit_rejected_sequence_field_repair"
+                ),
+                pipeline_pass="coverage_v1",
+            )
+            repair_calls_used += 1
+            return _merge_rejected_sequence_field_repairs(
+                partially_repaired,
+                rejected_field_repair,
+                invalid_fields,
+                required_subjects,
+                required_actors,
+                all_slots,
             )
 
         if audit_core_payload is None:
@@ -8414,6 +9700,20 @@ def run_coverage_v1(
             and citation_summary["relevance_status"] == "supported"
         )
 
+    unlocated_sequence_knowledge = [
+        str(beat.get("order"))
+        for beat in audit_payload.get("sequence_ledger", [])
+        if isinstance(beat, dict)
+        and str(beat.get("character_knowledge", "")).strip().upper()
+        == "NOT LOCATED"
+    ]
+    if unlocated_sequence_knowledge:
+        status = "needs_review"
+        review_reasons.append(
+            "sequence character knowledge was not located for beat(s): "
+            + ", ".join(unlocated_sequence_knowledge)
+        )
+
     confidence_adjustments: List[str] = []
     if status == "needs_review" and coverage_payload["confidence"] == "high":
         coverage_payload = copy.deepcopy(coverage_payload)
@@ -8430,6 +9730,7 @@ def run_coverage_v1(
         or bool(noncentral_contradicted)
         or bool(noncentral_unclassified)
         or unverified_citations > 0
+        or bool(unlocated_sequence_knowledge)
     )
     if coverage_payload["confidence"] == "low":
         review_reasons.append("reader confidence is low")
@@ -8453,7 +9754,6 @@ def run_coverage_v1(
             f"{unverified_citations} citation(s) could not be verified "
             "verbatim against the cited pages"
         )
-
     guard.ensure_within_cap()
     guard.clear_receipts()
     cost = _usage_cost_split(guard.usage)
