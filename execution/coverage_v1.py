@@ -88,9 +88,10 @@ FORMATS = ("feature", "tv_pilot")
 MAX_AUDIT_CLAIMS = 25
 MIN_AUDIT_CLAIMS = 6
 MAX_DETAIL_AUDIT_ROWS = 43
+MAX_TEXT_DETAIL_RETRY_ROWS = 8
 MAX_COUNT_DETAIL_RETRY_ROWS = 3
 MAX_COUNT_DETAIL_RETRY_TOTAL_ROWS = 9
-DETAIL_AUDIT_CONTRACT_VERSION = "coverage-v1.2-detail-5"
+DETAIL_AUDIT_CONTRACT_VERSION = "coverage-v1.2-detail-6"
 AUDIT_CLASSIFICATIONS = (
     "supported",
     "partially_supported",
@@ -882,6 +883,68 @@ def build_detail_audit_tool(rows: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
     return tool
 
 
+def build_text_detail_retry_tool(
+    rows: Sequence[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Retry malformed prose slots once with typed classification fields."""
+    if not rows or len(rows) > MAX_TEXT_DETAIL_RETRY_ROWS or any(
+        row.get("kind") not in {"existing_evidence", "citation_relevance"}
+        or (
+            row.get("kind") == "existing_evidence"
+            and isinstance(row.get("subject"), dict)
+            and row["subject"].get("trigger") == "counting_claim"
+        )
+        for row in rows
+    ):
+        raise CoverageContractError(
+            "Text detail retry must contain 1-"
+            f"{MAX_TEXT_DETAIL_RETRY_ROWS} non-count rows"
+        )
+    slots = [str(row.get("slot", "")) for row in rows]
+    if any(not slot for slot in slots) or len(slots) != len(set(slots)):
+        raise CoverageContractError(
+            "Text detail retry slots must be unique and non-empty"
+        )
+    result = {
+        "type": "object",
+        "properties": {
+            "classification": {
+                "type": "string",
+                "enum": list(AUDIT_CLASSIFICATIONS),
+            },
+            "note": {"type": "string"},
+        },
+        "required": ["classification", "note"],
+    }
+    tool = {
+        "name": "submit_text_detail_retry_v1_2",
+        "description": (
+            "Retry only malformed prose detail slots with typed fields."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "results": {
+                    "type": "object",
+                    "properties": {
+                        slot: copy.deepcopy(result) for slot in slots
+                    },
+                    "required": slots,
+                },
+            },
+            "required": ["results"],
+        },
+    }
+    stats = strict_schema_complexity(tool["input_schema"])
+    for metric, ceiling in STRICT_BUDGET.items():
+        if stats[metric] > ceiling:
+            raise CoverageContractError(
+                f"{tool['name']} exceeds strict budget: "
+                f"{metric}={stats[metric]} > {ceiling}"
+            )
+    return tool
+
+
 def build_count_detail_retry_tool(
     rows: Sequence[Dict[str, Any]],
 ) -> Dict[str, Any]:
@@ -964,6 +1027,50 @@ def build_count_detail_retry_tool(
     return tool
 
 
+def _decode_text_detail_value(value: Any) -> Optional[Tuple[str, str]]:
+    if isinstance(value, dict) and set(value) == {"classification", "note"}:
+        classification = value.get("classification")
+        raw_note = value.get("note")
+        if (
+            not isinstance(classification, str)
+            or not isinstance(raw_note, str)
+        ):
+            return None
+        note = " ".join(raw_note.split())
+    elif isinstance(value, str):
+        classification, separator, raw_note = value.partition(":")
+        if not separator:
+            return None
+        note = " ".join(raw_note.split())
+    else:
+        return None
+    if classification not in AUDIT_CLASSIFICATIONS or not note:
+        return None
+    return str(classification), note
+
+
+def _malformed_text_detail_rows(
+    payload: Any,
+    rows: Sequence[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    results = payload.get("results") if isinstance(payload, dict) else None
+    expected = [str(row["slot"]) for row in rows]
+    if not isinstance(results, dict) or set(results) != set(expected):
+        raise CoverageContractError(
+            "Detailed audit did not return every required unique slot"
+        )
+    return [
+        row
+        for row in rows
+        if not (
+            row.get("kind") == "existing_evidence"
+            and isinstance(row.get("subject"), dict)
+            and row["subject"].get("trigger") == "counting_claim"
+        )
+        and _decode_text_detail_value(results.get(str(row["slot"]))) is None
+    ]
+
+
 def decode_detail_audit_payload(
     payload: Any,
     rows: Sequence[Dict[str, Any]],
@@ -992,18 +1099,12 @@ def decode_detail_audit_payload(
                 **_decode_count_audit_result(value, subject, source_text),
             })
             continue
-        classification, separator, note = (
-            value.partition(":") if isinstance(value, str) else ("", "", "")
-        )
-        note = " ".join(note.split())
-        if (
-            not separator
-            or classification not in AUDIT_CLASSIFICATIONS
-            or not note
-        ):
+        decoded_value = _decode_text_detail_value(value)
+        if decoded_value is None:
             raise CoverageContractError(
                 f"Detailed audit returned a malformed result for {slot}"
             )
+        classification, note = decoded_value
         decoded = {
             "classification": classification,
             "note": note,
@@ -4831,8 +4932,14 @@ def run_coverage_v1(
         completed_main = set(
             (progress or {}).get("completed_main_batches", [])
         )
+        completed_text_retries = set(
+            (progress or {}).get("completed_text_retry_batches", [])
+        )
         completed_retries = set(
             (progress or {}).get("completed_retry_batches", [])
+        )
+        text_retry_plan = list(
+            (progress or {}).get("text_retry_plan", [])
         )
         retry_plan = list((progress or {}).get("retry_plan", []))
 
@@ -4850,9 +4957,13 @@ def run_coverage_v1(
                         "candidate_sha256": candidate_sha256,
                         "rows_sha256": rows_sha256,
                         "completed_main_batches": sorted(completed_main),
+                        "completed_text_retry_batches": sorted(
+                            completed_text_retries
+                        ),
                         "completed_retry_batches": sorted(
                             completed_retries
                         ),
+                        "text_retry_plan": text_retry_plan,
                         "retry_plan": retry_plan,
                         "evidence_rows": evidence_rows,
                         "citation_rows": citation_rows,
@@ -4887,14 +4998,106 @@ def run_coverage_v1(
             )
             usage_total = _merge_usage(usage_total, usage)
             _note_usage(usage_sink, usage_total)
-            decoded_evidence, decoded_citations = (
-                decode_detail_audit_payload(detail_input, batch, text)
+            guard.charge(usage)
+            malformed_rows = _malformed_text_detail_rows(
+                detail_input, batch
             )
-            evidence_rows.extend(decoded_evidence)
-            citation_rows.extend(decoded_citations)
+            malformed_slots = {
+                str(row["slot"]) for row in malformed_rows
+            }
+            valid_batch = [
+                row for row in batch
+                if str(row["slot"]) not in malformed_slots
+            ]
+            if valid_batch:
+                valid_input = {
+                    "results": {
+                        str(row["slot"]): detail_input["results"][
+                            str(row["slot"])
+                        ]
+                        for row in valid_batch
+                    }
+                }
+                decoded_evidence, decoded_citations = (
+                    decode_detail_audit_payload(valid_input, valid_batch, text)
+                )
+                evidence_rows.extend(decoded_evidence)
+                citation_rows.extend(decoded_citations)
+            text_retry_plan.extend(
+                str(row["slot"])
+                for row in malformed_rows
+                if str(row["slot"]) not in text_retry_plan
+            )
             completed_main.add(batch_sha256)
             save_progress()
+
+        if len(text_retry_plan) > MAX_TEXT_DETAIL_RETRY_ROWS:
+            raise CoverageContractError(
+                "Detailed audit returned too many malformed prose rows for "
+                "one bounded retry"
+            )
+        rows_by_slot = {str(row["slot"]): row for row in rows}
+        text_retry_rows = [
+            rows_by_slot[slot]
+            for slot in text_retry_plan
+            if slot in rows_by_slot
+        ]
+        for start in range(
+            0, len(text_retry_rows), MAX_TEXT_DETAIL_RETRY_ROWS
+        ):
+            text_retry_batch = text_retry_rows[
+                start:start + MAX_TEXT_DETAIL_RETRY_ROWS
+            ]
+            batch_sha256 = canonical_json_hash(text_retry_batch)
+            if batch_sha256 in completed_text_retries:
+                continue
+            guard.check_before_call()
+            retry_user_blocks = build_detail_audit_user_blocks(
+                text,
+                title,
+                candidate_coverage,
+                page_reference_map,
+                text_retry_batch,
+            )
+            retry_user_blocks.append({
+                "type": "text",
+                "text": (
+                    "# FORMAT REPAIR\n\nThe previous response was rejected "
+                    "because these slots did not contain both a valid "
+                    "classification and a non-empty factual note. For this "
+                    "retry only, follow the typed tool schema: return each "
+                    "slot as an object with exactly `classification` and "
+                    "`note`. The schema overrides the earlier string-format "
+                    "instruction. Re-audit only these rows."
+                ),
+            })
+            retry_input, _text_out, usage = call(
+                system_blocks=audit_system,
+                user_blocks=retry_user_blocks,
+                model_key=audit_model_effective,
+                tool=build_text_detail_retry_tool(text_retry_batch),
+                thinking_budget=AUDIT_THINKING_BUDGET,
+                max_tokens=AUDIT_MAX_TOKENS,
+                proxy_url=proxy_url,
+                job_id=job_id,
+                stage=(
+                    stage
+                    + f"_text_retry_{start // MAX_TEXT_DETAIL_RETRY_ROWS + 1}"
+                ),
+                pipeline_pass="coverage_v1",
+            )
+            usage_total = _merge_usage(usage_total, usage)
+            _note_usage(usage_sink, usage_total)
             guard.charge(usage)
+            retried_evidence, retried_citations = (
+                decode_detail_audit_payload(
+                    retry_input, text_retry_batch, text
+                )
+            )
+            evidence_rows.extend(retried_evidence)
+            citation_rows.extend(retried_citations)
+            completed_text_retries.add(batch_sha256)
+            save_progress()
 
         evidence_rows = _enforce_count_ledger_uniqueness(
             evidence_rows, rows, text
@@ -4949,6 +5152,7 @@ def run_coverage_v1(
             )
             usage_total = _merge_usage(usage_total, usage)
             _note_usage(usage_sink, usage_total)
+            guard.charge(usage)
             retried, _unused_citations = decode_detail_audit_payload(
                 retry_input, retry_batch, text
             )
@@ -4961,7 +5165,6 @@ def run_coverage_v1(
             ]
             completed_retries.add(batch_sha256)
             save_progress()
-            guard.charge(usage)
         evidence_rows = _enforce_count_ledger_uniqueness(
             evidence_rows, rows, text
         )

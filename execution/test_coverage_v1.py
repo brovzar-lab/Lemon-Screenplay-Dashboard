@@ -3429,6 +3429,168 @@ The footage continues.
             cv.STRICT_BUDGET["property_count"],
         )
 
+    def test_malformed_prose_detail_gets_one_typed_retry(self):
+        coverage = valid_coverage()
+        checks = cv.build_existing_evidence_checks(
+            coverage, SCREENPLAY_TEXT
+        )
+        rows = cv.build_detail_audit_rows(coverage, checks)
+        target = next(
+            row for row in rows if row["kind"] == "citation_relevance"
+        )
+        malformed = supported_detail_payload(coverage)
+        malformed["results"][target["slot"]] = "supported"
+        typed_retry = {
+            "results": {
+                target["slot"]: {
+                    "classification": "supported",
+                    "note": "The cited passage directly supports the point.",
+                }
+            }
+        }
+        transport = FakeTransport([
+            (coverage, settled_usage()),
+            (provider_audit_core(coverage), settled_usage()),
+            (malformed, settled_usage()),
+            (typed_retry, settled_usage()),
+        ])
+
+        report, usage = run_engine(new_store(), transport)
+
+        self.assertEqual(report["status"], "sealed")
+        self.assertEqual(usage["call_count"], 4)
+        self.assertEqual(
+            transport.calls[3]["tool"]["name"],
+            "submit_text_detail_retry_v1_2",
+        )
+        self.assertTrue(
+            transport.calls[3]["stage"].endswith("_text_retry_1")
+        )
+        self.assertLessEqual(
+            cv.strict_schema_complexity(
+                transport.calls[3]["tool"]["input_schema"]
+            )["property_count"],
+            cv.STRICT_BUDGET["property_count"],
+        )
+
+    def test_main_detail_retries_every_non_string_typed_note(self):
+        coverage = valid_coverage()
+        checks = cv.build_existing_evidence_checks(
+            coverage, SCREENPLAY_TEXT
+        )
+        target = next(
+            row
+            for row in cv.build_detail_audit_rows(coverage, checks)
+            if row["kind"] == "citation_relevance"
+        )
+        valid_retry = {
+            "results": {
+                target["slot"]: {
+                    "classification": "supported",
+                    "note": "The cited passage directly supports the point.",
+                }
+            }
+        }
+        for invalid_note in (False, None, 7, [], {}):
+            with self.subTest(invalid_note=invalid_note):
+                malformed = supported_detail_payload(coverage)
+                malformed["results"][target["slot"]] = {
+                    "classification": "supported",
+                    "note": invalid_note,
+                }
+                transport = FakeTransport([
+                    (coverage, settled_usage()),
+                    (provider_audit_core(coverage), settled_usage()),
+                    (malformed, settled_usage()),
+                    (valid_retry, settled_usage()),
+                ])
+
+                report, _usage = run_engine(new_store(), transport)
+
+                self.assertEqual(report["status"], "sealed")
+                self.assertEqual(len(transport.calls), 4)
+                self.assertEqual(
+                    transport.calls[3]["tool"]["name"],
+                    "submit_text_detail_retry_v1_2",
+                )
+
+    def test_typed_retry_rejects_every_non_string_note(self):
+        coverage = valid_coverage()
+        checks = cv.build_existing_evidence_checks(
+            coverage, SCREENPLAY_TEXT
+        )
+        target = next(
+            row
+            for row in cv.build_detail_audit_rows(coverage, checks)
+            if row["kind"] == "citation_relevance"
+        )
+        malformed = supported_detail_payload(coverage)
+        malformed["results"][target["slot"]] = "supported"
+        for invalid_note in (False, None, 7, [], {}):
+            with self.subTest(invalid_note=invalid_note):
+                invalid_retry = {
+                    "results": {
+                        target["slot"]: {
+                            "classification": "supported",
+                            "note": invalid_note,
+                        }
+                    }
+                }
+                transport = FakeTransport([
+                    (coverage, settled_usage()),
+                    (provider_audit_core(coverage), settled_usage()),
+                    (malformed, settled_usage()),
+                    (invalid_retry, settled_usage()),
+                ])
+
+                with self.assertRaisesRegex(
+                    cv.CoverageContractError,
+                    f"malformed result for {target['slot']}",
+                ):
+                    run_engine(new_store(), transport)
+                self.assertEqual(len(transport.calls), 4)
+
+    def test_prose_detail_retry_resumes_without_repaying_main_batch(self):
+        coverage = valid_coverage()
+        checks = cv.build_existing_evidence_checks(
+            coverage, SCREENPLAY_TEXT
+        )
+        target = next(
+            row
+            for row in cv.build_detail_audit_rows(coverage, checks)
+            if row["kind"] == "citation_relevance"
+        )
+        malformed = supported_detail_payload(coverage)
+        malformed["results"][target["slot"]] = "supported"
+        typed_retry = {
+            "results": {
+                target["slot"]: {
+                    "classification": "supported",
+                    "note": "The cited passage directly supports the point.",
+                }
+            }
+        }
+        store = new_store()
+        first = FakeTransport([
+            (coverage, settled_usage()),
+            (provider_audit_core(coverage), settled_usage()),
+            (malformed, settled_usage()),
+            RuntimeError("proxy died during prose detail retry"),
+        ])
+
+        with self.assertRaises(RuntimeError):
+            run_engine(store, first)
+
+        resume = FakeTransport([(typed_retry, settled_usage())])
+        report, usage = run_engine(store, resume)
+
+        self.assertEqual(report["status"], "sealed")
+        self.assertEqual(usage["call_count"], 1)
+        self.assertEqual(len(resume.calls), 1)
+        self.assertTrue(
+            resume.calls[0]["stage"].endswith("_text_retry_1")
+        )
+
     def test_all_malformed_counts_retry_in_schema_safe_batches(self):
         coverage = valid_coverage()
         coverage["story_spine"].update({
