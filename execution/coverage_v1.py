@@ -98,6 +98,7 @@ MAX_FOCUSED_DETAIL_RETRY_ROWS = 7
 MAX_GROUNDED_DETAIL_RETRY_ROWS = 3
 MAX_COUNT_DETAIL_RETRY_ROWS = 3
 MAX_COUNT_DETAIL_RETRY_TOTAL_ROWS = 9
+MAX_SEQUENCE_FIELD_REPAIR_SLOTS = 40
 DETAIL_AUDIT_CONTRACT_VERSION = "coverage-v1.2-detail-11"
 BUDGET_LEDGER_VERSION = "coverage-v1.2-budget-2"
 CALL_RECEIPT_VERSION = "coverage-v1.2-call-receipts-1"
@@ -4442,6 +4443,12 @@ def build_sequence_retry_user_blocks(
         problem for problem in problems
         if _TARGETED_SEQUENCE_FIELD_PROBLEM.fullmatch(problem)
     ]
+    repair_slots = {
+        slot: f"sequence_ledger[{index}].{field}"
+        for slot, (index, field) in _sequence_field_repair_slots(
+            problems
+        ).items()
+    }
     _numbers, pages = _marked_page_contents(text)
     selected = list(dict.fromkeys([
         *sequence_focus.get("opening_pages", []),
@@ -4506,9 +4513,10 @@ def build_sequence_retry_user_blocks(
             "type": "text",
             "text": (
                 f"# TARGETED SEQUENCE REPAIR — {title}\n\n"
-                "The claim verdicts are frozen: copy every verdict exactly. "
-                "Correct only the sequence_ledger issues listed below, keep "
-                "unaffected beats unchanged, and return all five phase arrays. "
+                "Return exactly one corrected string for every required repair "
+                "slot below and no other material. The original ledger, claim "
+                "verdicts, unaffected fields, beat count, order, phases, pages, "
+                "actions, and results are frozen in code. "
                 "Use one material action per row and its true start page. A "
                 "parenthetical citation to setup explicitly seen earlier is "
                 "context, not the current action's start page. Name every actor "
@@ -4523,6 +4531,9 @@ def build_sequence_retry_user_blocks(
                 "expand to a person found only elsewhere. Preserve the literal "
                 "multi-stage climax and final scene. Use only the supplied "
                 "source pages.\n\n"
+                "REQUIRED REPAIR SLOTS:\n"
+                + json.dumps(repair_slots, ensure_ascii=False, indent=1)
+                + "\n\n"
                 "DETERMINISTIC FAILURES:\n- "
                 + "\n- ".join(targeted_problems)
             ),
@@ -5780,11 +5791,63 @@ def _sequence_field_repair_targets(
     return targets
 
 
+def _sequence_field_repair_slots(
+    problems: Sequence[str],
+) -> Dict[str, Tuple[int, str]]:
+    targets = _sequence_field_repair_targets(problems)
+    return {
+        f"row_{index:03d}_{field}": (index, field)
+        for index, fields in sorted(targets.items())
+        for field in sorted(fields)
+    }
+
+
+def build_sequence_field_repair_tool(
+    problems: Sequence[str],
+) -> Dict[str, Any]:
+    """Require one scalar result for each rejected sequence field."""
+    slots = _sequence_field_repair_slots(problems)
+    if not slots or len(slots) > MAX_SEQUENCE_FIELD_REPAIR_SLOTS:
+        raise CoverageContractError(
+            "Targeted sequence repair must contain 1-"
+            f"{MAX_SEQUENCE_FIELD_REPAIR_SLOTS} fields"
+        )
+    tool = {
+        "name": "submit_sequence_field_repairs_v1_2",
+        "description": (
+            "Return only the corrected string for every required sequence "
+            "field slot. The original ledger remains frozen in code."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "repairs": {
+                    "type": "object",
+                    "properties": {
+                        slot: {"type": "string"} for slot in slots
+                    },
+                    "required": list(slots),
+                },
+            },
+            "required": ["repairs"],
+        },
+    }
+    stats = strict_schema_complexity(tool["input_schema"])
+    for metric, ceiling in STRICT_BUDGET.items():
+        if stats[metric] > ceiling:
+            raise CoverageContractError(
+                f"{tool['name']} exceeds strict budget: "
+                f"{metric}={stats[metric]} > {ceiling}"
+            )
+    return tool
+
+
 def _audit_problems_need_only_sequence_retry(
     problems: Sequence[str],
 ) -> bool:
     """True when only named sequence roster fields need a bounded repair."""
-    return bool(_sequence_field_repair_targets(problems))
+    slots = _sequence_field_repair_slots(problems)
+    return bool(slots) and len(slots) <= MAX_SEQUENCE_FIELD_REPAIR_SLOTS
 
 
 def _merge_sequence_field_repairs(
@@ -5793,25 +5856,18 @@ def _merge_sequence_field_repairs(
     problems: Sequence[str],
 ) -> Any:
     """Apply only named field repairs while preserving every material beat."""
-    if not isinstance(repaired, dict):
-        return repaired
-    targets = _sequence_field_repair_targets(problems)
+    slots = _sequence_field_repair_slots(problems)
     original_rows = candidate.get("sequence_ledger")
-    repaired_rows = repaired.get("sequence_ledger")
+    repaired_values = repaired.get("repairs") if isinstance(repaired, dict) else None
     if (
-        not targets
+        not slots
         or not isinstance(original_rows, list)
-        or not isinstance(repaired_rows, list)
-        or len(original_rows) != len(repaired_rows)
+        or not isinstance(repaired_values, dict)
+        or set(repaired_values) != set(slots)
     ):
         raise CoverageContractError(
-            "Targeted sequence repair changed the material beat count"
+            "Targeted sequence repair did not return every required field"
         )
-    fields = (
-        "phase", "actor", "action", "result", "character_knowledge",
-        "audience_knowledge", "page",
-    )
-    unused = set(range(len(repaired_rows)))
     updated = copy.deepcopy(candidate)
     phase_sizes = {
         phase: sum(
@@ -5820,79 +5876,65 @@ def _merge_sequence_field_repairs(
         )
         for phase in {"tag", "aftermath"}
     }
-    for index, original in enumerate(original_rows):
-        if not isinstance(original, dict):
+    for slot, (index, field) in slots.items():
+        if index >= len(original_rows) or not isinstance(original_rows[index], dict):
             raise CoverageContractError(
                 "Targeted sequence repair received a malformed original beat"
             )
-        allowed = targets.get(index, set())
-        matches = [
-            repair_index
-            for repair_index in unused
-            if isinstance(repaired_rows[repair_index], dict)
-            and all(
-                repaired_rows[repair_index].get(field) == original.get(field)
-                for field in fields
-                if field not in allowed
-            )
-        ]
-        if len(matches) != 1:
-            raise CoverageContractError(
-                "Targeted sequence repair changed or ambiguously matched an "
-                "unaffected beat"
-            )
-        repair_index = matches[0]
-        unused.remove(repair_index)
+        original = original_rows[index]
         strict_absence = _is_strict_sequence_absence_marker(
             original,
             phase_size=phase_sizes.get(str(original.get("phase", "")), 0),
         )
-        for field in allowed:
-            corrected_value = repaired_rows[repair_index].get(field)
-            if field == "character_knowledge" and not strict_absence and not _has_exactly_one_knowledge_claim(
-                str(corrected_value or "")
-            ):
-                raise CoverageContractError(
-                    "Targeted sequence repair character_knowledge must contain "
-                    "exactly one checked clause"
-                )
-            names = (
-                _sequence_named_actors(str(corrected_value or ""))
-                if field == "actor"
-                else _sequence_claimed_knowers(str(corrected_value or ""))
+        corrected_value = repaired_values[slot]
+        if not isinstance(corrected_value, str) or not corrected_value.strip():
+            raise CoverageContractError(
+                f"Targeted sequence repair {field} is empty"
             )
-            source_fields = ("action",) if field == "actor" else (
-                "actor", "action"
+        if field == "character_knowledge" and not strict_absence and not _has_exactly_one_knowledge_claim(
+            corrected_value
+        ):
+            raise CoverageContractError(
+                "Targeted sequence repair character_knowledge must contain "
+                "exactly one checked clause"
             )
-            source_text = " ".join(
-                str(original.get(source_field, ""))
-                for source_field in source_fields
+        names = (
+            _sequence_named_actors(corrected_value)
+            if field == "actor"
+            else _sequence_claimed_knowers(corrected_value)
+        )
+        source_fields = ("action",) if field == "actor" else (
+            "actor", "action"
+        )
+        source_text = " ".join(
+            str(original.get(source_field, ""))
+            for source_field in source_fields
+        )
+        source_words = set(re.findall(
+            r"\b[a-záéíóúüñ]+\b", _fold_evidence_text(source_text)
+        ))
+        context_matches = (
+            bool(_sequence_role_subject(
+                corrected_value,
+                knowledge=field == "character_knowledge",
+            ).strip())
+            and all(
+                _fold_evidence_text(name) in source_words
+                for name in names
             )
-            source_words = set(re.findall(
-                r"\b[a-záéíóúüñ]+\b", _fold_evidence_text(source_text)
-            ))
-            context_matches = (
-                bool(_sequence_role_subject(
-                    str(corrected_value or ""),
-                    knowledge=field == "character_knowledge",
-                ).strip())
-                and all(
-                    _fold_evidence_text(name) in source_words
-                    for name in names
-                )
-                and _sequence_subject_matches_context(
-                    str(corrected_value or ""),
-                    source_text,
-                    knowledge=field == "character_knowledge",
-                    allow_sentinel=strict_absence,
-                )
+            and _sequence_subject_matches_context(
+                corrected_value,
+                source_text,
+                knowledge=field == "character_knowledge",
+                allow_sentinel=strict_absence,
             )
-            if not context_matches:
-                raise CoverageContractError(
-                    f"Targeted sequence repair {field} is not named in the "
-                    "preserved action context"
-                )
-            updated["sequence_ledger"][index][field] = corrected_value
+        )
+        if not context_matches:
+            raise CoverageContractError(
+                f"Targeted sequence repair {field} is not named in the "
+                "preserved action context"
+            )
+        updated["sequence_ledger"][index][field] = corrected_value
     updated.pop("_sequence_normalization_errors", None)
     return updated
 
@@ -7444,7 +7486,9 @@ def run_coverage_v1(
                     validation_problems,
                 ),
                 model_key=route,
-                tool=audit_tool,
+                tool=build_sequence_field_repair_tool(
+                    validation_problems
+                ),
                 thinking_budget=AUDIT_THINKING_BUDGET,
                 max_tokens=AUDIT_MAX_TOKENS,
                 proxy_url=proxy_url,
@@ -7452,13 +7496,6 @@ def run_coverage_v1(
                 stage="coverage_v1.fact_audit_sequence_repair",
                 pipeline_pass="coverage_v1",
             )
-            repaired = normalize_audit_tool_input(
-                repaired, page_reference_map["valid_citation_pages"]
-            )
-            if isinstance(repaired, dict):
-                repaired["verdicts"] = copy.deepcopy(
-                    candidate.get("verdicts", [])
-                )
             return _merge_sequence_field_repairs(
                 candidate, repaired, validation_problems
             )

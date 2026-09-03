@@ -2650,15 +2650,20 @@ Another video plays on another screen.
         good_core["sequence_ledger"]["final_scene"][0][
             "character_knowledge"
         ] = "Diego knows the result."
-        good_core["verdicts"][0]["classification"] = "contradicted"
         normalized_good = cv.normalize_audit_tool_input(
             copy.deepcopy(good_core), range(1, 7)
         )
+        repair = {
+            "repairs": {
+                "row_000_actor": "Diego",
+                "row_002_character_knowledge": "Diego knows the result.",
+            },
+        }
         transport = FakeTransport(
             [
                 (coverage, settled_usage()),
                 (bad_core, settled_usage()),
-                (good_core, settled_usage()),
+                (repair, settled_usage()),
                 (
                     supported_detail_payload(coverage, normalized_good),
                     settled_usage(),
@@ -2676,6 +2681,25 @@ Another video plays on another screen.
             "coverage_v1.fact_audit_sequence_repair",
         )
         self.assertEqual(transport.calls[2]["model_key"], "sonnet")
+        self.assertEqual(
+            transport.calls[2]["tool"]["name"],
+            "submit_sequence_field_repairs_v1_2",
+        )
+        repair_schema = transport.calls[2]["tool"]["input_schema"][
+            "properties"
+        ]["repairs"]
+        self.assertEqual(
+            set(repair_schema["properties"]),
+            set(repair_schema["required"]),
+        )
+        self.assertEqual(
+            set(repair_schema["properties"]),
+            {"row_000_actor", "row_002_character_knowledge"},
+        )
+        self.assertNotIn(
+            "sequence_ledger",
+            transport.calls[2]["tool"]["input_schema"]["properties"],
+        )
         retry_text = "\n".join(
             str(block.get("text", ""))
             for block in transport.calls[2]["user_blocks"]
@@ -2690,7 +2714,7 @@ Another video plays on another screen.
             "supported",
         )
 
-    def test_targeted_sequence_retry_cannot_delete_a_rejected_beat(self):
+    def test_targeted_sequence_retry_requires_every_field_slot(self):
         coverage = valid_coverage()
         bad_core = provider_audit_core(coverage)
         decisive = bad_core["sequence_ledger"]["climax"][0]
@@ -2699,15 +2723,14 @@ Another video plays on another screen.
         earlier["actor"] = "Two judges"
         earlier["action"] = "Diego confronts Román before the final."
         bad_core["sequence_ledger"]["climax"] = [earlier, decisive]
-        deleted_beat_retry = provider_audit_core(coverage)
         transport = FakeTransport([
             (coverage, settled_usage()),
             (bad_core, settled_usage()),
-            (deleted_beat_retry, settled_usage()),
+            ({"repairs": {}}, settled_usage()),
         ])
 
         with self.assertRaisesRegex(
-            cv.CoverageContractError, "changed the material beat count"
+            cv.CoverageContractError, "did not return every required field"
         ):
             run_engine(new_store(), transport, max_cost_usd=5.0)
 
@@ -2717,10 +2740,9 @@ Another video plays on another screen.
         coverage = valid_coverage()
         bad_core = provider_audit_core(coverage)
         bad_core["sequence_ledger"]["climax"][0]["actor"] = "Two members"
-        wrong_actor_retry = copy.deepcopy(bad_core)
-        wrong_actor_retry["sequence_ledger"]["climax"][0]["actor"] = (
-            "Román (seen on p.4)"
-        )
+        wrong_actor_retry = {
+            "repairs": {"row_000_actor": "Román (seen on p.4)"},
+        }
         transport = FakeTransport([
             (coverage, settled_usage()),
             (bad_core, settled_usage()),
@@ -2748,60 +2770,43 @@ Another video plays on another screen.
                 "page": 94,
             }],
         }
-        repaired = copy.deepcopy(candidate)
-        repaired["sequence_ledger"][0]["actor"] = "The judges"
+        problems = [
+            "sequence_ledger[0].actor uses unverified numeric shorthand; "
+            "name the actors or roles"
+        ]
+        repaired = {"repairs": {"row_000_actor": "The judges"}}
 
         merged = cv._merge_sequence_field_repairs(
-            candidate,
-            repaired,
-            [
-                "sequence_ledger[0].actor uses unverified numeric shorthand; "
-                "name the actors or roles"
-            ],
+            candidate, repaired, problems,
         )
 
         self.assertEqual(merged["sequence_ledger"][0]["actor"], "The judges")
 
-        repaired["sequence_ledger"][0]["actor"] = "The judges with runners"
+        repaired["repairs"]["row_000_actor"] = "The judges with runners"
         with self.assertRaisesRegex(
             cv.CoverageContractError,
             "actor is not named in the preserved action context",
         ):
             cv._merge_sequence_field_repairs(
-                candidate,
-                repaired,
-                [
-                    "sequence_ledger[0].actor uses unverified numeric shorthand; "
-                    "name the actors or roles"
-                ],
+                candidate, repaired, problems,
             )
 
-        repaired["sequence_ledger"][0]["actor"] = "DJ"
+        repaired["repairs"]["row_000_actor"] = "DJ"
         with self.assertRaisesRegex(
             cv.CoverageContractError,
             "actor is not named in the preserved action context",
         ):
             cv._merge_sequence_field_repairs(
-                candidate,
-                repaired,
-                [
-                    "sequence_ledger[0].actor uses unverified numeric shorthand; "
-                    "name the actors or roles"
-                ],
+                candidate, repaired, problems,
             )
 
-        repaired["sequence_ledger"][0]["actor"] = "N/A"
+        repaired["repairs"]["row_000_actor"] = "N/A"
         with self.assertRaisesRegex(
             cv.CoverageContractError,
             "actor is not named in the preserved action context",
         ):
             cv._merge_sequence_field_repairs(
-                candidate,
-                repaired,
-                [
-                    "sequence_ledger[0].actor uses unverified numeric shorthand; "
-                    "name the actors or roles"
-                ],
+                candidate, repaired, problems,
             )
 
     def test_targeted_sequence_retry_does_not_singularize_a_proper_name(self):
@@ -2817,8 +2822,7 @@ Another video plays on another screen.
                 "page": 94,
             }],
         }
-        repaired = copy.deepcopy(candidate)
-        repaired["sequence_ledger"][0]["actor"] = "Carlo"
+        repaired = {"repairs": {"row_000_actor": "Carlo"}}
 
         with self.assertRaisesRegex(
             cv.CoverageContractError,
@@ -2865,8 +2869,11 @@ Another video plays on another screen.
             ),
         ):
             with self.subTest(claim=claim):
-                repaired = copy.deepcopy(candidate)
-                repaired["sequence_ledger"][0]["character_knowledge"] = claim
+                repaired = {
+                    "repairs": {
+                        "row_000_character_knowledge": claim,
+                    },
+                }
                 with self.assertRaisesRegex(
                     cv.CoverageContractError, "exactly one checked clause"
                 ):
