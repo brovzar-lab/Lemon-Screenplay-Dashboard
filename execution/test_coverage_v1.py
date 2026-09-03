@@ -268,40 +268,40 @@ def supported_audit(coverage: dict) -> dict:
             {
                 "order": 2,
                 "phase": "ending",
-                "actor": "Diego and the children",
+                "actor": "Diego",
                 "action": coverage["story_spine"]["ending"],
                 "result": "The ending begins after the decisive action.",
-                "character_knowledge": "The characters know the result.",
+                "character_knowledge": "Diego knows the result.",
                 "audience_knowledge": "The audience sees the new state.",
                 "page": last_page,
             },
             {
                 "order": 3,
                 "phase": "final_scene",
-                "actor": "Diego and the children",
+                "actor": "Diego",
                 "action": coverage["story_spine"]["ending"],
                 "result": "The story reaches its literal final state.",
-                "character_knowledge": "The characters know the result.",
+                "character_knowledge": "Diego knows the result.",
                 "audience_knowledge": "The audience sees the aftermath.",
                 "page": last_page,
             },
             {
                 "order": 4,
                 "phase": "tag",
-                "actor": "N/A",
+                "actor": "NOT PRESENT",
                 "action": "NOT PRESENT",
-                "result": "No separate tag follows the final scene.",
-                "character_knowledge": "N/A",
-                "audience_knowledge": "No additional information is revealed.",
+                "result": "NOT PRESENT",
+                "character_knowledge": "NOT PRESENT",
+                "audience_knowledge": "NOT PRESENT",
                 "page": last_page,
             },
             {
                 "order": 5,
                 "phase": "aftermath",
-                "actor": "Diego and the children",
+                "actor": "Diego",
                 "action": coverage["story_spine"]["ending"],
                 "result": "The consequences are shown in the final scene.",
-                "character_knowledge": "The characters know the result.",
+                "character_knowledge": "Diego knows the result.",
                 "audience_knowledge": "The audience sees the consequences.",
                 "page": last_page,
             },
@@ -2633,26 +2633,252 @@ Another video plays on another screen.
         self.assertEqual(report["cost"]["call_count"], 7)
         self.assertEqual(len(transport.calls), 7)
 
-    def test_detail_audit_uses_the_effective_retry_model(self):
+    def test_sequence_retry_is_bounded_and_details_stay_on_audit_model(self):
         coverage = valid_coverage()
         bad_core = provider_audit_core(coverage)
-        bad_core["sequence_ledger"]["final_scene"][0]["page"] = 5
-        bad_core["sequence_ledger"]["climax"][0]["page"] = 6
-        good_core = provider_audit_core(coverage)
+        climax = bad_core["sequence_ledger"]["climax"][0]
+        climax["actor"] = "Two members"
+        climax["action"] = (
+            "Diego completes the decisive action on p.6 "
+            "(as prepared, seen earlier on p.4)."
+        )
+        bad_core["sequence_ledger"]["final_scene"][0][
+            "character_knowledge"
+        ] = "Both members know the result."
+        good_core = copy.deepcopy(bad_core)
+        good_core["sequence_ledger"]["climax"][0]["actor"] = "Diego"
+        good_core["sequence_ledger"]["final_scene"][0][
+            "character_knowledge"
+        ] = "Diego knows the result."
+        good_core["verdicts"][0]["classification"] = "contradicted"
+        normalized_good = cv.normalize_audit_tool_input(
+            copy.deepcopy(good_core), range(1, 7)
+        )
         transport = FakeTransport(
             [
                 (coverage, settled_usage()),
                 (bad_core, settled_usage()),
                 (good_core, settled_usage()),
-                (supported_detail_payload(coverage), settled_usage()),
+                (
+                    supported_detail_payload(coverage, normalized_good),
+                    settled_usage(),
+                ),
             ]
         )
 
-        report, _usage = run_engine(new_store(), transport)
+        report, _usage = run_engine(
+            new_store(), transport, max_cost_usd=5.0
+        )
 
         self.assertEqual(report["status"], "sealed")
+        self.assertEqual(
+            transport.calls[2]["stage"],
+            "coverage_v1.fact_audit_sequence_repair",
+        )
         self.assertEqual(transport.calls[2]["model_key"], "sonnet")
-        self.assertEqual(transport.calls[3]["model_key"], "sonnet")
+        retry_text = "\n".join(
+            str(block.get("text", ""))
+            for block in transport.calls[2]["user_blocks"]
+        )
+        self.assertIn("# TARGETED SEQUENCE REPAIR", retry_text)
+        self.assertNotIn("# SCREENPLAY TEXT", retry_text)
+        self.assertEqual(transport.calls[3]["model_key"], "haiku")
+        self.assertEqual(report["models"]["audit_effective"], "haiku")
+        self.assertEqual(report["models"]["audit_core_repair"], "sonnet")
+        self.assertEqual(
+            report["fact_audit"]["verdicts"][0]["classification"],
+            "supported",
+        )
+
+    def test_targeted_sequence_retry_cannot_delete_a_rejected_beat(self):
+        coverage = valid_coverage()
+        bad_core = provider_audit_core(coverage)
+        decisive = bad_core["sequence_ledger"]["climax"][0]
+        earlier = copy.deepcopy(decisive)
+        earlier["page"] = 5
+        earlier["actor"] = "Two judges"
+        earlier["action"] = "Diego confronts Román before the final."
+        bad_core["sequence_ledger"]["climax"] = [earlier, decisive]
+        deleted_beat_retry = provider_audit_core(coverage)
+        transport = FakeTransport([
+            (coverage, settled_usage()),
+            (bad_core, settled_usage()),
+            (deleted_beat_retry, settled_usage()),
+        ])
+
+        with self.assertRaisesRegex(
+            cv.CoverageContractError, "changed the material beat count"
+        ):
+            run_engine(new_store(), transport, max_cost_usd=5.0)
+
+        self.assertEqual(len(transport.calls), 3)
+
+    def test_targeted_sequence_retry_cannot_substitute_the_wrong_actor(self):
+        coverage = valid_coverage()
+        bad_core = provider_audit_core(coverage)
+        bad_core["sequence_ledger"]["climax"][0]["actor"] = "Two members"
+        wrong_actor_retry = copy.deepcopy(bad_core)
+        wrong_actor_retry["sequence_ledger"]["climax"][0]["actor"] = (
+            "Román (seen on p.4)"
+        )
+        transport = FakeTransport([
+            (coverage, settled_usage()),
+            (bad_core, settled_usage()),
+            (wrong_actor_retry, settled_usage()),
+        ])
+
+        with self.assertRaisesRegex(
+            cv.CoverageContractError,
+            "actor is not named in the preserved action context",
+        ):
+            run_engine(new_store(), transport, max_cost_usd=5.0)
+
+        self.assertEqual(len(transport.calls), 3)
+
+    def test_targeted_sequence_retry_accepts_the_existing_group_role(self):
+        candidate = {
+            "sequence_ledger": [{
+                "order": 1,
+                "phase": "climax",
+                "actor": "Three judges",
+                "action": "Judge 1, Judge 2, and Judge 3 post their scores.",
+                "result": "The scores decide the contest.",
+                "character_knowledge": "Tony knows the scores were rigged.",
+                "audience_knowledge": "The audience sees every score.",
+                "page": 94,
+            }],
+        }
+        repaired = copy.deepcopy(candidate)
+        repaired["sequence_ledger"][0]["actor"] = "The judges"
+
+        merged = cv._merge_sequence_field_repairs(
+            candidate,
+            repaired,
+            [
+                "sequence_ledger[0].actor uses unverified numeric shorthand; "
+                "name the actors or roles"
+            ],
+        )
+
+        self.assertEqual(merged["sequence_ledger"][0]["actor"], "The judges")
+
+        repaired["sequence_ledger"][0]["actor"] = "The judges with runners"
+        with self.assertRaisesRegex(
+            cv.CoverageContractError,
+            "actor is not named in the preserved action context",
+        ):
+            cv._merge_sequence_field_repairs(
+                candidate,
+                repaired,
+                [
+                    "sequence_ledger[0].actor uses unverified numeric shorthand; "
+                    "name the actors or roles"
+                ],
+            )
+
+        repaired["sequence_ledger"][0]["actor"] = "DJ"
+        with self.assertRaisesRegex(
+            cv.CoverageContractError,
+            "actor is not named in the preserved action context",
+        ):
+            cv._merge_sequence_field_repairs(
+                candidate,
+                repaired,
+                [
+                    "sequence_ledger[0].actor uses unverified numeric shorthand; "
+                    "name the actors or roles"
+                ],
+            )
+
+        repaired["sequence_ledger"][0]["actor"] = "N/A"
+        with self.assertRaisesRegex(
+            cv.CoverageContractError,
+            "actor is not named in the preserved action context",
+        ):
+            cv._merge_sequence_field_repairs(
+                candidate,
+                repaired,
+                [
+                    "sequence_ledger[0].actor uses unverified numeric shorthand; "
+                    "name the actors or roles"
+                ],
+            )
+
+    def test_targeted_sequence_retry_does_not_singularize_a_proper_name(self):
+        candidate = {
+            "sequence_ledger": [{
+                "order": 1,
+                "phase": "climax",
+                "actor": "Two judges",
+                "action": "Carlos scores the decisive goal.",
+                "result": "The goal decides the contest.",
+                "character_knowledge": "Carlos knows the result.",
+                "audience_knowledge": "The audience sees the goal.",
+                "page": 94,
+            }],
+        }
+        repaired = copy.deepcopy(candidate)
+        repaired["sequence_ledger"][0]["actor"] = "Carlo"
+
+        with self.assertRaisesRegex(
+            cv.CoverageContractError,
+            "actor is not named in the preserved action context",
+        ):
+            cv._merge_sequence_field_repairs(
+                candidate,
+                repaired,
+                [
+                    "sequence_ledger[0].actor uses unverified numeric shorthand; "
+                    "name the actors or roles"
+                ],
+            )
+
+    def test_targeted_sequence_retry_rejects_a_hidden_second_knower(self):
+        candidate = {
+            "sequence_ledger": [{
+                "order": 1,
+                "phase": "climax",
+                "actor": "Carlos",
+                "action": "Carlos announces the result.",
+                "result": "The contest ends.",
+                "character_knowledge": "Two people know the result.",
+                "audience_knowledge": "The audience sees the result.",
+                "page": 94,
+            }],
+        }
+        for claim in (
+            "Carlos",
+            "Carlos knows the result, and runners know it too.",
+            "Carlos knows the result; runners are aware too.",
+            "Carlos knows the result while runners find out too.",
+            "Carlos knows the result. Runners become aware too.",
+            "Carlos knows the result: runners are aware too.",
+            "Carlos knows the result, although runners are aware too.",
+            "Carlos knows the result — runners are aware too.",
+            "Carlos knows the result\nrunners are aware too.",
+            "Carlos knows the result (runners are aware too).",
+            "Carlos knows the result [runners are aware too].",
+            "Carlos knows the result / runners are aware too.",
+            (
+                "Carlos knows the result although the extremely patient "
+                "championship runners are aware too."
+            ),
+        ):
+            with self.subTest(claim=claim):
+                repaired = copy.deepcopy(candidate)
+                repaired["sequence_ledger"][0]["character_knowledge"] = claim
+                with self.assertRaisesRegex(
+                    cv.CoverageContractError, "exactly one checked clause"
+                ):
+                    cv._merge_sequence_field_repairs(
+                        candidate,
+                        repaired,
+                        [
+                            "sequence_ledger[0].character_knowledge uses "
+                            "unverified numeric shorthand; name the actors "
+                            "or roles"
+                        ],
+                    )
 
     def test_corrected_cosquillitas_phase_buckets_reach_detail_audit(self):
         # Billy's approved audit: Richie chooses Lucesita before the exposé,
@@ -2863,6 +3089,23 @@ Another video plays on another screen.
             for error in normalized["_sequence_normalization_errors"]
         ))
 
+    def test_parenthetical_history_does_not_move_current_action_anchor(self):
+        coverage = valid_coverage()
+        audit = provider_audit_core(coverage)
+        row = audit["sequence_ledger"]["climax"][0]
+        row["page"] = 6
+        row["action"] = (
+            "The judges post their scores on p.6 "
+            "(as instructed, seen earlier on p.4)."
+        )
+
+        normalized = cv.normalize_audit_tool_input(audit, range(1, 7))
+
+        self.assertFalse(any(
+            "anchored to page 6 but begins on referenced page 4" in error
+            for error in normalized.get("_sequence_normalization_errors", [])
+        ))
+
     def test_sequence_span_ending_on_last_climax_page_is_reclassified(self):
         coverage = valid_coverage()
         audit = provider_audit_core(coverage)
@@ -2879,7 +3122,8 @@ Another video plays on another screen.
         audit["sequence_ledger"]["final_scene"][0]["page"] = 98
         for phase in ("tag", "aftermath"):
             marker = audit["sequence_ledger"][phase][0]
-            marker["action"] = "NOT PRESENT"
+            for field in cv.GROUNDED_SEQUENCE_FIELDS:
+                marker[field] = "NOT PRESENT"
             marker["page"] = 0
 
         normalized = cv.normalize_audit_tool_input(audit, range(1, 99))
@@ -2968,6 +3212,35 @@ Another video plays on another screen.
             problems,
         )
 
+    def test_sequence_ledger_routes_invalid_knowledge_claims_to_repair(self):
+        coverage = valid_coverage()
+        problem = (
+            "sequence_ledger[0].character_knowledge has invalid knowledge "
+            "structure; use one knower roster and exactly one knowledge "
+            "predicate"
+        )
+        for claim in (
+            "Carlos",
+            "Carlos knows the result (runners are aware too).",
+        ):
+            with self.subTest(claim=claim):
+                audit = supported_audit(coverage)
+                audit["sequence_ledger"][0]["character_knowledge"] = claim
+                problems = cv.validate_audit_payload(
+                    audit,
+                    cv.build_audit_claims(coverage),
+                    coverage,
+                    cv.build_page_reference_map(SCREENPLAY_TEXT, 6, None),
+                    cv.build_existing_evidence_checks(
+                        coverage, SCREENPLAY_TEXT
+                    ),
+                )
+
+                self.assertIn(problem, problems)
+                self.assertTrue(
+                    cv._audit_problems_need_only_sequence_retry(problems)
+                )
+
     def test_provider_shaped_fact_repair_reuses_unchanged_details(self):
         coverage = valid_coverage()
         audit = provider_audit_core(coverage)
@@ -3036,7 +3309,8 @@ Another video plays on another screen.
         audit["sequence_ledger"]["final_scene"][0]["page"] = 6
         for phase, sentinel in (("tag", 0), ("aftermath", 99)):
             marker = audit["sequence_ledger"][phase][0]
-            marker["action"] = "NOT PRESENT"
+            for field in cv.GROUNDED_SEQUENCE_FIELDS:
+                marker[field] = "NOT PRESENT"
             marker["page"] = sentinel
         normalized_audit = cv.normalize_audit_tool_input(
             copy.deepcopy(audit), range(1, 7)
@@ -3364,8 +3638,13 @@ Another video plays on another screen.
         cases.append((near_marker, "tag has an invalid NOT PRESENT marker"))
 
         no_material = provider_audit_core(coverage)
-        for phase in ("climax", "ending", "final_scene", "tag", "aftermath"):
-            no_material["sequence_ledger"][phase][0]["action"] = "NOT PRESENT"
+        for phase in ("climax", "ending", "final_scene"):
+            no_material["sequence_ledger"][phase] = []
+        for phase in ("tag", "aftermath"):
+            for field in cv.GROUNDED_SEQUENCE_FIELDS:
+                no_material["sequence_ledger"][phase][0][field] = (
+                    "NOT PRESENT"
+                )
         cases.append((no_material, "contains no material story beats"))
 
         for payload, expected in cases:
@@ -3379,6 +3658,51 @@ Another video plays on another screen.
                         ]
                     )
                 )
+
+    def test_mixed_absence_marker_is_not_hidden_from_grounding(self):
+        coverage = valid_coverage()
+        audit = provider_audit_core(coverage)
+        marker = audit["sequence_ledger"]["tag"][0]
+        marker.update({
+            "actor": "Carlos",
+            "result": "Carlos wins the contest.",
+            "character_knowledge": "Carlos",
+            "audience_knowledge": "The audience sees Carlos win.",
+        })
+
+        normalized = cv.normalize_audit_tool_input(audit, range(1, 7))
+        rows = cv.build_detail_audit_rows(
+            coverage, [], normalized["sequence_ledger"]
+        )
+
+        self.assertIn(
+            "sequence_ledger tag has an invalid NOT PRESENT marker",
+            normalized["_sequence_normalization_errors"],
+        )
+        self.assertTrue(any(
+            row.get("kind") == "sequence_evidence"
+            and row.get("subject", {}).get("beat", {}).get("actor") == "Carlos"
+            for row in rows
+        ))
+
+        flattened = supported_audit(coverage)
+        flat_marker = next(
+            beat for beat in flattened["sequence_ledger"]
+            if beat["phase"] == "tag"
+        )
+        flat_marker.update(marker)
+        problems = cv.validate_audit_payload(
+            flattened,
+            cv.build_audit_claims(coverage),
+            coverage,
+            cv.build_page_reference_map(SCREENPLAY_TEXT, 6, None),
+            cv.build_existing_evidence_checks(coverage, SCREENPLAY_TEXT),
+        )
+        self.assertIn(
+            f"sequence_ledger[{flat_marker['order'] - 1}] has an invalid "
+            "NOT PRESENT marker",
+            problems,
+        )
 
     def test_continuity_flags_are_validated_and_preserved(self):
         coverage = valid_coverage()
@@ -4563,7 +4887,291 @@ The footage continues.
         self.assertTrue(
             "actor roster" in str(reason)
             or "observed_knowers" in str(reason)
+            or "knower roles are absent" in str(reason)
         )
+
+    def test_observed_actor_name_requires_a_full_word_boundary(self):
+        people, reason = cv._normalize_observed_people(
+            ["Carlo"],
+            field="observed_actors",
+            excerpt="Carlos scores the decisive goal",
+        )
+
+        self.assertIsNone(people)
+        self.assertIn("names are absent", str(reason))
+
+    def test_sequence_detail_rejects_added_generic_actor_and_knower_roles(self):
+        source = "[PAGE 1]\nThe judges score the finalist and announce the result.\n"
+        base = {
+            "order": 1,
+            "phase": "climax",
+            "actor": "The judges",
+            "action": "The judges score the finalist.",
+            "result": "The judges announce the result.",
+            "character_knowledge": "The judges know the result.",
+            "audience_knowledge": "The audience sees the result.",
+            "page": 1,
+        }
+        for field, claim, expected in (
+            ("actor", "The judges and runners", "actor roles are absent"),
+            ("actor", "The judges with runners", "actor roles are absent"),
+            (
+                "character_knowledge",
+                "The judges and runners know the result.",
+                "knower roles are absent",
+            ),
+        ):
+            with self.subTest(field=field):
+                beat = copy.deepcopy(base)
+                beat[field] = claim
+                target = cv.build_detail_audit_rows({}, [], [beat])[0]
+                value = {
+                    "classification": "supported",
+                    "checks": [
+                        {
+                            "field": required,
+                            "page": 1,
+                            "excerpt": "The judges score the finalist",
+                            "supports": True,
+                        }
+                        for required in target["subject"]["required_fields"]
+                    ],
+                    "observed_actors": ["The judges"],
+                    "observed_knowers": ["The judges"],
+                    "note": "The source supports every field.",
+                }
+
+                decoded, reason = cv._decode_grounded_detail_value(
+                    value, target, source
+                )
+
+                self.assertIsNone(decoded)
+                self.assertIn(expected, str(reason))
+
+        named_source = (
+            "[PAGE 1]\nCarlos scores the finalist and announces the result.\n"
+        )
+        named_beat = {
+            **base,
+            "actor": "Carlos with runners",
+            "action": "Carlos scores the finalist.",
+            "result": "Carlos announces the result.",
+            "character_knowledge": "Carlos knows the result.",
+        }
+        target = cv.build_detail_audit_rows({}, [], [named_beat])[0]
+        value = {
+            "classification": "supported",
+            "checks": [
+                {
+                    "field": required,
+                    "page": 1,
+                    "excerpt": "Carlos scores the finalist and announces",
+                    "supports": True,
+                }
+                for required in target["subject"]["required_fields"]
+            ],
+            "observed_actors": ["Carlos"],
+            "observed_knowers": ["Carlos"],
+            "note": "The source supports every field.",
+        }
+
+        decoded, reason = cv._decode_grounded_detail_value(
+            value, target, named_source
+        )
+
+        self.assertIsNone(decoded)
+        self.assertIn("actor roles are absent", str(reason))
+
+        short_beat = {**base, "actor": "DJ"}
+        target = cv.build_detail_audit_rows({}, [], [short_beat])[0]
+        value = {
+            "classification": "supported",
+            "checks": [
+                {
+                    "field": required,
+                    "page": 1,
+                    "excerpt": "The judges score the finalist",
+                    "supports": True,
+                }
+                for required in target["subject"]["required_fields"]
+            ],
+            "observed_actors": [],
+            "observed_knowers": ["The judges"],
+            "note": "The source supports every field.",
+        }
+
+        decoded, reason = cv._decode_grounded_detail_value(
+            value, target, source
+        )
+
+        self.assertIsNone(decoded)
+        self.assertIn("omits a claimed actor", str(reason))
+
+        sentinel_beat = {**base, "actor": "N/A"}
+        target = cv.build_detail_audit_rows({}, [], [sentinel_beat])[0]
+        value = {
+            "classification": "supported",
+            "checks": [
+                {
+                    "field": required,
+                    "page": 1,
+                    "excerpt": "The judges score the finalist",
+                    "supports": True,
+                }
+                for required in target["subject"]["required_fields"]
+            ],
+            "observed_actors": [],
+            "observed_knowers": ["The judges"],
+            "note": "The source supports every field.",
+        }
+
+        decoded, reason = cv._decode_grounded_detail_value(
+            value, target, source
+        )
+
+        self.assertIsNone(decoded)
+        self.assertIn("actor roles are absent", str(reason))
+
+        for claim in (
+            "Carlos",
+            "Carlos knows the result, and runners know it too.",
+            "Carlos knows the result; runners are aware too.",
+            "Carlos knows the result while runners find out too.",
+            "Carlos knows the result. Runners become aware too.",
+            "Carlos knows the result: runners are aware too.",
+            "Carlos knows the result, although runners are aware too.",
+            "Carlos knows the result — runners are aware too.",
+            "Carlos knows the result\nrunners are aware too.",
+            "Carlos knows the result (runners are aware too).",
+            "Carlos knows the result [runners are aware too].",
+            "Carlos knows the result / runners are aware too.",
+            (
+                "Carlos knows the result although the extremely patient "
+                "championship runners are aware too."
+            ),
+        ):
+            with self.subTest(claim=claim):
+                multi_knowledge_beat = {
+                    **base,
+                    "actor": "Carlos",
+                    "action": "Carlos announces the result.",
+                    "character_knowledge": claim,
+                }
+                target = cv.build_detail_audit_rows(
+                    {}, [], [multi_knowledge_beat]
+                )[0]
+                value = {
+                    "classification": "supported",
+                    "checks": [
+                        {
+                            "field": required,
+                            "page": 1,
+                            "excerpt": (
+                                "Carlos scores the finalist and announces"
+                            ),
+                            "supports": True,
+                        }
+                        for required in target["subject"]["required_fields"]
+                    ],
+                    "observed_actors": ["Carlos"],
+                    "observed_knowers": ["Carlos"],
+                    "note": "The source supports every field.",
+                }
+
+                decoded, reason = cv._decode_grounded_detail_value(
+                    value, target, named_source
+                )
+
+                self.assertIsNone(decoded)
+                self.assertIn("exactly one checked clause", str(reason))
+
+    def test_historical_setup_page_cannot_ground_the_current_action(self):
+        beat = {
+            "order": 1,
+            "phase": "climax",
+            "actor": "Diego",
+            "action": (
+                "Diego stops the final penalty on p.6 "
+                "(as threatened, seen earlier on p.4)."
+            ),
+            "result": "Diego completes the decisive save.",
+            "character_knowledge": "Diego knows the result.",
+            "audience_knowledge": "The audience sees the save.",
+            "page": 6,
+        }
+        target = cv.build_detail_audit_rows({}, [], [beat])[0]
+        value = {
+            "classification": "supported",
+            "checks": [
+                {
+                    "field": field,
+                    "page": 4 if field == "action" else 6,
+                    "excerpt": (
+                        "Román Vega amenaza con quitar la cancha"
+                        if field == "action"
+                        else "Diego detiene el último penal"
+                    ),
+                    "supports": True,
+                }
+                for field in target["subject"]["required_fields"]
+            ],
+            "observed_actors": ["Diego"],
+            "observed_knowers": ["Diego"],
+            "note": "The source supports every field.",
+        }
+
+        decoded, reason = cv._decode_grounded_detail_value(
+            value, target, SCREENPLAY_TEXT
+        )
+
+        self.assertIsNone(decoded)
+        self.assertEqual(reason, "action evidence is outside its beat pages")
+
+    def test_actor_evidence_must_stay_inside_the_action_interval(self):
+        source = (
+            "[PAGE 4]\nDiego prepares the trap before the final.\n"
+            "[PAGE 6]\nDiego stops the final penalty and wins.\n"
+        )
+        beat = {
+            "order": 1,
+            "phase": "climax",
+            "actor": "Diego",
+            "action": (
+                "Diego stops the final penalty on p.6 "
+                "(as prepared, seen earlier on p.4)."
+            ),
+            "result": "Diego wins the contest.",
+            "character_knowledge": "Diego knows the result.",
+            "audience_knowledge": "The audience sees the save.",
+            "page": 6,
+        }
+        target = cv.build_detail_audit_rows({}, [], [beat])[0]
+        value = {
+            "classification": "supported",
+            "checks": [
+                {
+                    "field": field,
+                    "page": 4 if field == "actor" else 6,
+                    "excerpt": (
+                        "Diego prepares the trap"
+                        if field == "actor"
+                        else "Diego stops the final penalty"
+                    ),
+                    "supports": True,
+                }
+                for field in target["subject"]["required_fields"]
+            ],
+            "observed_actors": ["Diego"],
+            "observed_knowers": ["Diego"],
+            "note": "The source supports every field.",
+        }
+
+        decoded, reason = cv._decode_grounded_detail_value(
+            value, target, source
+        )
+
+        self.assertIsNone(decoded)
+        self.assertEqual(reason, "actor evidence is outside its beat pages")
 
     def test_unrelated_excerpt_cannot_ground_false_sequence_beat(self):
         source = (

@@ -123,6 +123,20 @@ AUDIT_SEQUENCE_PHASES = (
     "climax", "ending", "final_scene", "tag", "aftermath",
 )
 
+
+def _is_strict_sequence_absence_marker(
+    beat: Dict[str, Any],
+    *,
+    phase: Optional[str] = None,
+    phase_size: int = 1,
+) -> bool:
+    """Recognize only a whole-row, sole-phase absence sentinel."""
+    return (
+        phase_size == 1
+        and str(phase or beat.get("phase", "")) in {"tag", "aftermath"}
+        and all(beat.get(field) == "NOT PRESENT" for field in GROUNDED_SEQUENCE_FIELDS)
+    )
+
 # Compiler-safety budget for our strict schemas, MEASURED EMPIRICALLY via
 # execution/coverage_v1_probe.py on 2026-08-31 against claude-sonnet-4-6
 # (51 properties/10 objects rejected; a 45/9 synthetic variant compiled) and
@@ -632,19 +646,20 @@ def normalize_audit_tool_input(
             }
             page = normalized.get("page")
             action = normalized.get("action")
-            is_absence = action == "NOT PRESENT"
-            if (
-                isinstance(action, str)
-                and action.strip().upper() == "NOT PRESENT"
-                and not is_absence
-            ):
+            is_absence = _is_strict_sequence_absence_marker(
+                normalized, phase=phase, phase_size=len(beats)
+            )
+            contains_absence_sentinel = any(
+                isinstance(normalized.get(field), str)
+                and str(normalized.get(field)).strip().upper() == "NOT PRESENT"
+                for field in GROUNDED_SEQUENCE_FIELDS
+            )
+            if contains_absence_sentinel and not is_absence:
                 errors.append(
                     f"sequence_ledger {phase} has an invalid NOT PRESENT marker"
                 )
             is_page_less_marker = (
                 is_absence
-                and phase in {"tag", "aftermath"}
-                and len(beats) == 1
             )
             if type(page) is not int or (
                 not is_page_less_marker
@@ -672,7 +687,9 @@ def normalize_audit_tool_input(
                         errors.append(
                             f"sequence_ledger {phase} {field} page span is invalid"
                         )
-                action_spans = referenced_spans["action"]
+                action_spans = _sequence_action_page_spans(
+                    str(normalized.get("action", ""))
+                )
                 starts = list(dict.fromkeys(
                     start for start, _end in action_spans
                 ))
@@ -879,6 +896,13 @@ def build_detail_audit_rows(
 ) -> List[Dict[str, Any]]:
     """Give every detailed audit target one provider-enforceable unique slot."""
     rows: List[Dict[str, Any]] = []
+    sequence_phase_sizes = {
+        phase: sum(
+            1 for beat in sequence_ledger
+            if isinstance(beat, dict) and beat.get("phase") == phase
+        )
+        for phase in {"tag", "aftermath"}
+    }
     for check in evidence_checks:
         rows.append({
             "kind": "existing_evidence",
@@ -904,13 +928,15 @@ def build_detail_audit_rows(
     for beat in sequence_ledger:
         if (
             not isinstance(beat, dict)
-            or beat.get("action") == "NOT PRESENT"
+            or _is_strict_sequence_absence_marker(
+                beat,
+                phase_size=sequence_phase_sizes.get(
+                    str(beat.get("phase", "")), 0
+                ),
+            )
         ):
             continue
-        required_fields = [
-            field for field in GROUNDED_SEQUENCE_FIELDS
-            if beat.get(field) != "NOT PRESENT"
-        ]
+        required_fields = list(GROUNDED_SEQUENCE_FIELDS)
         rows.append({
             "kind": "sequence_evidence",
             "identifier": f"sequence_ledger[{beat.get('order')}]",
@@ -1538,9 +1564,14 @@ _SUPPORTED_NOTE_CONTRADICTION = re.compile(
     re.IGNORECASE,
 )
 _SEQUENCE_ACTOR_STOPWORDS = frozenset(
-    "A An And Audience Characters El Ella He La Las Los N/A The They We Y Yo"
+    "A Alongside An And Audience Characters Con El Ella He Junto Juntos Juntas "
+    "La Las Los N/A No None Not Present The They We With Y Yo"
     .casefold()
     .split()
+)
+_SEQUENCE_ROLE_STOPWORDS = frozenset(
+    "a alongside an and as at by con de del e el en for from in junto juntos "
+    "juntas la las los o of on or para por the to un una unas unos with y".split()
 )
 
 
@@ -1549,23 +1580,148 @@ def _sequence_named_actors(value: str) -> List[str]:
     return list(dict.fromkeys(
         token
         for token in re.findall(
-            r"\b[A-ZÁÉÍÓÚÜÑ][A-Za-zÁÉÍÓÚÜÑáéíóúüñ]{2,}\b", value
+            r"\b[A-ZÁÉÍÓÚÜÑ][A-Za-zÁÉÍÓÚÜÑáéíóúüñ]{1,}\b", value
         )
         if token.casefold() not in _SEQUENCE_ACTOR_STOPWORDS
     ))
 
 
 def _sequence_claimed_knowers(value: str) -> List[str]:
-    """Extract explicit knowers from the subject before a knowledge verb."""
-    subject = re.split(
-        r"\b(?:knows?|learns?|discovers?|realizes?|sees?|hears?|witnesses?|"
-        r"sabe[n]?|aprende[n]?|descubre[n]?|entiende[n]?|ve[n]?|oye[n]?|"
-        r"escucha[n]?|presencia[n]?|se\s+entera[n]?)\b",
-        value,
-        maxsplit=1,
-        flags=re.IGNORECASE,
-    )[0]
-    return _sequence_named_actors(subject)
+    """Extract explicit knowers from every structurally separate clause."""
+    return list(dict.fromkeys(
+        name
+        for clause in _sequence_knowledge_clauses(value)
+        for name in _sequence_named_actors(
+            _sequence_role_subject(clause, knowledge=True)
+        )
+    ))
+
+
+_SEQUENCE_EXPLICIT_KNOWLEDGE_VERB = re.compile(
+    r"\b(?:knows?|learns?|discovers?|realizes?|understands?|sees?|hears?|"
+    r"witnesses?|believes?|thinks?|recognizes?|observes?|notices?|"
+    r"finds?\s+out|becomes?\s+aware|(?:is|are|was|were)\s+(?:un)?aware|"
+    r"sabe[n]?|aprende[n]?|descubre[n]?|entiende[n]?|ve[n]?|oye[n]?|"
+    r"escucha[n]?|presencia[n]?|cree[n]?|reconoce[n]?|observa[n]?|"
+    r"nota[n]?|se\s+entera[n]?|se\s+vuelve[n]?\s+consciente[s]?|"
+    r"est[aá](?:n)?\s+(?:in)?consciente[s]?)\b",
+    re.IGNORECASE,
+)
+
+_SEQUENCE_KNOWLEDGE_SUBJECT_PREDICATE = re.compile(
+    r"\b(?:knows?|learns?|discovers?|realizes?|understands?|sees?|hears?|"
+    r"witnesses?|believes?|thinks?|recognizes?|observes?|notices?|"
+    r"finds?\s+out|becomes?\s+aware|is|are|was|were|"
+    r"sabe[n]?|aprende[n]?|descubre[n]?|entiende[n]?|ve[n]?|oye[n]?|"
+    r"escucha[n]?|presencia[n]?|cree[n]?|reconoce[n]?|observa[n]?|"
+    r"nota[n]?|se\s+entera[n]?|se\s+vuelve[n]?\s+consciente[s]?|"
+    r"est[aá](?:n)?)\b",
+    re.IGNORECASE,
+)
+_SEQUENCE_KNOWLEDGE_CLAUSE_BREAK = re.compile(
+    r"\s*(?:;|:|—|–|\r?\n)\s*|(?<=[.!?])\s+(?=\S)",
+    re.IGNORECASE,
+)
+_SEQUENCE_KNOWLEDGE_COORDINATED_BREAK = re.compile(
+    r"(?:,\s*|\s+)\b(?:and|but|yet|y|pero|even\s+though|although|though|"
+    r"because|while|whereas|meanwhile|when|once|after|before|as|aunque|"
+    r"porque|cuando|una\s+vez\s+que|despu[eé]s\s+de\s+que|"
+    r"antes\s+de\s+que|mientras(?:\s+que)?)\b"
+    r"(?=\s+(?:[A-Za-zÁÉÍÓÚÜÑáéíóúüñ']+\s+){1,5}"
+    r"(?:knows?|learns?|discovers?|realizes?|understands?|sees?|hears?|"
+    r"witnesses?|believes?|thinks?|recognizes?|observes?|notices?|"
+    r"finds?\s+out|becomes?\s+aware|is\s+aware|are\s+aware|"
+    r"sabe[n]?|aprende[n]?|descubre[n]?|entiende[n]?|ve[n]?|oye[n]?|"
+    r"escucha[n]?|presencia[n]?|cree[n]?|reconoce[n]?|observa[n]?|"
+    r"nota[n]?|se\s+entera[n]?))",
+    re.IGNORECASE,
+)
+
+
+def _sequence_knowledge_clauses(value: str) -> List[str]:
+    clauses: List[str] = []
+    for clause in _SEQUENCE_KNOWLEDGE_CLAUSE_BREAK.split(value):
+        first_predicate = _SEQUENCE_KNOWLEDGE_SUBJECT_PREDICATE.search(clause)
+        if first_predicate is None:
+            clauses.append(clause)
+            continue
+        prefix = clause[:first_predicate.end()]
+        tail = _SEQUENCE_KNOWLEDGE_COORDINATED_BREAK.split(
+            clause[first_predicate.end():]
+        )
+        clauses.append(prefix + tail[0])
+        clauses.extend(tail[1:])
+    return [clause.strip() for clause in clauses if clause.strip()]
+
+
+def _has_exactly_one_knowledge_claim(value: str) -> bool:
+    return (
+        len(_sequence_knowledge_clauses(value)) == 1
+        and len(_SEQUENCE_EXPLICIT_KNOWLEDGE_VERB.findall(value)) == 1
+    )
+
+
+def _sequence_role_subject(value: str, *, knowledge: bool = False) -> str:
+    if knowledge:
+        return _SEQUENCE_KNOWLEDGE_SUBJECT_PREDICATE.split(
+            value, maxsplit=1
+        )[0]
+    return value
+
+
+def _sequence_subject_matches_context(
+    value: str,
+    context: str,
+    *,
+    knowledge: bool = False,
+    allow_sentinel: bool = False,
+) -> bool:
+    """Bind every generic role, and optionally names, to frozen beat text."""
+    context_words = set(re.findall(
+        r"\b[a-záéíóúüñ]+\b", _fold_evidence_text(context)
+    ))
+    context_roles = context_words | {
+        word[:-1] for word in context_words if word.endswith("s")
+    }
+    subjects = (
+        [
+            _sequence_role_subject(clause, knowledge=True)
+            for clause in _sequence_knowledge_clauses(value)
+        ]
+        if knowledge
+        else [value]
+    )
+    matched_subject = False
+    for subject in subjects:
+        if not subject.strip():
+            continue
+        names = _sequence_named_actors(subject)
+        name_words = {
+            _fold_evidence_text(name).removesuffix("s") for name in names
+        }
+        subject_words = {
+            word.removesuffix("s")
+            for word in re.findall(
+                r"\b[a-záéíóúüñ]+\b", _fold_evidence_text(subject)
+            )
+            if len(word) > 1 and word not in _SEQUENCE_ROLE_STOPWORDS
+        }
+        generic_words = subject_words - name_words
+        sentinel = _fold_evidence_text(subject).strip() in {
+            "n/a", "na", "not present",
+        }
+        if sentinel:
+            return allow_sentinel
+        if not (names or subject_words):
+            return False
+        if knowledge and any(
+            _fold_evidence_text(name) not in context_words for name in names
+        ):
+            return False
+        if not generic_words.issubset(context_roles):
+            return False
+        matched_subject = True
+    return matched_subject
 
 
 def _normalize_observed_people(
@@ -1587,7 +1743,10 @@ def _normalize_observed_people(
     folded_excerpt = _fold_evidence_text(excerpt)
     missing = [
         person for person in people
-        if _fold_evidence_text(person) not in folded_excerpt
+        if re.search(
+            rf"(?<!\w){re.escape(_fold_evidence_text(person))}(?!\w)",
+            folded_excerpt,
+        ) is None
     ]
     if missing:
         return None, f"{field} names are absent from its bound excerpt: " + ", ".join(missing)
@@ -1681,7 +1840,15 @@ def _decode_grounded_detail_value(
             if not isinstance(beat, dict):
                 return None, "sequence beat is malformed"
             allowed_pages = {beat.get("page")}
-            for start, end in _prose_page_spans(str(beat.get(field, ""))):
+            span_source = beat.get("action", "") if field == "actor" else beat.get(
+                field, ""
+            )
+            page_spans = (
+                _sequence_action_page_spans
+                if field in {"actor", "action"}
+                else _prose_page_spans
+            )
+            for start, end in page_spans(str(span_source)):
                 allowed_pages.update(range(start, end + 1))
             if page not in allowed_pages:
                 return None, f"{field} evidence is outside its beat pages"
@@ -1708,6 +1875,32 @@ def _decode_grounded_detail_value(
         checks_by_field[field] = normalized_checks[-1]
     if len(fields) != len(set(fields)) or set(fields) != set(required_fields):
         return None, "checks must name every required field exactly once"
+    if kind == "sequence_evidence":
+        beat = subject["beat"]
+        actor_context = str(beat.get("action", ""))
+        allow_sentinel = _is_strict_sequence_absence_marker(beat)
+        if checks_by_field.get("actor", {}).get("supports") is True:
+            if not _sequence_subject_matches_context(
+                str(beat.get("actor", "")),
+                actor_context,
+                allow_sentinel=allow_sentinel,
+            ):
+                return None, "actor roles are absent from the claimed action"
+        if checks_by_field.get("character_knowledge", {}).get("supports") is True:
+            knowledge = str(beat.get("character_knowledge", ""))
+            if not allow_sentinel and not _has_exactly_one_knowledge_claim(
+                knowledge
+            ):
+                return None, (
+                    "character_knowledge must contain exactly one checked clause"
+                )
+            if not _sequence_subject_matches_context(
+                knowledge,
+                str(beat.get("actor", "")) + " " + actor_context,
+                knowledge=True,
+                allow_sentinel=allow_sentinel,
+            ):
+                return None, "knower roles are absent from the claimed beat"
     if classification == "supported" and not all(
         check["supports"] for check in normalized_checks
     ):
@@ -4236,6 +4429,107 @@ def build_audit_user_blocks(
     ]
 
 
+def build_sequence_retry_user_blocks(
+    text: str,
+    title: str,
+    candidate: Dict[str, Any],
+    page_reference_map: PageReferenceMap,
+    sequence_focus: Dict[str, Any],
+    problems: Sequence[str],
+) -> List[Dict[str, Any]]:
+    """Build a bounded source packet for correcting only the ending ledger."""
+    targeted_problems = [
+        problem for problem in problems
+        if _TARGETED_SEQUENCE_FIELD_PROBLEM.fullmatch(problem)
+    ]
+    _numbers, pages = _marked_page_contents(text)
+    selected = list(dict.fromkeys([
+        *sequence_focus.get("opening_pages", []),
+        *sequence_focus.get("ending_pages", []),
+    ]))
+    extra_pages: List[int] = []
+    for beat in candidate.get("sequence_ledger", []):
+        if not isinstance(beat, dict):
+            continue
+        candidates = [beat.get("page")]
+        for field in (
+            "action", "result", "character_knowledge", "audience_knowledge"
+        ):
+            for start, end in _prose_page_spans(str(beat.get(field, ""))):
+                candidates.extend((start, end))
+        for page in candidates:
+            if (
+                type(page) is int
+                and page in pages
+                and page not in selected
+                and page not in extra_pages
+            ):
+                extra_pages.append(page)
+    selected.extend(extra_pages[:12])
+    selected = sorted(page for page in selected if page in pages)
+    source_packet = "\n\n".join(
+        f"[PAGE {page}]\n{pages[page].strip()}" for page in selected
+    )
+    page_packet = {
+        "mode": page_reference_map["mode"],
+        "valid_citation_pages": page_reference_map["valid_citation_pages"],
+        "selected_pages": [
+            row for row in page_reference_map["pages"]
+            if row.get("citation_page") in selected
+        ],
+    }
+    prior_core = {
+        "verdicts": candidate.get("verdicts", []),
+        "sequence_ledger": candidate.get("sequence_ledger", []),
+    }
+    return [
+        {
+            "type": "text",
+            "text": "# TARGETED SOURCE PAGES\n\n" + source_packet,
+        },
+        _character_index_block(text),
+        {
+            "type": "text",
+            "text": (
+                "# PAGE REFERENCE MAP (code-generated; AUTHORITATIVE)\n\n"
+                + json.dumps(page_packet, ensure_ascii=False, indent=1)
+            ),
+        },
+        {
+            "type": "text",
+            "text": (
+                "# PRIOR CORE AUDIT\n\n"
+                + json.dumps(prior_core, ensure_ascii=False, indent=1)
+            ),
+        },
+        {
+            "type": "text",
+            "text": (
+                f"# TARGETED SEQUENCE REPAIR — {title}\n\n"
+                "The claim verdicts are frozen: copy every verdict exactly. "
+                "Correct only the sequence_ledger issues listed below, keep "
+                "unaffected beats unchanged, and return all five phase arrays. "
+                "Use one material action per row and its true start page. A "
+                "parenthetical citation to setup explicitly seen earlier is "
+                "context, not the current action's start page. Name every actor "
+                "or screenplay role and every character who knows a fact; never "
+                "use numeric shorthand such as `three judges` or `all five "
+                "members`. Each character_knowledge value must contain one "
+                "knower roster before exactly one knowledge predicate; do not "
+                "append another knowledge claim with punctuation, conjunctions, "
+                "parentheses, brackets, or slashes. Use the exact named group "
+                "or role already present "
+                "in that beat's frozen actor/action text; do not substitute or "
+                "expand to a person found only elsewhere. Preserve the literal "
+                "multi-stage climax and final scene. Use only the supplied "
+                "source pages.\n\n"
+                "DETERMINISTIC FAILURES:\n- "
+                + "\n- ".join(targeted_problems)
+            ),
+        },
+    ]
+
+
 def build_detail_audit_user_blocks(
     text: str,
     title: str,
@@ -4873,6 +5167,31 @@ def _prose_page_spans(text: str) -> List[Tuple[int, int]]:
     return spans
 
 
+_HISTORICAL_PARENTHETICAL_PAGE = re.compile(
+    r"\([^()]*\b(?:seen|shown|established|introduced|set\s+up|revealed|"
+    r"mentioned|noted|planted|visto|vista|mostrado|mostrada|establecido|"
+    r"establecida|presentado|presentada|sembrado|sembrada)\s+"
+    r"(?:earlier|previously|before|antes|previamente)\s+"
+    r"(?:on|at|in|en)?\s*$",
+    re.IGNORECASE,
+)
+
+
+def _sequence_action_page_spans(text: str) -> List[Tuple[int, int]]:
+    """Return action pages, excluding explicit parenthetical history notes."""
+    spans: List[Tuple[int, int]] = []
+    for match in _PROSE_PAGE_REFERENCE.finditer(text):
+        prefix = text[:match.start()]
+        open_paren = prefix.rfind("(")
+        if (
+            open_paren > prefix.rfind(")")
+            and _HISTORICAL_PARENTHETICAL_PAGE.search(prefix[open_paren:])
+        ):
+            continue
+        spans.extend(_prose_page_spans(match.group(0)))
+    return spans
+
+
 def _iter_coverage_text_fields(
     value: Any,
     path: str = "",
@@ -5283,6 +5602,14 @@ def validate_audit_payload(
         orders: List[int] = []
         phases: List[str] = []
         pages: List[int] = []
+        phase_sizes = {
+            phase: sum(
+                1 for candidate in ledger
+                if isinstance(candidate, dict)
+                and candidate.get("phase") == phase
+            )
+            for phase in {"tag", "aftermath"}
+        }
         valid_pages = set(
             (page_reference_map or {}).get("valid_citation_pages", [])
         )
@@ -5297,6 +5624,17 @@ def validate_audit_payload(
             else:
                 orders.append(order)
             phases.append(phase)
+            strict_absence = _is_strict_sequence_absence_marker(
+                beat, phase_size=phase_sizes.get(phase, 0)
+            )
+            if any(
+                isinstance(beat.get(field), str)
+                and str(beat.get(field)).strip().upper() == "NOT PRESENT"
+                for field in GROUNDED_SEQUENCE_FIELDS
+            ) and not strict_absence:
+                problems.append(
+                    f"sequence_ledger[{index}] has an invalid NOT PRESENT marker"
+                )
             if phase not in {"climax", "ending", "final_scene", "tag", "aftermath"}:
                 problems.append(f"sequence_ledger[{index}].phase invalid")
             for field in (
@@ -5310,6 +5648,16 @@ def validate_audit_payload(
                     problems.append(
                         f"sequence_ledger[{index}].{field} uses unverified "
                         "numeric shorthand; name the actors or roles"
+                    )
+                elif (
+                    field == "character_knowledge"
+                    and not strict_absence
+                    and not _has_exactly_one_knowledge_claim(value)
+                ):
+                    problems.append(
+                        f"sequence_ledger[{index}].character_knowledge has "
+                        "invalid knowledge structure; use one knower roster "
+                        "and exactly one knowledge predicate"
                     )
             page = beat.get("page")
             if type(page) is not int or page < 1 or (
@@ -5405,6 +5753,148 @@ def _audit_problems_are_detail_only(problems: Sequence[str]) -> bool:
     return bool(problems) and all(
         problem.startswith(prefixes) for problem in problems
     )
+
+
+_TARGETED_SEQUENCE_FIELD_PROBLEM = re.compile(
+    r"^sequence_ledger\[(?P<index>\d+)\]\."
+    r"(?:(?P<field>actor|character_knowledge) uses unverified numeric shorthand; "
+    r"name the actors or roles|(?P<knowledge_field>character_knowledge) has "
+    r"invalid knowledge structure; use one knower roster and exactly one "
+    r"knowledge predicate)$"
+)
+
+
+def _sequence_field_repair_targets(
+    problems: Sequence[str],
+) -> Dict[int, set[str]]:
+    targets: Dict[int, set[str]] = {}
+    for problem in problems:
+        if _audit_problems_are_detail_only([problem]):
+            continue
+        match = _TARGETED_SEQUENCE_FIELD_PROBLEM.fullmatch(problem)
+        if match is None:
+            return {}
+        targets.setdefault(int(match.group("index")), set()).add(
+            str(match.group("field") or match.group("knowledge_field"))
+        )
+    return targets
+
+
+def _audit_problems_need_only_sequence_retry(
+    problems: Sequence[str],
+) -> bool:
+    """True when only named sequence roster fields need a bounded repair."""
+    return bool(_sequence_field_repair_targets(problems))
+
+
+def _merge_sequence_field_repairs(
+    candidate: Dict[str, Any],
+    repaired: Any,
+    problems: Sequence[str],
+) -> Any:
+    """Apply only named field repairs while preserving every material beat."""
+    if not isinstance(repaired, dict):
+        return repaired
+    targets = _sequence_field_repair_targets(problems)
+    original_rows = candidate.get("sequence_ledger")
+    repaired_rows = repaired.get("sequence_ledger")
+    if (
+        not targets
+        or not isinstance(original_rows, list)
+        or not isinstance(repaired_rows, list)
+        or len(original_rows) != len(repaired_rows)
+    ):
+        raise CoverageContractError(
+            "Targeted sequence repair changed the material beat count"
+        )
+    fields = (
+        "phase", "actor", "action", "result", "character_knowledge",
+        "audience_knowledge", "page",
+    )
+    unused = set(range(len(repaired_rows)))
+    updated = copy.deepcopy(candidate)
+    phase_sizes = {
+        phase: sum(
+            1 for beat in original_rows
+            if isinstance(beat, dict) and beat.get("phase") == phase
+        )
+        for phase in {"tag", "aftermath"}
+    }
+    for index, original in enumerate(original_rows):
+        if not isinstance(original, dict):
+            raise CoverageContractError(
+                "Targeted sequence repair received a malformed original beat"
+            )
+        allowed = targets.get(index, set())
+        matches = [
+            repair_index
+            for repair_index in unused
+            if isinstance(repaired_rows[repair_index], dict)
+            and all(
+                repaired_rows[repair_index].get(field) == original.get(field)
+                for field in fields
+                if field not in allowed
+            )
+        ]
+        if len(matches) != 1:
+            raise CoverageContractError(
+                "Targeted sequence repair changed or ambiguously matched an "
+                "unaffected beat"
+            )
+        repair_index = matches[0]
+        unused.remove(repair_index)
+        strict_absence = _is_strict_sequence_absence_marker(
+            original,
+            phase_size=phase_sizes.get(str(original.get("phase", "")), 0),
+        )
+        for field in allowed:
+            corrected_value = repaired_rows[repair_index].get(field)
+            if field == "character_knowledge" and not strict_absence and not _has_exactly_one_knowledge_claim(
+                str(corrected_value or "")
+            ):
+                raise CoverageContractError(
+                    "Targeted sequence repair character_knowledge must contain "
+                    "exactly one checked clause"
+                )
+            names = (
+                _sequence_named_actors(str(corrected_value or ""))
+                if field == "actor"
+                else _sequence_claimed_knowers(str(corrected_value or ""))
+            )
+            source_fields = ("action",) if field == "actor" else (
+                "actor", "action"
+            )
+            source_text = " ".join(
+                str(original.get(source_field, ""))
+                for source_field in source_fields
+            )
+            source_words = set(re.findall(
+                r"\b[a-záéíóúüñ]+\b", _fold_evidence_text(source_text)
+            ))
+            context_matches = (
+                bool(_sequence_role_subject(
+                    str(corrected_value or ""),
+                    knowledge=field == "character_knowledge",
+                ).strip())
+                and all(
+                    _fold_evidence_text(name) in source_words
+                    for name in names
+                )
+                and _sequence_subject_matches_context(
+                    str(corrected_value or ""),
+                    source_text,
+                    knowledge=field == "character_knowledge",
+                    allow_sentinel=strict_absence,
+                )
+            )
+            if not context_matches:
+                raise CoverageContractError(
+                    f"Targeted sequence repair {field} is not named in the "
+                    "preserved action context"
+                )
+            updated["sequence_ledger"][index][field] = corrected_value
+    updated.pop("_sequence_normalization_errors", None)
+    return updated
 
 
 def _replace_audit_details(
@@ -6327,6 +6817,7 @@ def run_coverage_v1(
 
     audit_first_pass_problems: List[str] = []
     audit_model_effective = audit_model_key
+    audit_core_repair_model: Optional[str] = None
     canonical_fact_registry = build_canonical_fact_registry(coverage_payload)
     existing_evidence_checks = build_existing_evidence_checks(
         coverage_payload, text
@@ -6937,6 +7428,41 @@ def run_coverage_v1(
             )
             return tool_input
 
+        def _sequence_retry_call(
+            route: str,
+            candidate: Dict[str, Any],
+            validation_problems: Sequence[str],
+        ) -> Any:
+            repaired, _text_out, usage = call(
+                system_blocks=audit_system,
+                user_blocks=build_sequence_retry_user_blocks(
+                    text,
+                    title,
+                    candidate,
+                    page_reference_map,
+                    sequence_focus,
+                    validation_problems,
+                ),
+                model_key=route,
+                tool=audit_tool,
+                thinking_budget=AUDIT_THINKING_BUDGET,
+                max_tokens=AUDIT_MAX_TOKENS,
+                proxy_url=proxy_url,
+                job_id=job_id,
+                stage="coverage_v1.fact_audit_sequence_repair",
+                pipeline_pass="coverage_v1",
+            )
+            repaired = normalize_audit_tool_input(
+                repaired, page_reference_map["valid_citation_pages"]
+            )
+            if isinstance(repaired, dict):
+                repaired["verdicts"] = copy.deepcopy(
+                    candidate.get("verdicts", [])
+                )
+            return _merge_sequence_field_repairs(
+                candidate, repaired, validation_problems
+            )
+
         if audit_core_payload is None:
             tool_input = normalize_audit_tool_input(
                 _audit_call(audit_model_key),
@@ -6949,6 +7475,10 @@ def run_coverage_v1(
             )
             audit_model_effective = str(
                 audit_core_payload.get("audit_model", audit_model_key)
+            )
+            core_repair_model = audit_core_payload.get("core_repair_model")
+            audit_core_repair_model = (
+                str(core_repair_model) if core_repair_model else None
             )
             repair_calls_used = max(
                 repair_calls_used,
@@ -6977,6 +7507,7 @@ def run_coverage_v1(
                             ),
                             "tool_input": tool_input,
                             "audit_model": audit_model_effective,
+                            "core_repair_model": audit_core_repair_model,
                             "first_pass_problems": audit_first_pass_problems,
                             "repair_calls_used": repair_calls_used,
                             "audit_retry_calls_used": audit_retry_calls_used,
@@ -7002,10 +7533,16 @@ def run_coverage_v1(
             audit_first_pass_problems = problems[:8]
             audit_retry_calls_used += 1
             repair_calls_used += 1
-            audit_model_effective = model_key
+            if _audit_problems_need_only_sequence_retry(problems):
+                audit_core_repair_model = model_key
+                retried_input = _sequence_retry_call(
+                    model_key, tool_input, problems
+                )
+            else:
+                audit_model_effective = model_key
+                retried_input = _audit_call(model_key, problems)
             tool_input = normalize_audit_tool_input(
-                _audit_call(model_key, problems),
-                page_reference_map["valid_citation_pages"],
+                retried_input, page_reference_map["valid_citation_pages"]
             )
             problems = validate_audit_payload(
                 tool_input,
@@ -7026,6 +7563,7 @@ def run_coverage_v1(
                             ),
                             "tool_input": tool_input,
                             "audit_model": audit_model_effective,
+                            "core_repair_model": audit_core_repair_model,
                             "first_pass_problems": audit_first_pass_problems,
                             "repair_calls_used": repair_calls_used,
                             "audit_retry_calls_used": audit_retry_calls_used,
@@ -7081,6 +7619,7 @@ def run_coverage_v1(
             ),
             "citation_relevance": tool_input["citation_relevance"],
             "audit_model": audit_model_effective,
+            "core_repair_model": audit_core_repair_model,
             "first_pass_problems": audit_first_pass_problems,
             "repair_calls_used": repair_calls_used,
             "audit_retry_calls_used": audit_retry_calls_used,
@@ -7091,6 +7630,10 @@ def run_coverage_v1(
     else:
         audit_model_effective = str(
             audit_payload.get("audit_model", audit_model_key)
+        )
+        core_repair_model = audit_payload.get("core_repair_model")
+        audit_core_repair_model = (
+            str(core_repair_model) if core_repair_model else None
         )
         audit_first_pass_problems = list(
             audit_payload.get("first_pass_problems", [])
@@ -7931,6 +8474,7 @@ def run_coverage_v1(
             "coverage": model_key,
             "audit": audit_model_key,
             "audit_effective": audit_model_effective,
+            "audit_core_repair": audit_core_repair_model,
         },
         "diagnostics": {
             "coverage_first_pass_problems": coverage_first_pass_problems,
