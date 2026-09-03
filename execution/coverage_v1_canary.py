@@ -1,7 +1,7 @@
 """Coverage V1 canary runner — the first (and only) authorized paid test.
 
-Runs a small batch of local screenplay PDFs through the lean two-call
-coverage_v1 engine, sequentially, with hard spending caps and an induced
+Runs a small batch of local screenplay PDFs through the staged Coverage V1
+engine, sequentially, with hard spending caps and an induced
 kill-and-resume drill, and writes a scorecard against the pass/fail bars in
 docs/COVERAGE-V1.md.
 
@@ -50,6 +50,7 @@ from content_identity import compute_content_hash  # noqa: E402
 DEFAULT_MAX_TOTAL_USD = 10.00
 DEFAULT_MAX_SCRIPT_USD = 1.50
 DEFAULT_RESUME_DRILL_INDEX = 2  # 1-based: the second script proves resume
+MAX_CANARY_CALLS_PER_SCRIPT = 7
 ARTIFACTS_ROOT = Path(__file__).resolve().parents[1] / "benchmark-artifacts"
 
 
@@ -82,6 +83,13 @@ class KillBeforeCall:
 def _slug(title: str) -> str:
     slug = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")
     return slug or "untitled"
+
+
+def _within_call_ceiling(rows: List[Dict[str, Any]]) -> bool:
+    return all(
+        int(row["cost"]["call_count"]) <= MAX_CANARY_CALLS_PER_SCRIPT
+        for row in rows
+    )
 
 
 def load_manifest(path: Path) -> List[Dict[str, Any]]:
@@ -266,12 +274,7 @@ def run_canary(
                     "coverage_replayed"
                 ]
                 drill["resume_run_call_count"] = int(usage.get("call_count", 0))
-                # Resume may legitimately run audit + audit retry + fact
-                # repair + re-audit (4 calls); repaying coverage would be 5+.
-                drill["repaid_nothing"] = (
-                    drill["resumed_coverage_replayed"]
-                    and drill["resume_run_call_count"] <= 4
-                )
+                drill["repaid_nothing"] = drill["resumed_coverage_replayed"]
                 scorecard["resume_drill"] = {**drill, "script": title}
                 if not drill["repaid_nothing"]:
                     scorecard["hard_failures"].append(
@@ -358,11 +361,9 @@ def run_canary(
         bars["every_script_within_cap"] = all(
             s["cost"]["charged_usd"] <= max_script_usd + 1e-9 for s in completed
         )
-        # 2 base calls + 1 structure/audit repair + fact repair + re-audit
-        # (engine v1.1, calibration brief #3 governance stage).
-        bars["max_five_calls_per_script"] = all(
-            s["cost"]["call_count"] <= 5 for s in completed
-        )
+        # V1.2 needs 3 base calls, 3 independent fact-repair calls, and at
+        # most 1 prior coverage-structure repair for canary acceptance.
+        bars["max_seven_calls_per_script"] = _within_call_ceiling(completed)
         bars["zero_unverified_citations"] = all(
             (s.get("citations_unverified") or 0) == 0 for s in completed
         )

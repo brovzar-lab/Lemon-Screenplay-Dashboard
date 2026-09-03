@@ -350,7 +350,8 @@ python3 -m execution.coverage_v1_canary --manifest canary.json \
   --execute --i-authorize-paid-inference
 ```
 
-The scorecard prints the automated bars (batch/script caps, ≤5 calls,
+The scorecard prints the automated bars (batch/script caps, ≤7 calls for the
+V1.2 canary acceptance path,
 zero unverified citations, resume-repaid-nothing, settled cost) and the
 human checklist (spine facts correct, development notes actionable, at
 least as useful as the V9 report). Send `scorecard.json` and the

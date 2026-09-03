@@ -1,4 +1,4 @@
-"""Coverage V1 — the lean two-call screenplay coverage engine.
+"""Coverage V1 — the staged qualitative screenplay coverage engine.
 
 Replaces the V9 multi-reader fan-out for NEW analyses. Sealed V9 documents
 remain untouched forensic records; this module never rewrites them.
@@ -42,6 +42,7 @@ import copy
 import json
 import os
 import re
+import unicodedata
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, TypedDict
 
@@ -89,7 +90,7 @@ MIN_AUDIT_CLAIMS = 6
 MAX_DETAIL_AUDIT_ROWS = 43
 MAX_COUNT_DETAIL_RETRY_ROWS = 3
 MAX_COUNT_DETAIL_RETRY_TOTAL_ROWS = 9
-DETAIL_AUDIT_CONTRACT_VERSION = "coverage-v1.2-detail-4"
+DETAIL_AUDIT_CONTRACT_VERSION = "coverage-v1.2-detail-5"
 AUDIT_CLASSIFICATIONS = (
     "supported",
     "partially_supported",
@@ -585,6 +586,7 @@ def normalize_audit_tool_input(
     absence_markers: List[Dict[str, Any]] = []
     material_by_phase: Dict[str, List[Dict[str, Any]]] = {}
     normalization_diagnostics: List[str] = []
+    phase_reclassified = False
     for phase in AUDIT_SEQUENCE_PHASES:
         beats = sequence.get(phase)
         if not isinstance(beats, list):
@@ -619,6 +621,57 @@ def normalize_audit_tool_input(
                 and (page < 1 or (page_set and page not in page_set))
             ):
                 errors.append(f"sequence_ledger {phase} page is invalid")
+            if not is_absence and type(page) is int:
+                referenced_spans = {
+                    field: _prose_page_spans(str(normalized.get(field, "")))
+                    for field in (
+                        "action", "result", "character_knowledge",
+                        "audience_knowledge",
+                    )
+                }
+                for field, spans in referenced_spans.items():
+                    if any(
+                        start > end
+                        or start < 1
+                        or (page_set and any(
+                            candidate not in page_set
+                            for candidate in range(start, end + 1)
+                        ))
+                        for start, end in spans
+                    ):
+                        errors.append(
+                            f"sequence_ledger {phase} {field} page span is invalid"
+                        )
+                action_spans = referenced_spans["action"]
+                starts = list(dict.fromkeys(
+                    start for start, _end in action_spans
+                ))
+                if len(starts) > 1:
+                    errors.append(
+                        f"sequence_ledger {phase} beat combines distinct "
+                        f"action-start pages {starts}"
+                    )
+                if starts and page != starts[0]:
+                    errors.append(
+                        f"sequence_ledger {phase} beat is anchored to page "
+                        f"{page} but begins on referenced page {starts[0]}"
+                    )
+                normalized["_sequence_effective_end_page"] = max(
+                    (end for _start, end in action_spans),
+                    default=page,
+                )
+                permitted_end = normalized["_sequence_effective_end_page"]
+                for field in (
+                    "result", "character_knowledge", "audience_knowledge"
+                ):
+                    if any(
+                        start < page or end > permitted_end
+                        for start, end in referenced_spans[field]
+                    ):
+                        errors.append(
+                            f"sequence_ledger {phase} {field} page reference "
+                            f"falls outside action interval p.{page}-p.{permitted_end}"
+                        )
             if is_absence:
                 phase_absent.append(normalized)
             else:
@@ -661,12 +714,21 @@ def normalize_audit_tool_input(
     ]
     if climax_pages:
         first_climax_page = min(climax_pages)
-        last_climax_page = max(climax_pages)
+        last_climax_page = max(
+            int(beat.get("_sequence_effective_end_page", beat["page"]))
+            for beat in material_by_phase["climax"]
+            if type(beat.get("page")) is int
+        )
         early_endings = [
             beat for beat in material_by_phase["ending"]
             if type(beat.get("page")) is int
-            and first_climax_page <= beat["page"]
             and beat["page"] < last_climax_page
+            and int(beat.get(
+                "_sequence_effective_end_page", beat["page"]
+            )) <= last_climax_page
+            and int(beat.get(
+                "_sequence_effective_end_page", beat["page"]
+            )) >= first_climax_page
         ]
         remaining_endings = [
             beat for beat in material_by_phase["ending"]
@@ -682,6 +744,22 @@ def normalize_audit_tool_input(
                 beat["phase"] = "climax"
             material_by_phase["climax"].extend(early_endings)
             material_by_phase["ending"] = remaining_endings
+            phase_reclassified = True
+            normalization_diagnostics.append(
+                "sequence_ledger early ending beats reclassified as climax"
+            )
+        for beat in material_by_phase["ending"]:
+            if (
+                type(beat.get("page")) is int
+                and beat["page"] < last_climax_page
+                and int(beat.get(
+                    "_sequence_effective_end_page", beat["page"]
+                )) > last_climax_page
+            ):
+                errors.append(
+                    "sequence_ledger ending beat crosses the final climax "
+                    "boundary"
+                )
         for phase in AUDIT_SEQUENCE_PHASES[1:]:
             if any(
                 type(beat.get("page")) is int
@@ -714,8 +792,22 @@ def normalize_audit_tool_input(
         errors.append("sequence_ledger contains no material story beats")
         ledger.extend(absence_markers)
     for order, beat in enumerate(ledger, start=1):
+        beat.pop("_sequence_effective_end_page", None)
         beat["order"] = order
     normalized_payload = {**payload, "sequence_ledger": ledger}
+    if phase_reclassified:
+        for verdict in normalized_payload.get("verdicts", []):
+            if (
+                isinstance(verdict, dict)
+                and verdict.get("claim_id") == "guard.cross_field_consistency"
+                and verdict.get("classification") == "supported"
+            ):
+                verdict["classification"] = "partially_supported"
+                verdict["note"] = (
+                    "Sequence normalization moved a pre-reversal beat into "
+                    "the climax; spine, ending, and synopsis require "
+                    "reconciliation against the normalized ledger."
+                )
     if normalization_diagnostics:
         normalized_payload["sequence_normalization_diagnostics"] = (
             normalization_diagnostics
@@ -918,12 +1010,165 @@ def decode_detail_audit_payload(
         }
         identifier = str(row["identifier"])
         if row["kind"] == "existing_evidence":
+            focused = (
+                subject.get("focused_evidence", [])
+                if isinstance(subject, dict) else []
+            )
+            missing_roles = [
+                f'{lead.get("role")}=p.{lead.get("page")}'
+                for lead in focused
+                if isinstance(lead, dict)
+                and not re.search(
+                    rf'\b{re.escape(str(lead.get("role", "")))}\s*=\s*'
+                    rf'p\.?\s*{lead.get("page")}\b',
+                    note,
+                    re.IGNORECASE,
+                )
+            ]
+            status_values: Dict[str, str] = {}
+            for status_name in ("source_status", "activation_status"):
+                status_match = re.search(
+                    rf"\b{status_name}\s*=\s*(?:established|inferable|"
+                    rf"unconfirmed|absent)\b",
+                    note,
+                    re.IGNORECASE,
+                )
+                if focused and status_match is None:
+                    missing_roles.append(status_name)
+                elif status_match is not None:
+                    status_values[status_name] = status_match.group(0).split(
+                        "=", 1
+                    )[1].strip().casefold()
+            source_contradiction = bool(
+                status_values.get("source_status")
+                in {"established", "inferable"}
+                and (
+                    _asserts_new_or_missing_source(
+                        str(subject.get("claim", ""))
+                    )
+                    or _asserts_new_or_missing_source(note)
+                )
+            )
+            if subject.get("focused_evidence_ambiguous"):
+                decoded = {
+                    "classification": "unsupported",
+                    "note": (
+                        "FOCUSED_EVIDENCE_AMBIGUOUS: no unique reveal "
+                        "cluster could be identified from the claim and source."
+                    ),
+                    "classification_normalized_from": classification,
+                    "note_normalized_from": note,
+                }
+            elif missing_roles:
+                decoded = {
+                    "classification": "unsupported",
+                    "note": (
+                        "FOCUSED_EVIDENCE_INVALID: auditor omitted "
+                        + ", ".join(missing_roles)
+                    ),
+                    "classification_normalized_from": classification,
+                    "note_normalized_from": note,
+                }
+            elif source_contradiction:
+                decoded = {
+                    "classification": "unsupported",
+                    "note": (
+                        "FOCUSED_EVIDENCE_CONTRADICTION: the auditor marked "
+                        "the source inferable or established but also asserted "
+                        "that a new source is required."
+                    ),
+                    "classification_normalized_from": classification,
+                    "note_normalized_from": note,
+                }
             evidence.append({"field_path": identifier, **decoded})
         else:
             citations.append({"owner": identifier, **decoded})
     return _enforce_count_ledger_uniqueness(
         evidence, rows, source_text
     ), citations
+
+
+_GLOBAL_ABSENCE_CLAIM = re.compile(
+    r"(?:\b(?:no|without|never|nowhere|missing|absent)\b.{0,100}"
+    r"\b(?:anywhere|elsewhere|screenplay|script|scene|setup|plant|"
+    r"establish(?:es|ed)?|record(?:ed|ing)?|upload(?:ed|ing)?|broadcast)\b|"
+    r"\b(?:ninguna?\s+escena|en\s+ninguna\s+parte|"
+    r"sin\s+(?:preparaci[oó]n|planteamiento)|"
+    r"no\s+(?:hay|existe|establece|muestra|planta|prepara))\b)",
+    re.IGNORECASE,
+)
+
+
+def _reconcile_citation_relevance_with_evidence(
+    citation_rows: Sequence[Dict[str, str]],
+    evidence_rows: Sequence[Dict[str, Any]],
+    detail_rows: Sequence[Dict[str, Any]],
+) -> List[Dict[str, str]]:
+    """A local quote cannot outrank the audit of its global absence claim."""
+    subjects = {
+        str(row.get("identifier", "")): row.get("subject", {})
+        for row in detail_rows
+        if row.get("kind") == "existing_evidence"
+    }
+    evidence_by_path = {
+        str(row.get("field_path", "")): row
+        for row in evidence_rows
+    }
+    rank = {
+        "supported": 0,
+        "partially_supported": 1,
+        "unsupported": 2,
+        "contradicted": 3,
+        "unclassified": 4,
+    }
+    reconciled: List[Dict[str, str]] = []
+    for original in citation_rows:
+        row = copy.deepcopy(original)
+        owner = str(row.get("owner", ""))
+        dependency_pairs = [
+            (evidence_by_path[path], subject)
+            for path, subject in subjects.items()
+            if isinstance(subject, dict)
+            and subject.get("trigger") == "absolute_negative"
+            and str(subject.get("source_field_path", "")).startswith(
+                owner + "."
+            )
+            and path in evidence_by_path
+        ]
+        dependencies = [item for item, _subject in dependency_pairs]
+        global_absence = any(
+            _GLOBAL_ABSENCE_CLAIM.search(str(subject.get("claim", "")))
+            for _item, subject in dependency_pairs
+            if isinstance(subject, dict)
+        )
+        if global_absence and row.get("classification") == "supported":
+            row["classification_normalized_from"] = "supported"
+            row["note_normalized_from"] = str(row.get("note", ""))
+            row["classification"] = "partially_supported"
+            row["note"] = (
+                "The local excerpt supports the cited event but cannot by "
+                "itself prove a whole-screenplay absence."
+            )
+        if dependencies:
+            worst = max(
+                dependencies,
+                key=lambda item: rank.get(
+                    str(item.get("classification", "unclassified")), 4
+                ),
+            )
+            worst_classification = str(
+                worst.get("classification", "unclassified")
+            )
+            if rank.get(worst_classification, 4) > rank.get(
+                str(row.get("classification", "unclassified")), 4
+            ):
+                row["classification"] = worst_classification
+                row["note"] = (
+                    "Global claim evidence: "
+                    + str(worst.get("note", "")).strip()
+                )
+        reconciled.append(row)
+    return reconciled
 
 
 def _invalid_count_audit_result(reason: str) -> Dict[str, Any]:
@@ -1033,6 +1278,61 @@ def _enforce_count_ledger_uniqueness(
     return normalized
 
 
+def _normalize_count_evidence_anchor(
+    page: Any,
+    excerpt: str,
+    pages: Dict[int, str],
+) -> Dict[str, Any]:
+    """Apply the citation policy to a count instance without inventing text."""
+    normalized: Dict[str, Any] = {
+        "page": page,
+        "excerpt": " ".join(excerpt.split()),
+    }
+    if type(page) is not int:
+        return normalized
+
+    candidate = normalized["excerpt"]
+    if len(candidate.split()) > 12:
+        full_matches = [
+            candidate_page
+            for candidate_page, page_text in pages.items()
+            if _lenient_excerpt_match_kind(page_text, candidate) is not None
+        ]
+        target_page = page if page in full_matches else (
+            full_matches[0] if len(full_matches) == 1 else None
+        )
+        trimmed = " ".join(candidate.split()[:12])
+        if (
+            target_page is not None
+            and _lenient_excerpt_match_kind(
+                pages.get(target_page, ""), trimmed
+            ) is not None
+        ):
+            normalized["excerpt_normalized_from"] = candidate
+            normalized["excerpt"] = trimmed
+            candidate = trimmed
+            if target_page != page:
+                normalized["page_normalized_from"] = page
+                normalized["page"] = target_page
+
+    target_page = normalized["page"]
+    if (
+        3 <= len(candidate.split()) <= 12
+        and _lenient_excerpt_match_kind(
+            pages.get(target_page, ""), candidate
+        ) is None
+    ):
+        matches = [
+            candidate_page
+            for candidate_page, page_text in pages.items()
+            if _lenient_excerpt_match_kind(page_text, candidate) is not None
+        ]
+        if len(matches) == 1:
+            normalized["page_normalized_from"] = target_page
+            normalized["page"] = matches[0]
+    return normalized
+
+
 def _decode_count_audit_result(
     value: Any,
     subject: Dict[str, Any],
@@ -1119,6 +1419,9 @@ def _decode_count_audit_result(
             return invalid(f"instance {index + 1} matches_claim is invalid")
         if type(multiplicity) is not int or multiplicity < 1:
             return invalid(f"instance {index + 1} multiplicity is invalid")
+        anchor = _normalize_count_evidence_anchor(page, excerpt, pages)
+        page = anchor["page"]
+        excerpt = anchor["excerpt"]
         if type(page) is not int or page not in pages:
             return invalid(f"instance {index + 1} page is invalid")
         if not MIN_CITATION_EXCERPT_WORDS <= len(excerpt.split()) <= 12:
@@ -1140,6 +1443,13 @@ def _decode_count_audit_result(
             "excerpt": excerpt,
             "matches_claim": matches_claim,
             "multiplicity": multiplicity,
+            **{
+                key: anchor[key]
+                for key in (
+                    "page_normalized_from", "excerpt_normalized_from"
+                )
+                if key in anchor
+            },
         })
     universe_total = sum(
         int(instance["multiplicity"]) for instance in normalized_instances
@@ -1382,7 +1692,7 @@ the first visible recording device.
 
 FACT_REPAIR_CHARTER = """\
 You correct factual imprecision in a complete screenplay-coverage report using
-ONLY the auditor's notes provided. Return the complete corrected report with
+ONLY the auditor's notes and code-generated source windows provided. Return the complete corrected report with
 the submit_fact_corrections_v1_2 tool. Keep everything the notes do not dispute
 and never introduce new facts, interpretation, praise, or criticism.
 
@@ -1397,6 +1707,11 @@ analyses, genre failures, strengths, concerns, development priorities,
 uncertainties, champion_reason, pass_reason, and commercial_hypothesis. Remove
 the obsolete wording; do not preserve two incompatible versions or duplicate
 field prefixes.
+
+When a guard is a correction target, repair every non-supported detailed row
+under that guard, not merely the guard's summary sentence. A contradicted or
+unsupported factual claim is repairable when its audit note or source window
+states the on-page correction; remove unsupported detail rather than guessing.
 
 Treat the validated sequence ledger as authoritative. Every material climax
 beat must appear in story_spine.climax and synopsis in the ledger's order;
@@ -1642,13 +1957,21 @@ _ANAPHORIC_COUNT_LINK = re.compile(
     r"(?:\band\b|\bbut\b|\bpero\b|\by\b)\s*)$",
     re.IGNORECASE,
 )
+_COUNT_MEASUREMENT_MODIFIER = (
+    r"(?:consecutive|continuous|straight|uninterrupted|laugh[-–— ]free|"
+    r"consecutiv[oa]s?|continu[oa]s?|seguid[oa]s?|ininterrumpid[oa]s?)"
+)
 _COUNT_MEASUREMENT = re.compile(
     rf"\b{_COUNT_TOKEN_PATTERN}(?:"
     r"\s*[-–—]\s*(?:page|p[aá]gina|month|mes|minute|minuto|year|a[nñ]o)|"
+    rf"\s+(?:{_COUNT_MEASUREMENT_MODIFIER}\s+){{1,3}}"
+    r"(?:pages|p[aá]ginas|acts?|actos?|months?|mes(?:es)?|"
+    r"minutes?|minutos?|years?|a[nñ]os?|days?|d[ií]as?|weeks?|semanas?)|"
     r"\s+(?:pages|p[aá]ginas|acts?|actos?|months?|mes(?:es)?|"
     r"minutes?|minutos?|years?|a[nñ]os?|days?|d[ií]as?|weeks?|semanas?))\b",
     re.IGNORECASE,
 )
+_COUNT_CLAUSE_BOUNDARY = re.compile(r"[.!?;\n]")
 _NUMBERED_RUBRIC_ITEM = re.compile(
     rf"(?:\(\s*{_COUNT_TOKEN_PATTERN}\s*\)|\b\d+\s*[\).])",
     re.IGNORECASE,
@@ -1696,6 +2019,10 @@ def _local_count_context(value: str, start: int, end: int) -> str:
     return value[
         max(sentence_start, start - 40):min(sentence_end, end + 80)
     ]
+
+
+def _same_count_clause(value: str, left_end: int, right_start: int) -> bool:
+    return _COUNT_CLAUSE_BOUNDARY.search(value[left_end:right_start]) is None
 
 
 def _first_material_count_claim_details(
@@ -1750,6 +2077,11 @@ def _first_material_count_claim_details(
                     cursor + 1, min(cursor + 5, len(raw_tokens))
                 )
                 if raw_tokens[candidate] in _MATERIAL_COUNT_ENTITIES
+                and _same_count_clause(
+                    without_page_references,
+                    raw_token_matches[cursor].end(),
+                    raw_token_matches[candidate].start(),
+                )
             ),
             None,
         )
@@ -1766,6 +2098,12 @@ def _first_material_count_claim_details(
             ):
                 count = 11
             if count is not None:
+                if not _same_count_clause(
+                    without_page_references,
+                    raw_token_matches[entity_index].end(),
+                    raw_token_matches[candidate].start(),
+                ):
+                    continue
                 context = _local_count_context(
                     without_page_references,
                     raw_token_matches[index].start(),
@@ -1808,10 +2146,20 @@ def _first_material_count_claim_details(
         preceding_material = [
             index for index in preceding_indexes
             if raw_tokens[index] in _MATERIAL_COUNT_ENTITIES
+            and _same_count_clause(
+                without_page_references,
+                raw_token_matches[index].end(),
+                ratio.start(),
+            )
         ]
         following_material = [
             index for index in following_indexes
             if raw_tokens[index] in _MATERIAL_COUNT_ENTITIES
+            and _same_count_clause(
+                without_page_references,
+                ratio.end(),
+                raw_token_matches[index].start(),
+            )
         ]
         material_indexes = [*preceding_material, *following_material]
         if material_indexes:
@@ -2182,6 +2530,318 @@ def _evidence_search_terms(value: str) -> List[str]:
     return terms
 
 
+_REVEAL_MEDIA_CLAIM = re.compile(
+    r"\b(?:camera|c[aá]mara|footage|grabaci[oó]n|pantalla|recording|"
+    r"screen|video|source|fuente|origen)",
+    re.IGNORECASE,
+)
+_REVEAL_DIRECT_OBJECT_PREFIX = (
+    r"\b\s+(?:(?:the|a|an|la|el|una?|su|their|his|her|existing|"
+    r"established|hidden|final|private)\s+)*"
+)
+_REVEAL_CAPTURED_CONTENT_CLAIM = re.compile(
+    r"\b(?:who|qui[eé]n)\b.{0,50}\b(?:record\w*|grab\w*|captur\w*|"
+    r"upload\w*|sub\w*|broadcast\w*|transmit\w*|deliver\w*|release\w*)"
+    + _REVEAL_DIRECT_OBJECT_PREFIX
+    + r"(?P<content>conversation|conversaci[oó]n|confession|"
+    r"confesi[oó]n|audio)\b",
+    re.IGNORECASE,
+)
+_REVEAL_PROVENANCE_DISPUTE = re.compile(
+    r"(?:\b(?:who|qui[eé]n)\b.{0,50}\b(?:record\w*|grab\w*|captur\w*|"
+    r"upload\w*|sub\w*|broadcast\w*|transmit\w*|reproduc\w*|activat\w*|"
+    r"activ(?:ar|ando|ado|ada|aci[oó]n|a|an|e|en|ó)|"
+    r"deliver\w*|release\w*)"
+    + _REVEAL_DIRECT_OBJECT_PREFIX
+    + r"(?:it|lo|la|eso|video|footage|"
+    r"recording|grabaci[oó]n|camera|c[aá]mara|source|fuente|playback|"
+    r"reproducci[oó]n|conversation|conversaci[oó]n|confession|confesi[oó]n|"
+    r"audio|expos[eé]|reveal)\b|"
+    r"\b(?:no|without|missing|absent|unconfirmed|unclear|unknown|"
+    r"unattribut\w*|sin|falta|ausente|inciert\w*)\b.{0,100}\b(?:scene|"
+    r"source|fuente|origen|camera|c[aá]mara|record\w*|grab\w*|captur\w*|"
+    r"upload\w*|broadcast\w*|transmit\w*|activat\w*|activaci[oó]n|"
+    r"delivery|deliver\w*|"
+    r"release\w*|plant\w*|sembr\w*|setup)\b|"
+    r"\b(?:source|fuente|origen|camera|c[aá]mara|record\w*|grab\w*|"
+    r"captur\w*|upload\w*|broadcast\w*|transmit\w*|activat\w*|"
+    r"activaci[oó]n|delivery|"
+    r"deliver\w*|release\w*|plant\w*|sembr\w*|setup)\b.{0,100}\b(?:no|"
+    r"without|missing|absent|unconfirmed|unclear|unknown|only potential|"
+    r"needs?|should|add|create|clarify|sin|falta|ausente|inciert\w*)\b|"
+    r"\b(?:add|create|plant|clarify|stage|show|agregar|crear|plantar|"
+    r"aclarar|mostrar)\b.{0,100}\b(?:video|footage|camera|c[aá]mara|"
+    r"recording|grabaci[oó]n|source|fuente|activation|activaci[oó]n|"
+    r"delivery|entrega)\b)",
+    re.IGNORECASE,
+)
+_CONTRADICTORY_NEW_SOURCE = re.compile(
+    r"\b(?:no source exists|source (?:is )?(?:absent|missing)|"
+    r"without (?:a )?source|(?:has|have|there is|there's)?\s*no\s+"
+    r"(?:(?:planted|established|camera|recording)\s+)*(?:source|camera)|"
+    r"no (?:hay|existe) (?:una? )?fuente|"
+    r"sin (?:una? )?fuente|"
+    r"(?:add|create|introduce|plant|agregar|crear|introducir|plantar) "
+    r"(?:(?:a|an|the|another|additional|new|brand-new|second|extra|una?|"
+    r"otra?|nueva?|segunda?|adicional) )*"
+    r"(?:camera|recording(?: device)?|source|c[aá]mara|"
+    r"dispositivo de grabaci[oó]n|fuente)(?!(?:\s+|-)(?:payoff|connection|"
+    r"activation|delivery|release|link|conexi[oó]n|activaci[oó]n|entrega|"
+    r"v[ií]nculo)\b)|"
+    r"plant(?: and play)? (?:the )?video[- ]exposure mechanism|"
+    r"(?:plac(?:e|es|ed|ing)|colocar|coloca)\b.{0,30}\b(?:camera|c[aá]mara)|"
+    r"(?:new|brand-new|additional) (?:camera|recording(?: device)?|source) "
+    r"is required)\b",
+    re.IGNORECASE,
+)
+_EXPLICIT_NEW_SOURCE = re.compile(
+    r"\b(?:new|brand-new|another|additional|second|extra|nuev[oa]|otr[oa]|"
+    r"segund[oa]|adicional)\b"
+    r".{0,30}\b(?:camera|recording(?: device)?|source|c[aá]mara|"
+    r"dispositivo de grabaci[oó]n|fuente)\b",
+    re.IGNORECASE,
+)
+_SOURCE_ABSENCE_ASSERTION = re.compile(
+    r"\b(?:no source exists|source (?:is )?(?:absent|missing)|"
+    r"without (?:a )?source|(?:has|have|there is|there's)?\s*no\s+"
+    r"(?:(?:planted|established|camera|recording)\s+)*(?:source|camera)|"
+    r"no (?:hay|existe) (?:una? )?fuente|sin (?:una? )?fuente)\b",
+    re.IGNORECASE,
+)
+_REVEAL_TRACE_TERMS = (
+    "camera", "camara", "grab", "filma", "video", "videos",
+    "footage", "pantalla", "screen", "soborn", "brib", "billete",
+    "cash", "portafolio", "reloj", "gift", "regalo", "privad", "espia",
+    "spy", "upload", "subir", "transmit", "broadcast", "expos", "revel",
+)
+_REVEAL_DEVICE_TERMS = ("camera", "camara", "grab", "filma")
+_REVEAL_MOTIVE_TERMS = (
+    "soborn", "brib", "billete", "cash", "portafolio", "reloj", "gift",
+    "regalo",
+)
+_REVEAL_OUTPUT_TERMS = (
+    "video", "videos", "footage", "pantalla", "screen", "privad", "espia",
+    "spy", "upload", "subir", "transmit", "broadcast", "expos", "revel",
+)
+_REVEAL_GENERIC_CLAIM_TERMS = frozenset(
+    """
+    absent activate activated activates activation add broadcast camera camara
+    capture captured clarify create deliver delivered delivery establish
+    establishes footage fuente grabacion missing origen plant planted record
+    recorded recording release released reveal revealed screen setup source
+    transmit unconfirmed unknown upload uploaded video videos who quien
+    without
+    """.split()
+)
+_REVEAL_RECOMMENDATION_LANGUAGE = re.compile(
+    r"\b(?:add|create|plant|write|perhaps|should|clarify|stage|show|"
+    r"agregar|crear|plantar|escribir|quiz[aá]|deber[ií]a|aclarar|mostrar)\b",
+    re.IGNORECASE,
+)
+FOCUSED_EVIDENCE_CHARACTERS = 420
+
+
+def _fold_evidence_text(value: str) -> str:
+    return "".join(
+        character
+        for character in unicodedata.normalize("NFKD", value).casefold()
+        if not unicodedata.combining(character)
+    )
+
+
+def _is_reveal_provenance_claim(value: str) -> bool:
+    return any(
+        (
+            _REVEAL_MEDIA_CLAIM.search(clause)
+            and _REVEAL_PROVENANCE_DISPUTE.search(clause)
+        )
+        or _REVEAL_CAPTURED_CONTENT_CLAIM.search(clause)
+        for clause in re.split(r"(?:[.;:!?]\s+|\n+)", value)
+    )
+
+
+def _captured_content_terms(claim: str) -> Tuple[str, ...]:
+    match = _REVEAL_CAPTURED_CONTENT_CLAIM.search(claim)
+    if match is None:
+        return ()
+    content = _fold_evidence_text(match.group("content"))
+    if content.startswith("convers"):
+        return ("conversation", "conversacion")
+    if content.startswith("confes"):
+        return ("confession", "confesion")
+    return ("audio",)
+
+
+def _asserts_new_or_missing_source(value: str) -> bool:
+    if _SOURCE_ABSENCE_ASSERTION.search(value) or _EXPLICIT_NEW_SOURCE.search(
+        value
+    ):
+        return True
+    return bool(_CONTRADICTORY_NEW_SOURCE.search(value))
+
+
+def _evidence_term_position(content: str, term: str) -> int:
+    match = re.search(
+        rf"(?<!\w){re.escape(_fold_evidence_text(term))}",
+        _fold_evidence_text(content),
+    )
+    return match.start() if match is not None else -1
+
+
+def _focused_page_excerpt(content: str, terms: Sequence[str]) -> str:
+    """Return a bounded source window around the first matched lead."""
+    compact = " ".join(content.split())
+    if len(compact) <= FOCUSED_EVIDENCE_CHARACTERS:
+        return compact
+    center = next(
+        (
+            position
+            for term in terms
+            if (position := _evidence_term_position(compact, term)) >= 0
+        ),
+        0,
+    )
+    half = FOCUSED_EVIDENCE_CHARACTERS // 2
+    start = max(0, center - half)
+    end = min(len(compact), start + FOCUSED_EVIDENCE_CHARACTERS)
+    start = 0 if start == 0 else compact.find(" ", start) + 1
+    if end < len(compact):
+        boundary = compact.rfind(" ", start, end)
+        end = boundary if boundary > start else end
+    return compact[start:end].strip()
+
+
+def _focused_existing_evidence(
+    pages: Dict[int, str],
+    reveal_anchor: Optional[int],
+    claim: str,
+) -> Tuple[List[Dict[str, Any]], bool]:
+    """Return one bounded source lead for each reveal-provenance role."""
+    folded_pages = {
+        page: _fold_evidence_text(content) for page, content in pages.items()
+    }
+
+    def matching_pages(terms: Sequence[str]) -> List[int]:
+        return sorted(
+            page for page, content in folded_pages.items()
+            if any(_evidence_term_position(content, term) >= 0 for term in terms)
+        )
+
+    output_terms = (*_REVEAL_OUTPUT_TERMS, *_captured_content_terms(claim))
+    output_pages = matching_pages(output_terms)
+    device_candidates = matching_pages(_REVEAL_DEVICE_TERMS)
+    motive_candidates = matching_pages(_REVEAL_MOTIVE_TERMS)
+    if (
+        reveal_anchor not in pages
+        or not any(
+            _evidence_term_position(pages[reveal_anchor], term) >= 0
+            for term in output_terms
+        )
+    ):
+        reveal_anchor = None
+    if reveal_anchor is None and output_pages:
+        clusters: List[List[int]] = []
+        for page in output_pages:
+            if clusters and page == clusters[-1][-1] + 1:
+                clusters[-1].append(page)
+            else:
+                clusters.append([page])
+        claim_clauses = re.split(r"(?:[.;:!?]\s+|\n+)", claim)
+        referenced_pages = {
+            page
+            for clause in claim_clauses
+            if not _REVEAL_RECOMMENDATION_LANGUAGE.search(clause)
+            and any(
+                _evidence_term_position(clause, term) >= 0
+                for term in output_terms
+            )
+            for start, end in _prose_page_spans(clause)
+            for page in range(start, end + 1)
+        }
+        claim_mentions_motive = any(
+            _evidence_term_position(claim, term) >= 0
+            for term in _REVEAL_MOTIVE_TERMS
+        )
+        specific_terms = [
+            term for term in _evidence_search_terms(claim)
+            if _fold_evidence_text(term) not in _REVEAL_GENERIC_CLAIM_TERMS
+        ]
+
+        def cluster_score(cluster: List[int]) -> Tuple[int, int, int, int, int]:
+            before_device = [p for p in device_candidates if p < cluster[0]]
+            before_motive = [p for p in motive_candidates if p < cluster[0]]
+            setup_pages = [*before_device, *before_motive]
+            specific_hits = len({
+                term
+                for term in specific_terms
+                if any(
+                    _evidence_term_position(folded_pages[page], term) >= 0
+                    for page in cluster
+                )
+            })
+            setup_distance = (
+                cluster[0] - max(setup_pages) if setup_pages else 1_000_000
+            )
+            return (
+                int(bool(referenced_pages.intersection(cluster))),
+                len({
+                    term
+                    for term in _REVEAL_MOTIVE_TERMS
+                    if claim_mentions_motive and any(
+                        _evidence_term_position(folded_pages[page], term) >= 0
+                        for page in cluster
+                    )
+                }),
+                specific_hits,
+                int(bool(before_device)) + int(bool(before_motive)),
+                -setup_distance,
+            )
+
+        scores = [(cluster_score(cluster), cluster) for cluster in clusters]
+        best_score = max(score for score, _cluster in scores)
+        best_clusters = [
+            cluster for score, cluster in scores if score == best_score
+        ]
+        if len(best_clusters) != 1:
+            return [], True
+        reveal_anchor = best_clusters[0][0]
+    if reveal_anchor is None:
+        return [], False
+
+    device_pages = [
+        page for page in device_candidates
+        if page < reveal_anchor
+    ]
+    motive_pages = [
+        page for page in motive_candidates
+        if page < reveal_anchor
+    ]
+    roles: List[Tuple[str, int, Sequence[str]]] = []
+    if device_pages:
+        roles.append(("source_device", device_pages[-1], _REVEAL_DEVICE_TERMS))
+    if motive_pages:
+        roles.append(("motive_access", motive_pages[-1], _REVEAL_MOTIVE_TERMS))
+    roles.append(("reveal", reveal_anchor, output_terms))
+    if reveal_anchor + 1 in pages:
+        roles.append((
+            "provenance_aftermath",
+            reveal_anchor + 1,
+            (*output_terms, *_REVEAL_DEVICE_TERMS),
+        ))
+    return [
+        {
+            "role": role,
+            "page": page,
+            "matched_terms": [
+                term for term in terms
+                if _evidence_term_position(folded_pages[page], term) >= 0
+            ][:12],
+            "excerpt": _focused_page_excerpt(pages[page], terms),
+        }
+        for role, page, terms in roles
+    ], False
+
+
 def _has_nonquantitative_absolute(claim: str) -> bool:
     return _ABSOLUTE_NEGATIVE.search(
         _QUANTITATIVE_ABSOLUTE.sub(" ", claim)
@@ -2250,6 +2910,11 @@ def build_existing_evidence_checks(
                 "trigger": "absolute_negative",
             })
 
+    citation_pages = {
+        owner: item.get("page")
+        for owner, item in _iter_citations(coverage)
+        if isinstance(item, dict) and type(item.get("page")) is int
+    }
     checks: List[Dict[str, Any]] = []
     for candidate in candidates:
         path = str(candidate["path"])
@@ -2259,11 +2924,12 @@ def build_existing_evidence_checks(
         all_terms = _evidence_search_terms(claim)
         all_hits: Dict[str, List[int]] = {}
         for term in all_terms:
-            pattern = re.compile(rf"(?<!\w){re.escape(term)}(?!\w)")
+            folded_term = _fold_evidence_text(term)
+            pattern = re.compile(rf"(?<!\w){re.escape(folded_term)}(?!\w)")
             term_pages = sorted(
                 page
                 for page, content in pages.items()
-                if pattern.search(content.casefold())
+                if pattern.search(_fold_evidence_text(content))
             )
             if term_pages:
                 all_hits[term] = term_pages
@@ -2292,6 +2958,17 @@ def build_existing_evidence_checks(
             }
         if trigger == "counting_claim":
             check.update(candidate["count_details"])
+        elif (
+            trigger in {"absolute_negative", "recommendation"}
+            and _is_reveal_provenance_claim(claim)
+        ):
+            owner = source_path.rsplit(".", 1)[0]
+            focused_evidence, focus_ambiguous = _focused_existing_evidence(
+                pages, citation_pages.get(owner), claim
+            )
+            check["focused_evidence"] = focused_evidence
+            if focus_ambiguous:
+                check["focused_evidence_ambiguous"] = True
         checks.append(check)
     return checks
 
@@ -2539,7 +3216,15 @@ def build_audit_user_blocks(
                 "climax beat for this ledger: no ending or post-climax phase "
                 "may begin before the last climax page. Use multiple climax "
                 "or ending beats when the sequence has multiple stages. Use "
-                "exactly one explicit NOT PRESENT beat for a missing tag or "
+                "one material event per row; never combine separate actions "
+                "from different start pages. The row's `page` is the earliest "
+                "printed page on which its action begins. If the action spans "
+                "continuous pages, one `pp.X-Y` reference may describe that "
+                "single event, but every other action belongs in its own row. "
+                "Any page reference in result, character_knowledge, or "
+                "audience_knowledge must fall inside that same action interval; "
+                "never hide earlier actions in those fields. "
+                "Use exactly one explicit NOT PRESENT beat for a missing tag or "
                 "aftermath, never mix that marker with a story beat, and never "
                 "use it in climax, ending, or final_scene."
             ),
@@ -2582,8 +3267,27 @@ def build_detail_audit_user_blocks(
                 "supported, partially_supported, unsupported, or contradicted "
                 "and note is one factual sentence. For existing-evidence rows, "
                 "search the COMPLETE screenplay for setup, synonyms, physical "
-                "staging, payoff, and aftermath before deciding. For citation "
-                "rows, decide whether the quoted excerpt actually supports its "
+                "staging, payoff, and aftermath before deciding. The code-"
+                "generated `focused_evidence` in those rows contains literal "
+                "source windows, not conclusions; inspect every supplied page "
+                "before approving an absence claim. For every row containing "
+                "focused_evidence, the note must address every supplied role "
+                "using the exact form role=p.N (for example, "
+                "source_device=p.73), and must distinguish evidence of a "
+                "source from evidence of who activated or delivered it. End "
+                "that note with source_status=VALUE and "
+                "activation_status=VALUE, where VALUE is established, "
+                "inferable, unconfirmed, or absent. Treat role windows as "
+                "search leads, not automatic proof. If source_status is "
+                "established or inferable, never also recommend adding, "
+                "creating, or planting a new source; an activation-only "
+                "uncertainty may remain. "
+                "An object described in an "
+                "action line among a frame's decorations is a physical object "
+                "unless the text explicitly says it appears inside the image. "
+                "Keep a dialogue speaker separate from the actor whose later "
+                "physical action pays off the line. For citation rows, decide "
+                "whether the quoted excerpt actually supports its "
                 "attached point, separately from whether the text merely exists. "
                 "A local quote can prove that an event occurs; by itself it "
                 "cannot prove a global claim that setup is absent elsewhere. "
@@ -3073,6 +3777,30 @@ _PROSE_PAGE_REFERENCE = re.compile(
 )
 
 
+def _prose_page_spans(text: str) -> List[Tuple[int, int]]:
+    """Return explicit prose page spans without conflating separate pages."""
+    spans: List[Tuple[int, int]] = []
+    for match in _PROSE_PAGE_REFERENCE.finditer(text):
+        values = match.group("values")
+        parts = re.split(
+            r"\s*(?:,|/|&|\band\b|\by\b)\s*",
+            values,
+            flags=re.IGNORECASE,
+        )
+        for part in parts:
+            numbers = [int(value) for value in re.findall(r"\d{1,3}", part)]
+            if not numbers:
+                continue
+            is_range = bool(re.search(
+                r"[-–—]|\bto\b|\ba\b", part, re.IGNORECASE
+            ))
+            if is_range and len(numbers) == 2:
+                spans.append((numbers[0], numbers[1]))
+            else:
+                spans.extend((number, number) for number in numbers)
+    return spans
+
+
 def _iter_coverage_text_fields(
     value: Any,
     path: str = "",
@@ -3089,12 +3817,13 @@ def _iter_coverage_text_fields(
 
 
 def _prose_page_numbers(text: str) -> List[int]:
-    pages: List[int] = []
-    for match in _PROSE_PAGE_REFERENCE.finditer(text):
-        pages.extend(
-            int(value) for value in re.findall(r"\d{1,3}", match.group("values"))
+    return [
+        coordinate
+        for span in _prose_page_spans(text)
+        for coordinate in (
+            span if span[0] != span[1] else (span[0],)
         )
-    return pages
+    ]
 
 def validate_coverage_payload(
     payload: Any,
@@ -3605,6 +4334,19 @@ def _replace_audit_details(
     return updated
 
 
+def _reconcile_complete_audit_details(
+    payload: Dict[str, Any],
+    coverage: Dict[str, Any],
+    evidence_checks: Sequence[Dict[str, Any]],
+) -> Dict[str, Any]:
+    rows = build_detail_audit_rows(coverage, evidence_checks)
+    evidence_rows = payload.get("existing_evidence_verdicts", [])
+    citation_rows = _reconcile_citation_relevance_with_evidence(
+        payload.get("citation_relevance", []), evidence_rows, rows
+    )
+    return _replace_audit_details(payload, evidence_rows, citation_rows)
+
+
 def _synthesize_missing_verdicts(
     tool_input: Dict[str, Any],
     claims: Sequence[Dict[str, str]],
@@ -3681,6 +4423,54 @@ def _adjudicate_verdicts(
     rated = len(by_claim) - len(unclassified)
     support_rate = round(score / max(1, rated), 4)
     return by_claim, central_failures, central_partials, unclassified, support_rate
+
+
+def _fact_repair_targets(
+    by_claim: Dict[str, Dict[str, Any]],
+    audit_payload: Dict[str, Any],
+    evidence_checks: Sequence[Dict[str, Any]],
+) -> List[str]:
+    """Return fact disputes that have evidence strong enough to rewrite once."""
+    evidence_trigger = {
+        str(row.get("field_path", "")): row.get("trigger")
+        for row in evidence_checks
+        if isinstance(row, dict)
+    }
+    repairable_evidence_failure = any(
+        isinstance(row, dict)
+        and row.get("classification") in {
+            "partially_supported", "unsupported", "contradicted",
+        }
+        and evidence_trigger.get(str(row.get("field_path", "")))
+        in {"absolute_negative", "recommendation"}
+        and not str(row.get("note", "")).startswith("FOCUSED_EVIDENCE_")
+        for row in audit_payload.get("existing_evidence_verdicts", [])
+    )
+    targets = {
+        claim_id
+        for claim_id, row in by_claim.items()
+        if row.get("classification") == "partially_supported"
+    }
+    evidence_classification = by_claim.get(
+        "guard.existing_evidence", {}
+    ).get("classification")
+    if (
+        evidence_classification in {"unsupported", "contradicted"}
+        and repairable_evidence_failure
+    ):
+        targets.add("guard.existing_evidence")
+        if by_claim.get("guard.citation_relevance", {}).get(
+            "classification"
+        ) in {"unsupported", "contradicted"}:
+            targets.add("guard.citation_relevance")
+    if (
+        audit_payload.get("sequence_normalization_diagnostics")
+        and by_claim.get("guard.cross_field_consistency", {}).get(
+            "classification"
+        ) in {"unsupported", "contradicted"}
+    ):
+        targets.add("guard.cross_field_consistency")
+    return sorted(targets)
 
 
 # ── Cost accounting ──────────────────────────────────────────────────────────
@@ -3802,6 +4592,8 @@ def run_coverage_v1(
     guard = _CostGuard(max_cost_usd)
     usage_total = _empty_usage()
     repair_calls_used = 0
+    coverage_repair_calls_used = 0
+    audit_retry_calls_used = 0
 
     # Renumber [PAGE N] markers to printed header numbers when the offset is
     # confidently detectable, so every downstream page reference (prompt,
@@ -3898,7 +4690,8 @@ def run_coverage_v1(
         ]
         problems = structural_problems + citation_problems
         coverage_first_pass_problems = problems[:8]
-        if problems and repair_calls_used < MAX_REPAIR_CALLS:
+        if problems and coverage_repair_calls_used < MAX_REPAIR_CALLS:
+            coverage_repair_calls_used += 1
             repair_calls_used += 1
             tool_input, repair_usage = _repair_structure(
                 call=call,
@@ -3939,7 +4732,10 @@ def run_coverage_v1(
         )
     else:
         citation_summary = coverage_payload.get("citation_summary")
-        repair_calls_used = int(coverage_payload.get("repair_calls_used", 0))
+        coverage_repair_calls_used = int(
+            coverage_payload.get("repair_calls_used", 0)
+        )
+        repair_calls_used = coverage_repair_calls_used
         coverage_first_pass_problems = list(
             coverage_payload.get("first_pass_problems", [])
         )
@@ -4169,6 +4965,9 @@ def run_coverage_v1(
         evidence_rows = _enforce_count_ledger_uniqueness(
             evidence_rows, rows, text
         )
+        citation_rows = _reconcile_citation_relevance_with_evidence(
+            citation_rows, evidence_rows, rows
+        )
         return _replace_audit_details(
             candidate, evidence_rows, citation_rows
         )
@@ -4184,12 +4983,28 @@ def run_coverage_v1(
             sequence_focus=sequence_focus,
         )
 
-        def _audit_call(route: str):
+        def _audit_call(
+            route: str,
+            validation_problems: Optional[Sequence[str]] = None,
+        ):
             nonlocal usage_total
             guard.check_before_call()
+            user_blocks = audit_user
+            if validation_problems:
+                user_blocks = [
+                    *audit_user,
+                    {
+                        "type": "text",
+                        "text": (
+                            "# PRIOR OUTPUT REJECTED BY DETERMINISTIC "
+                            "VALIDATION\n\nCorrect every issue below in this retry:\n- "
+                            + "\n- ".join(validation_problems[:8])
+                        ),
+                    },
+                ]
             tool_input, _text_out, usage = call(
                 system_blocks=audit_system,
-                user_blocks=audit_user,
+                user_blocks=user_blocks,
                 model_key=route,
                 tool=audit_tool,
                 thinking_budget=AUDIT_THINKING_BUDGET,
@@ -4221,6 +5036,9 @@ def run_coverage_v1(
                 repair_calls_used,
                 int(audit_core_payload.get("repair_calls_used", 0)),
             )
+            audit_retry_calls_used = int(
+                audit_core_payload.get("audit_retry_calls_used", 0)
+            )
         problems = validate_audit_payload(
             tool_input,
             claims,
@@ -4240,6 +5058,7 @@ def run_coverage_v1(
                             "audit_model": audit_model_effective,
                             "first_pass_problems": audit_first_pass_problems,
                             "repair_calls_used": repair_calls_used,
+                            "audit_retry_calls_used": audit_retry_calls_used,
                         },
                     ),
                 )
@@ -4256,14 +5075,15 @@ def run_coverage_v1(
                 page_reference_map,
                 existing_evidence_checks,
             )
-        if problems and repair_calls_used < MAX_REPAIR_CALLS:
-            # The shared repair slot: one retry of the audit on the safer
-            # coverage-tier model. Never a rerun of coverage itself.
+        if problems and audit_retry_calls_used < MAX_REPAIR_CALLS:
+            # One audit retry on the safer coverage-tier model. A separate
+            # coverage-structure repair must not consume this reliability gate.
             audit_first_pass_problems = problems[:8]
+            audit_retry_calls_used += 1
             repair_calls_used += 1
             audit_model_effective = model_key
             tool_input = normalize_audit_tool_input(
-                _audit_call(model_key),
+                _audit_call(model_key, problems),
                 page_reference_map["valid_citation_pages"],
             )
             problems = validate_audit_payload(
@@ -4284,6 +5104,7 @@ def run_coverage_v1(
                             "audit_model": audit_model_effective,
                             "first_pass_problems": audit_first_pass_problems,
                             "repair_calls_used": repair_calls_used,
+                            "audit_retry_calls_used": audit_retry_calls_used,
                         },
                     ),
                 )
@@ -4300,6 +5121,17 @@ def run_coverage_v1(
                     page_reference_map,
                     existing_evidence_checks,
                 )
+        if not problems:
+            tool_input = _reconcile_complete_audit_details(
+                tool_input, coverage_payload, existing_evidence_checks
+            )
+            problems = validate_audit_payload(
+                tool_input,
+                claims,
+                coverage_payload,
+                page_reference_map,
+                existing_evidence_checks,
+            )
         if problems:
             # A stubbornly missing verdict must not destroy the paid run:
             # missing ids become explicit 'unclassified' rows (review-flagged
@@ -4326,6 +5158,7 @@ def run_coverage_v1(
             "audit_model": audit_model_effective,
             "first_pass_problems": audit_first_pass_problems,
             "repair_calls_used": repair_calls_used,
+            "audit_retry_calls_used": audit_retry_calls_used,
         }
         checkpoint_store.save(
             checkpoint_key, "audit", _sealed_record(binding, audit_payload)
@@ -4340,6 +5173,9 @@ def run_coverage_v1(
         repair_calls_used = max(
             repair_calls_used, int(audit_payload.get("repair_calls_used", 0))
         )
+        audit_retry_calls_used = int(
+            audit_payload.get("audit_retry_calls_used", 0)
+        )
 
     # ── Adjudication (pure code) ────────────────────────────────────────────
     by_claim, central_failures, central_partials, unclassified, support_rate = (
@@ -4350,16 +5186,26 @@ def run_coverage_v1(
         for claim_id, verdict_row in by_claim.items()
         if verdict_row["classification"] == "partially_supported"
     )
+    repair_targets = _fact_repair_targets(
+        by_claim, audit_payload, existing_evidence_checks
+    )
+    authoritative_sequence_ledger = copy.deepcopy(
+        audit_payload["sequence_ledger"]
+    )
+    authoritative_sequence_diagnostics = copy.deepcopy(
+        audit_payload.get("sequence_normalization_diagnostics", [])
+    )
 
     # ── Stage 3: fact repair (brief #3, defect 6) ───────────────────────────
-    # The audit detects factual imprecision in central claims; a document
-    # sealing with both the error and its proof intact is worse than the
-    # error alone. Central partials get rewritten per the audit notes and
-    # re-audited, once. Contradicted central facts still go straight to
-    # human review — a fundamentally wrong read is never patched in place.
+    # A document sealing with a factual dispute and its proof intact is worse
+    # than the original error. One complete-report rewrite propagates every
+    # evidence-backed correction, then the independent audit runs again.
+    # Malformed count ledgers are infrastructure failures, not rewrite facts.
     fact_repair_info: Dict[str, Any] = {"attempted": False}
-    if partial_claims and not central_failures:
-        repair_targets = partial_claims
+    unrepairable_central_failures = sorted(
+        set(central_failures) - set(repair_targets)
+    )
+    if repair_targets and not unrepairable_central_failures:
         stage3 = _verified_payload(
             checkpoint_store.load(checkpoint_key, "fact_repair"),
             binding,
@@ -4467,6 +5313,9 @@ def run_coverage_v1(
                                             audit_payload[
                                                 "existing_evidence_verdicts"
                                             ]
+                                        ),
+                                        "existing_evidence_checks": (
+                                            existing_evidence_checks
                                         ),
                                         "sequence_ledger": audit_payload[
                                             "sequence_ledger"
@@ -4651,17 +5500,53 @@ def run_coverage_v1(
                         page_reference_map,
                         corrected_evidence_checks,
                     )
+                if not reaudit_problems:
+                    reaudit_input = _reconcile_complete_audit_details(
+                        reaudit_input,
+                        corrected_coverage,
+                        corrected_evidence_checks,
+                    )
+                    reaudit_problems = validate_audit_payload(
+                        reaudit_input,
+                        new_claims,
+                        corrected_coverage,
+                        page_reference_map,
+                        corrected_evidence_checks,
+                    )
+                authoritative_witness = [
+                    (row.get("phase"), row.get("page"))
+                    for row in authoritative_sequence_ledger
+                    if isinstance(row, dict)
+                ]
+                reaudit_witness = [
+                    (row.get("phase"), row.get("page"))
+                    for row in reaudit_input.get("sequence_ledger", [])
+                    if isinstance(row, dict)
+                ]
+                if reaudit_witness != authoritative_witness:
+                    reaudit_problems.append(
+                        "fact re-audit changed the authoritative sequence "
+                        "phase/page witness"
+                    )
                 reaudited_by_id = {
                     str(row.get("claim_id", "")): row
                     for row in reaudit_input.get("verdicts", [])
                     if isinstance(row, dict)
                 }
-                unresolved_targets = sorted(
-                    claim_id
-                    for claim_id, verdict_row in reaudited_by_id.items()
-                    if verdict_row.get("classification")
-                    == "partially_supported"
-                )
+                unresolved_targets = sorted({
+                    *(
+                        claim_id
+                        for claim_id in repair_targets
+                        if reaudited_by_id.get(claim_id, {}).get(
+                            "classification"
+                        ) != "supported"
+                    ),
+                    *(
+                        claim_id
+                        for claim_id, row in reaudited_by_id.items()
+                        if row.get("classification") == "partially_supported"
+                    ),
+                })
                 if unresolved_targets:
                     reaudit_problems.append(
                         "fact repair targets remain unresolved: "
@@ -4688,9 +5573,9 @@ def run_coverage_v1(
                         existing_evidence_verdicts=reaudit_input[
                             "existing_evidence_verdicts"
                         ],
-                        sequence_ledger=reaudit_input["sequence_ledger"],
-                        sequence_normalization_diagnostics=reaudit_input.get(
-                            "sequence_normalization_diagnostics", []
+                        sequence_ledger=authoritative_sequence_ledger,
+                        sequence_normalization_diagnostics=(
+                            authoritative_sequence_diagnostics
                         ),
                         citation_relevance=reaudit_input[
                             "citation_relevance"
@@ -4794,8 +5679,8 @@ def run_coverage_v1(
             review_reasons.append(
                 "reliability guards failed: " + ", ".join(guard_failures)
             )
-        if repair_calls_used >= MAX_REPAIR_CALLS:
-            review_reasons.append("repair budget already spent")
+        if audit_retry_calls_used >= MAX_REPAIR_CALLS:
+            review_reasons.append("audit retry budget already spent")
     central_unclassified = [
         claim_id for claim_id in unclassified if is_central_claim(claim_id)
     ]
@@ -4915,6 +5800,15 @@ def run_coverage_v1(
             and citation_summary["relevance_status"] == "supported"
         )
 
+    confidence_adjustments: List[str] = []
+    if status == "needs_review" and coverage_payload["confidence"] == "high":
+        coverage_payload = copy.deepcopy(coverage_payload)
+        coverage_payload["confidence"] = "medium"
+        confidence_adjustments.append(
+            "high confidence capped at medium while factual reliability "
+            "checks require review"
+        )
+
     human_review_recommended = (
         status == "needs_review"
         or coverage_payload["confidence"] == "low"
@@ -4949,6 +5843,8 @@ def run_coverage_v1(
     cost = _usage_cost_split(usage_total)
     cost["max_cost_usd"] = round(guard.max_microusd / 1_000_000, 2)
     cost["repair_calls_used"] = repair_calls_used
+    cost["coverage_repair_calls_used"] = coverage_repair_calls_used
+    cost["audit_retry_calls_used"] = audit_retry_calls_used
 
     report = {
         "analysis_version": "coverage_v1",
@@ -5031,6 +5927,7 @@ def run_coverage_v1(
         "verdict": verdict,
         "verdict_adjustments": adjustments,
         "confidence": coverage_payload["confidence"],
+        "confidence_adjustments": confidence_adjustments,
         "film_now_nominated": film_now_nominated,
         "human_review_recommended": human_review_recommended,
         "review_reasons": review_reasons,

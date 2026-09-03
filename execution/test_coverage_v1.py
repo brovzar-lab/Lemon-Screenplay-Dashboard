@@ -1081,6 +1081,164 @@ Los asesinos preparan el campamento y luego mueven el cuerpo.
         self.assertEqual(priority["exact_term_hits"]["video"], [98])
         self.assertLessEqual(len(priority["search_terms"]), 24)
 
+    def test_cosquillitas_reveal_check_surfaces_source_motive_and_aftermath(self):
+        coverage = valid_coverage()
+        coverage["concerns"][0]["point"] = (
+            "The exposé video has no planted camera, source, or character "
+            "motive anywhere before it appears on p.97."
+        )
+        screenplay = """\
+[PAGE 73]
+{padding} Entre los coralitos de la foto vemos una pequeña cámara oculta.
+[PAGE 80]
+El concursante rompe el récord del programa.
+[PAGE 87]
+Tony entrega un reloj y un portafolio lleno de billetes. Richie escucha todo.
+[PAGE 97]
+Aparece un video en la gran pantalla y seguridad cierra las puertas.
+[PAGE 98]
+Siguen videos de Richie bailando y videos donde espía a Lucesita.
+""".format(padding="relleno " * 120)
+
+        check = next(
+            row for row in cv.build_existing_evidence_checks(
+                coverage, screenplay
+            )
+            if row["field_path"] == "concerns[0].point"
+        )
+
+        leads = {row["page"]: row for row in check["focused_evidence"]}
+        self.assertTrue({73, 87, 97, 98}.issubset(leads))
+        self.assertIn("cámara", leads[73]["excerpt"])
+        self.assertIn("portafolio lleno de billetes", leads[87]["excerpt"])
+        self.assertIn("videos donde espía", leads[98]["excerpt"])
+        self.assertEqual(leads[73]["role"], "source_device")
+        self.assertEqual(leads[87]["role"], "motive_access")
+        self.assertEqual(leads[97]["role"], "reveal")
+        self.assertEqual(leads[98]["role"], "provenance_aftermath")
+        self.assertNotIn(80, leads)
+
+        coverage["pass_reason"] = (
+            "The final video reveal has no established source or activation."
+        )
+        pass_check = next(
+            row for row in cv.build_existing_evidence_checks(
+                coverage, screenplay
+            )
+            if row["field_path"] == "pass_reason"
+        )
+        self.assertEqual(
+            [row["page"] for row in pass_check["focused_evidence"]],
+            [73, 87, 97, 98],
+        )
+
+    def test_reveal_focus_ignores_ordinary_media_language(self):
+        unrelated = (
+            "Someone pulls the playback cables, exposing the singers.",
+            "The video fallout creates seven pages with no attempted laugh.",
+            "The active B Story precedes a video exposure beat.",
+            "Tony fabricates a video and possesses public goodwill.",
+            "Protect the hero choice after the video; Juanito is the hero "
+            "who actively risks his reputation.",
+            "The video plays while Juanito, who activates the crowd, sings.",
+            "The final video works because Juanito, who activates the crowd "
+            "through song, earns the victory.",
+            "The final video works because Juanito, who records the highest "
+            "score, wins the contest.",
+            "The final video works because Juanito captures the crowd.",
+            "The final video works because Juanito transmits emotion.",
+            "The conversation has no emotional setup.",
+            "The confession scene has no dramatic setup.",
+            "The audio scene has no comic setup.",
+            "Protect Juanito, who captures the crowd during the audio "
+            "performance, as the active hero.",
+            "Protect Juanito, who records the highest score during a "
+            "conversation, as the active hero.",
+            "The final video works because Juanito, who records the highest "
+            "score during a conversation, wins.",
+            "The final video works because Juanito, who captures the crowd "
+            "beside the camera, wins.",
+            "The screen gag works because Juanito, who transmits emotion "
+            "through the audio performance, earns applause.",
+        )
+        for claim in unrelated:
+            with self.subTest(claim=claim):
+                self.assertFalse(cv._is_reveal_provenance_claim(claim))
+
+        for claim in (
+            "No scene establishes who recorded or uploaded the video.",
+            "No scene establishes who captured the confession.",
+            "Clarify who activates the existing camera footage.",
+            "The footage source remains unconfirmed.",
+        ):
+            with self.subTest(claim=claim):
+                self.assertTrue(cv._is_reveal_provenance_claim(claim))
+
+    def test_uncited_reveal_prefers_evidence_cluster_over_later_screen(self):
+        coverage = valid_coverage()
+        coverage["pass_reason"] = (
+            "No scene establishes who recorded or uploaded the final exposé "
+            "video on p.5."
+        )
+        screenplay = """\
+[PAGE 3]
+A hidden camera records the room.
+[PAGE 4]
+A teammate learns the bribe and retains access.
+[PAGE 5]
+The exposé video appears on the auditorium screen.
+[PAGE 6]
+The private footage continues and reveals the archive.
+[PAGE 10]
+A vacation gift video plays on a screen.
+[PAGE 11]
+Someone uploads and broadcasts another vacation video.
+"""
+
+        check = next(
+            row for row in cv.build_existing_evidence_checks(
+                coverage, screenplay
+            )
+            if row["field_path"] == "pass_reason"
+        )
+
+        self.assertEqual(
+            [row["page"] for row in check["focused_evidence"]],
+            [3, 4, 5, 6],
+        )
+
+    def test_ambiguous_reveal_clusters_fail_closed(self):
+        coverage = valid_coverage()
+        coverage["pass_reason"] = (
+            "No scene establishes who recorded or uploaded the video."
+        )
+        source = """\
+[PAGE 2]
+A video plays on the screen.
+[PAGE 10]
+Another video plays on another screen.
+"""
+        check = next(
+            row for row in cv.build_existing_evidence_checks(coverage, source)
+            if row["field_path"] == "pass_reason"
+        )
+        self.assertEqual(check["focused_evidence"], [])
+        self.assertTrue(check["focused_evidence_ambiguous"])
+        detail_row = next(
+            row for row in cv.build_detail_audit_rows(coverage, [check])
+            if row["identifier"] == "pass_reason"
+        )
+        payload = {"results": {
+            detail_row["slot"]: "supported: The claim appears accurate."
+        }}
+
+        evidence, _ = cv.decode_detail_audit_payload(
+            payload, [detail_row], source
+        )
+
+        self.assertEqual(evidence[0]["classification"], "unsupported")
+        self.assertIn("FOCUSED_EVIDENCE_AMBIGUOUS", evidence[0]["note"])
+
     def test_cosquillitas_material_counts_receive_a_detailed_check(self):
         claims = (
             "Tony bribes three of four contest judges",
@@ -1134,6 +1292,31 @@ Los asesinos preparan el campamento y luego mueven el cuerpo.
         self.assertIsNone(cv._material_count_claim_details(
             "Of the five viral checklist items, four pass."
         ))
+
+    def test_cosquillitas_methodology_ratio_cannot_cross_into_next_sentence(self):
+        claim = (
+            "The set piece clears four of the five viral-checklist boxes. "
+            "Runner architecture is strong."
+        )
+
+        self.assertEqual(cv._material_count_claims_details(claim), [])
+        self.assertEqual(
+            [
+                row["claimed_total"]
+                for row in cv._material_count_claims_details(
+                    "It clears four of five boxes. Two judges are bribed."
+                )
+            ],
+            [2],
+        )
+        for story_fact in (
+            "Four of five viral contestants are eliminated.",
+            "Four of five methodology judges are bribed.",
+        ):
+            with self.subTest(story_fact=story_fact):
+                details = cv._material_count_claims_details(story_fact)
+                self.assertEqual(details[0]["claimed_total"], 4)
+                self.assertEqual(details[0]["claimed_universe_total"], 5)
 
     def test_ratio_suppression_is_local_to_the_selected_fact(self):
         claims = (
@@ -1587,6 +1770,9 @@ Los asesinos preparan el campamento y luego mueven el cuerpo.
             ("Resolution: The six-month jump settles the ending.", []),
             ("Act 3 contains the payoff.", []),
             ("A ten-page laugh-free stretch follows.", []),
+            ("Seven consecutive laugh-free pages precede the climax.", []),
+            ("Siete paginas consecutivas sin risas preceden el climax.", []),
+            ("Seven judges fill three pages.", [7]),
             ("The pig costume and the two-coffees ritual are callbacks.", []),
             ("He scores 10. The third judge gives a five.", []),
             ("Both simultaneously. Diego kills the attacker.", []),
@@ -1605,6 +1791,71 @@ Los asesinos preparan el campamento y luego mueven el cuerpo.
             cv._material_count_claimed_total("The ritual repeats two times."),
             2,
         )
+
+    def test_count_evidence_is_trimmed_and_uniquely_relocated(self):
+        source = (
+            "[PAGE 94]\n"
+            "The first judge accepts Tony's expensive watch and the suitcase "
+            "full of cash before smiling at him.\n"
+            "[PAGE 95]\n"
+            "The second judge accepts Tony's gift.\n"
+        )
+        subject = {
+            "field_path": "synopsis#count_1",
+            "source_field_path": "synopsis",
+            "trigger": "counting_claim",
+            "claim": "Tony bribes two judges.",
+            "claimed_total": 2,
+            "claimed_universe_total": 0,
+            "count_quantifier": "exact",
+            "count_entity": "judges",
+            "count_anchor": "two judges",
+        }
+        rows = [{
+            "kind": "existing_evidence",
+            "identifier": "synopsis#count_1",
+            "subject": subject,
+            "slot": "row_001",
+        }]
+        payload = {"results": {"row_001": {
+            "classification": "supported",
+            "claimed_total": 2,
+            "observed_total": 2,
+            "claimed_universe_total": 0,
+            "observed_universe_total": 2,
+            "instances": [
+                {
+                    "label": "first bribed judge",
+                    "page": 95,
+                    "excerpt": (
+                        "The first judge accepts Tony's expensive watch and "
+                        "the suitcase full of cash before smiling at him"
+                    ),
+                    "matches_claim": True,
+                    "multiplicity": 1,
+                },
+                {
+                    "label": "second bribed judge",
+                    "page": 95,
+                    "excerpt": "The second judge accepts Tony's gift",
+                    "matches_claim": True,
+                    "multiplicity": 1,
+                },
+            ],
+            "note": "Two judges accept Tony's gifts.",
+        }}}
+
+        evidence, _citations = cv.decode_detail_audit_payload(
+            payload, rows, source
+        )
+
+        ledger = evidence[0]["count_ledger"]
+        self.assertTrue(ledger["valid"])
+        first = ledger["instances"][0]
+        self.assertEqual(first["page"], 94)
+        self.assertEqual(first["page_normalized_from"], 95)
+        self.assertEqual(len(first["excerpt"].split()), 12)
+        self.assertIn("excerpt_normalized_from", first)
 
     def test_spanish_article_after_entity_is_not_a_count(self):
         self.assertEqual(
@@ -1964,10 +2215,27 @@ Los asesinos preparan el campamento y luego mueven el cuerpo.
         coda["page"] = 6
         coda["action"] = "The winners begin their post-climax celebration."
         audit["sequence_ledger"]["ending"].append(coda)
+        normalized_audit = cv.normalize_audit_tool_input(
+            copy.deepcopy(audit), range(1, 7)
+        )
+        corrected = copy.deepcopy(coverage)
+        corrected["story_spine"]["climax"] += (
+            "; Richie receives the wig before the exposé"
+        )
+        corrected["synopsis"] += (
+            " Richie receives the wig before the exposé overturns the result."
+        )
+        reaudited = supported_audit(corrected)
+        reaudited["sequence_ledger"] = normalized_audit["sequence_ledger"]
+        reaudited["sequence_normalization_diagnostics"] = normalized_audit[
+            "sequence_normalization_diagnostics"
+        ]
         transport = FakeTransport([
             (coverage, settled_usage()),
             (audit, settled_usage()),
             (supported_detail_payload(coverage), settled_usage()),
+            (corrected, settled_usage()),
+            (reaudited, settled_usage()),
         ])
 
         report, _usage = run_engine(new_store(), transport)
@@ -1978,6 +2246,8 @@ Los asesinos preparan el campamento y luego mueven el cuerpo.
                 "coverage_v1.coverage",
                 "coverage_v1.fact_audit",
                 "coverage_v1.fact_audit_details",
+                "coverage_v1.fact_repair",
+                "coverage_v1.fact_reaudit",
             ],
         )
         ledger = report["fact_audit"]["sequence_ledger"]
@@ -1993,6 +2263,177 @@ Los asesinos preparan el campamento y luego mueven el cuerpo.
         self.assertEqual(
             ledger[richie_index + 1]["action"],
             "The exposé overturns the corrupt result.",
+        )
+
+    def test_fact_reaudit_cannot_drop_reclassified_climax_beat(self):
+        coverage = valid_coverage()
+        audit = provider_audit_core(coverage)
+        first = audit["sequence_ledger"]["climax"][0]
+        first["page"] = 4
+        first["action"] = "The corrupt scores create an apparent loss."
+        expose = copy.deepcopy(first)
+        expose["page"] = 6
+        expose["action"] = "The exposé overturns the corrupt result."
+        audit["sequence_ledger"]["climax"].append(expose)
+        richie = audit["sequence_ledger"]["ending"][0]
+        richie["page"] = 5
+        richie["action"] = "Richie receives the wig before the exposé."
+        audit["sequence_ledger"]["ending"].append(copy.deepcopy(expose))
+        corrected = copy.deepcopy(coverage)
+        corrected["story_spine"]["climax"] += "; Richie receives the wig"
+        corrected["synopsis"] += " Richie receives the wig before the exposé."
+        transport = FakeTransport([
+            (coverage, settled_usage()),
+            (audit, settled_usage()),
+            (supported_detail_payload(coverage), settled_usage()),
+            (corrected, settled_usage()),
+            # The generic ledger omits the reclassified page-5 beat.
+            (supported_audit(corrected), settled_usage()),
+        ])
+
+        report, _usage = run_engine(new_store(), transport)
+
+        self.assertEqual(report["status"], "needs_review")
+        repair = report["diagnostics"]["fact_repair"]
+        self.assertEqual(repair["applied"], [])
+        self.assertIn("phase/page witness", repair["outcome"])
+
+    def test_cosquillitas_aggregate_sequence_row_cannot_hide_earlier_action(self):
+        coverage = valid_coverage()
+        audit = provider_audit_core(coverage)
+        row = audit["sequence_ledger"]["ending"][0]
+        row["page"] = 6
+        row["action"] = (
+            "Richie chooses Lucesita and receives the wig on pp.4-5; "
+            "the pregnancy is announced on p.6."
+        )
+
+        normalized = cv.normalize_audit_tool_input(audit, range(1, 7))
+
+        self.assertTrue(any(
+            "ending beat is anchored to page 6 but begins on referenced page 4"
+            in error
+            for error in normalized["_sequence_normalization_errors"]
+        ))
+
+    def test_sequence_span_ending_on_last_climax_page_is_reclassified(self):
+        coverage = valid_coverage()
+        audit = provider_audit_core(coverage)
+        climax = audit["sequence_ledger"]["climax"][0]
+        climax["page"] = 97
+        climax["action"] = "The exposé plays on p.97."
+        early = audit["sequence_ledger"]["ending"][0]
+        early["page"] = 95
+        early["action"] = "Richie chooses and receives the wig on pp.95-97."
+        coda = copy.deepcopy(early)
+        coda["page"] = 98
+        coda["action"] = "The real ending begins on p.98."
+        audit["sequence_ledger"]["ending"] = [early, coda]
+        audit["sequence_ledger"]["final_scene"][0]["page"] = 98
+        for phase in ("tag", "aftermath"):
+            marker = audit["sequence_ledger"][phase][0]
+            marker["action"] = "NOT PRESENT"
+            marker["page"] = 0
+
+        normalized = cv.normalize_audit_tool_input(audit, range(1, 99))
+
+        self.assertFalse(any(
+            "crosses the final climax boundary" in error
+            for error in normalized.get("_sequence_normalization_errors", [])
+        ))
+        richie = next(
+            row for row in normalized["sequence_ledger"]
+            if row["action"].startswith("Richie chooses")
+        )
+        self.assertEqual(richie["phase"], "climax")
+        self.assertEqual(richie["phase_normalized_from"], "ending")
+        guard = next(
+            row for row in normalized["verdicts"]
+            if row["claim_id"] == "guard.cross_field_consistency"
+        )
+        self.assertEqual(guard["classification"], "partially_supported")
+
+    def test_sequence_row_rejects_page_history_hidden_outside_action(self):
+        coverage = valid_coverage()
+        audit = provider_audit_core(coverage)
+        row = audit["sequence_ledger"]["climax"][0]
+        row["page"] = 6
+        row["action"] = "They sing, judges score, and a video appears."
+        row["result"] = (
+            "Singing begins p.2; scores land p.5; video appears p.6."
+        )
+        row["character_knowledge"] = "The scheme was known on p.4."
+
+        normalized = cv.normalize_audit_tool_input(audit, range(1, 7))
+
+        errors = normalized["_sequence_normalization_errors"]
+        self.assertTrue(any("result page reference falls outside" in e for e in errors))
+        self.assertTrue(any(
+            "character_knowledge page reference falls outside" in e
+            for e in errors
+        ))
+
+        row["page"] = 2
+        row["action"] = "The single event unfolds across pp.2-5."
+        row["result"] = "Its result lands on p.5."
+        row["character_knowledge"] = "They understand it on p.4."
+        normalized = cv.normalize_audit_tool_input(audit, range(1, 7))
+        self.assertFalse(any(
+            "falls outside action interval" in error
+            for error in normalized.get("_sequence_normalization_errors", [])
+        ))
+
+    def test_sequence_prompt_requires_atomic_rows_and_earliest_page_anchor(self):
+        blocks = cv.build_audit_user_blocks(
+            SCREENPLAY_TEXT,
+            "El último portero",
+            cv.build_audit_claims(valid_coverage()),
+            coverage=valid_coverage(),
+            page_reference_map=cv.build_page_reference_map(
+                SCREENPLAY_TEXT, 6, None
+            ),
+            evidence_checks=cv.build_existing_evidence_checks(
+                valid_coverage(), SCREENPLAY_TEXT
+            ),
+            sequence_focus=cv.build_sequence_focus(SCREENPLAY_TEXT),
+        )
+        instruction = str(blocks[-1]["text"])
+
+        self.assertIn("one material event per row", instruction)
+        self.assertIn("earliest printed page", instruction)
+
+    def test_provider_shaped_fact_repair_uses_six_calls(self):
+        coverage = valid_coverage()
+        audit = provider_audit_core(coverage)
+        audit["verdicts"][0]["classification"] = "partially_supported"
+        audit["verdicts"][0]["note"] = "The protagonist wording is imprecise."
+        corrected = copy.deepcopy(coverage)
+        corrected["story_spine"]["protagonist"] = (
+            "Diego Salas, portero retirado de 58 años"
+        )
+        transport = FakeTransport([
+            (coverage, settled_usage()),
+            (audit, settled_usage()),
+            (supported_detail_payload(coverage), settled_usage()),
+            (corrected, settled_usage()),
+            (provider_audit_core(corrected), settled_usage()),
+            (supported_detail_payload(corrected), settled_usage()),
+        ])
+
+        report, _usage = run_engine(new_store(), transport)
+
+        self.assertEqual(report["status"], "sealed")
+        self.assertEqual(report["cost"]["call_count"], 6)
+        self.assertEqual(
+            [call["stage"] for call in transport.calls],
+            [
+                "coverage_v1.coverage",
+                "coverage_v1.fact_audit",
+                "coverage_v1.fact_audit_details",
+                "coverage_v1.fact_repair",
+                "coverage_v1.fact_reaudit",
+                "coverage_v1.fact_reaudit_details",
+            ],
         )
 
     def test_paid_cosquillitas_shape_normalizes_after_coverage_repair(self):
@@ -2023,11 +2464,42 @@ Los asesinos preparan el campamento y luego mueven el cuerpo.
             marker = audit["sequence_ledger"][phase][0]
             marker["action"] = "NOT PRESENT"
             marker["page"] = sentinel
+        normalized_audit = cv.normalize_audit_tool_input(
+            copy.deepcopy(audit), range(1, 7)
+        )
+        corrected = copy.deepcopy(coverage)
+        corrected["story_spine"]["climax"] += (
+            "; Richie receives the wig before the exposé"
+        )
+        corrected["synopsis"] += (
+            " Richie receives the wig before the exposé overturns the result."
+        )
+        provider_reaudit = provider_audit_core(corrected)
+        provider_reaudit["sequence_ledger"] = {
+            phase: [
+                {
+                    key: value
+                    for key, value in row.items()
+                    if key not in {
+                        "order", "phase", "phase_normalized_from",
+                        "phase_input_order", "page_normalized_from",
+                    }
+                }
+                for row in normalized_audit["sequence_ledger"]
+                if row["phase"] == phase
+            ]
+            for phase in (
+                "climax", "ending", "final_scene", "tag", "aftermath"
+            )
+        }
         transport = FakeTransport([
             (broken, settled_usage()),
             (coverage, settled_usage()),
             (audit, settled_usage()),
             (supported_detail_payload(coverage), settled_usage()),
+            (corrected, settled_usage()),
+            (provider_reaudit, settled_usage()),
+            (supported_detail_payload(corrected), settled_usage()),
         ])
 
         report, _usage = run_engine(new_store(), transport)
@@ -2041,8 +2513,12 @@ Los asesinos preparan el campamento y luego mueven el cuerpo.
                 "coverage_v1.repair",
                 "coverage_v1.fact_audit",
                 "coverage_v1.fact_audit_details",
+                "coverage_v1.fact_repair",
+                "coverage_v1.fact_reaudit",
+                "coverage_v1.fact_reaudit_details",
             ],
         )
+        self.assertEqual(report["cost"]["call_count"], 7)
         ledger = report["fact_audit"]["sequence_ledger"]
         self.assertEqual(
             [row["page"] for row in ledger],
@@ -2407,6 +2883,36 @@ class TestVerdictRules(unittest.TestCase):
         self.assertTrue(report["human_review_recommended"])
         self.assertIn("reader confidence is low", report["review_reasons"])
 
+    def test_unresolved_reliability_caps_high_confidence_at_medium(self):
+        coverage = valid_coverage()
+        audit = supported_audit(coverage)
+        for row in audit["verdicts"]:
+            if row["claim_id"] == "guard.page_reference_integrity":
+                row["classification"] = "contradicted"
+                row["note"] = "A central page claim remains unresolved."
+        # A malformed infrastructure guard is not safe to repair from prose.
+        audit["existing_evidence_verdicts"][0] = {
+            "field_path": audit["existing_evidence_verdicts"][0]["field_path"],
+            "classification": "unsupported",
+            "note": "COUNT_LEDGER_INVALID: source evidence is incomplete",
+            "count_ledger": {"valid": False, "reason": "incomplete"},
+        }
+        for row in audit["verdicts"]:
+            if row["claim_id"] == "guard.existing_evidence":
+                row["classification"] = "unsupported"
+        transport = FakeTransport([
+            (coverage, settled_usage()),
+            (audit, settled_usage()),
+            (coverage, settled_usage()),
+        ])
+
+        report, _usage = run_engine(new_store(), transport)
+
+        self.assertEqual(report["status"], "needs_review")
+        self.assertEqual(report["confidence"], "medium")
+        self.assertEqual(report["coverage"]["confidence"], "medium")
+        self.assertTrue(report["confidence_adjustments"])
+
 
 class TestRepairBudget(unittest.TestCase):
     def test_invalid_coverage_gets_exactly_one_repair(self):
@@ -2446,6 +2952,29 @@ class TestRepairBudget(unittest.TestCase):
         # Nothing invalid was checkpointed.
         binding_key_probe = transport.calls[0]
         self.assertIsNotNone(binding_key_probe)
+
+    def test_coverage_repair_does_not_consume_the_audit_retry(self):
+        broken = valid_coverage()
+        del broken["development_priorities"]
+        fixed = valid_coverage()
+        bad_audit = provider_audit_core(fixed)
+        bad_audit["sequence_ledger"]["final_scene"][0]["page"] = 5
+        bad_audit["sequence_ledger"]["climax"][0]["page"] = 6
+        transport = FakeTransport([
+            (broken, settled_usage()),
+            (fixed, settled_usage()),
+            (bad_audit, settled_usage()),
+            (provider_audit_core(fixed), settled_usage()),
+            (supported_detail_payload(fixed), settled_usage()),
+        ])
+
+        report, _usage = run_engine(new_store(), transport)
+
+        self.assertEqual(report["status"], "sealed")
+        self.assertEqual(len(transport.calls), 5)
+        self.assertEqual(report["cost"]["repair_calls_used"], 2)
+        self.assertEqual(report["cost"]["coverage_repair_calls_used"], 1)
+        self.assertEqual(report["cost"]["audit_retry_calls_used"], 1)
 
     def test_unverified_citation_uses_one_source_grounded_repair(self):
         broken = valid_coverage()
@@ -2669,6 +3198,177 @@ class TestFactAudit(unittest.TestCase):
         self.assertTrue(
             any("guard.existing_evidence disagrees" in p for p in problems)
         )
+
+    def test_global_absence_citation_inherits_failed_evidence_check(self):
+        coverage = valid_coverage()
+        coverage["concerns"][0]["point"] = (
+            "The exposé arrives with no camera setup anywhere in the script."
+        )
+        detail_rows = cv.build_detail_audit_rows(
+            coverage,
+            cv.build_existing_evidence_checks(
+                coverage,
+                "[PAGE 3]\nRichie plants the exposé camera.\n",
+            ),
+        )
+        evidence = [{
+            "field_path": "concerns[0].point",
+            "classification": "contradicted",
+            "note": "Page 3 explicitly plants the camera.",
+        }]
+        citations = [{
+            "owner": "concerns[0]",
+            "classification": "supported",
+            "note": "The local reveal quote exists.",
+        }]
+
+        reconciled = cv._reconcile_citation_relevance_with_evidence(
+            citations, evidence, detail_rows
+        )
+
+        self.assertEqual(reconciled[0]["classification"], "contradicted")
+        self.assertIn("Page 3 explicitly plants", reconciled[0]["note"])
+
+    def test_global_absence_citation_cannot_be_fully_supported_by_local_quote(self):
+        coverage = valid_coverage()
+        coverage["concerns"][0]["point"] = (
+            "The exposé has no camera setup anywhere in the screenplay."
+        )
+        detail_rows = cv.build_detail_audit_rows(
+            coverage,
+            cv.build_existing_evidence_checks(
+                coverage,
+                "[PAGE 3]\nThe exposé plays on a screen.\n",
+            ),
+        )
+        evidence = [{
+            "field_path": "concerns[0].point",
+            "classification": "supported",
+            "note": "The full-script search found no camera setup.",
+        }]
+        citations = [{
+            "owner": "concerns[0]",
+            "classification": "supported",
+            "note": "The quoted exposé occurs on page 3.",
+        }]
+
+        reconciled = cv._reconcile_citation_relevance_with_evidence(
+            citations, evidence, detail_rows
+        )
+
+        self.assertEqual(
+            reconciled[0]["classification"], "partially_supported"
+        )
+        self.assertEqual(
+            reconciled[0]["classification_normalized_from"], "supported"
+        )
+
+    def test_reveal_detail_omitting_source_roles_fails_closed(self):
+        coverage = valid_coverage()
+        coverage["concerns"][0]["point"] = (
+            "The video reveal has no camera source anywhere in the script."
+        )
+        source = """\
+[PAGE 3]
+A hidden camera records the bribe.
+[PAGE 4]
+The video appears on the screen.
+[PAGE 5]
+The footage continues.
+"""
+        checks = cv.build_existing_evidence_checks(coverage, source)
+        row = next(
+            item for item in cv.build_detail_audit_rows(coverage, checks)
+            if item["identifier"] == "concerns[0].point"
+        )
+        payload = {"results": {
+            row["slot"]: "supported: The camera and reveal are present."
+        }}
+
+        evidence, _citations = cv.decode_detail_audit_payload(
+            payload, [row], source
+        )
+
+        self.assertEqual(evidence[0]["classification"], "unsupported")
+        self.assertIn("FOCUSED_EVIDENCE_INVALID", evidence[0]["note"])
+
+        role_note = "; ".join(
+            f'{lead["role"]}=p.{lead["page"]}'
+            for lead in row["subject"]["focused_evidence"]
+        )
+        payload["results"][row["slot"]] = (
+            "supported: " + role_note + "; source_status=inferable; "
+            "activation_status=unconfirmed."
+        )
+        evidence, _citations = cv.decode_detail_audit_payload(
+            payload, [row], source
+        )
+        self.assertEqual(evidence[0]["classification"], "unsupported")
+        self.assertIn(
+            "FOCUSED_EVIDENCE_CONTRADICTION", evidence[0]["note"]
+        )
+
+        payload["results"][row["slot"]] = (
+            "supported: " + role_note + "; source_status=inferable; "
+            "activation_status=unconfirmed; add a new camera because no "
+            "source exists."
+        )
+        evidence, _citations = cv.decode_detail_audit_payload(
+            payload, [row], source
+        )
+        self.assertEqual(evidence[0]["classification"], "unsupported")
+        self.assertIn(
+            "FOCUSED_EVIDENCE_CONTRADICTION", evidence[0]["note"]
+        )
+
+        safe_row = copy.deepcopy(row)
+        safe_row["subject"]["claim"] = (
+            "Clarify activation of the existing camera footage."
+        )
+        payload["results"][row["slot"]] = (
+            "supported: " + role_note + "; source_status=inferable; "
+            "activation_status=unconfirmed."
+        )
+        for unsafe_claim in (
+            "Add a brand-new camera before the reveal.",
+            "Introduce an additional recording device before the reveal.",
+            "Plant another camera before the reveal.",
+            "Plant and play the video-exposure mechanism in Act 2.",
+            "Show the hero placing or activating the camera.",
+            "The existing source is insufficient, so create a camera for "
+            "the climax.",
+            "Add a second camera before the reveal.",
+            "Introduce an extra recording device before the reveal.",
+        ):
+            with self.subTest(unsafe_claim=unsafe_claim):
+                unsafe_row = copy.deepcopy(safe_row)
+                unsafe_row["subject"]["claim"] = unsafe_claim
+                decoded, _ = cv.decode_detail_audit_payload(
+                    payload, [unsafe_row], source
+                )
+                self.assertEqual(decoded[0]["classification"], "unsupported")
+
+        payload["results"][row["slot"]] = (
+            "supported: " + role_note + "; source_status=inferable; "
+            "activation_status=unconfirmed; clarify who activates the "
+            "existing camera."
+        )
+        decoded, _ = cv.decode_detail_audit_payload(
+            payload, [safe_row], source
+        )
+        self.assertEqual(decoded[0]["classification"], "supported")
+
+        for safe_claim in (
+            "Create a camera payoff for the existing p.73 setup.",
+            "Add a camera-activation beat using the established device.",
+            "Introduce a camera-activation moment for the existing source.",
+        ):
+            with self.subTest(safe_claim=safe_claim):
+                safe_row["subject"]["claim"] = safe_claim
+                decoded, _ = cv.decode_detail_audit_payload(
+                    payload, [safe_row], source
+                )
+                self.assertEqual(decoded[0]["classification"], "supported")
 
     def test_cosquillitas_malformed_count_gets_one_typed_retry(self):
         coverage = valid_coverage()
@@ -3320,12 +4020,6 @@ class TestFactAudit(unittest.TestCase):
         coverage["uncertainties"] = [wrong]
         coverage["champion_reason"] = wrong + ", but the romance still lands"
         coverage["pass_reason"] = wrong + ", so the climax feels unearned"
-        audit = supported_audit(coverage)
-        for row in audit["verdicts"]:
-            if row["claim_id"] == "guard.cross_field_consistency":
-                row["classification"] = "partially_supported"
-                row["note"] = "The report reverses Angela's decisive action."
-
         corrected = copy.deepcopy(coverage)
         for path in (
             ("story_spine", "climax"),
@@ -3349,6 +4043,11 @@ class TestFactAudit(unittest.TestCase):
         corrected["uncertainties"] = [
             "Whether the later rescue from the kill threat feels external"
         ]
+        audit = supported_audit(coverage)
+        for row in audit["verdicts"]:
+            if row["claim_id"] == "guard.cross_field_consistency":
+                row["classification"] = "partially_supported"
+                row["note"] = "The report reverses Angela's decisive action."
         transport = FakeTransport(
             [
                 (coverage, settled_usage()),
@@ -3366,6 +4065,117 @@ class TestFactAudit(unittest.TestCase):
             report["diagnostics"]["canonical_fact_registry"]["climax"],
             corrected_fact,
         )
+
+    def test_reveal_repair_propagates_source_without_inventing_activation(self):
+        text = SCREENPLAY_TEXT.replace(
+            "[PAGE 3]",
+            "A hidden camera records the room.\n[PAGE 3]",
+        ).replace(
+            "[PAGE 4]",
+            "A teammate learns the bribe and keeps access.\n[PAGE 4]",
+        ).replace(
+            "[PAGE 6]",
+            "The camera footage appears on the stadium screen.\n[PAGE 6]",
+        ) + "\nThe private footage continues after the reveal.\n"
+        wrong = (
+            "The reveal has no camera, source, or character motive anywhere "
+            "in the screenplay."
+        )
+        coverage = valid_coverage()
+        coverage["genre_contract"]["failures"] = [wrong]
+        coverage["concerns"][0] = {
+            "point": wrong,
+            "page": 2,
+            "excerpt": "A hidden camera records",
+        }
+        coverage["development_priorities"][0] = {
+            "priority": "Add a brand-new camera before the reveal",
+            "why": wrong,
+            "how": "Create a new scene that plants and activates it",
+        }
+        coverage["uncertainties"] = [wrong]
+        coverage["pass_reason"] = wrong
+
+        checks = cv.build_existing_evidence_checks(coverage, text)
+        audit = supported_audit(coverage)
+        audit["existing_evidence_verdicts"] = [
+            {
+                "field_path": check["field_path"],
+                "classification": (
+                    "contradicted"
+                    if check["source_field_path"] in {
+                        "genre_contract.failures[0]",
+                        "concerns[0].point",
+                        "development_priorities[0]",
+                        "uncertainties[0]",
+                        "pass_reason",
+                    }
+                    else "supported"
+                ),
+                "note": (
+                    "source_device=p.2; motive_access=p.3; reveal=p.5; "
+                    "provenance_aftermath=p.6: source and motive exist, but "
+                    "activation is not established."
+                ),
+            }
+            for check in checks
+        ]
+        next(
+            row for row in audit["verdicts"]
+            if row["claim_id"] == "guard.existing_evidence"
+        )["classification"] = "contradicted"
+
+        corrected = copy.deepcopy(coverage)
+        safe = (
+            "The footage source and character access are inferable, while "
+            "the activation of the final playback remains unconfirmed."
+        )
+        corrected["genre_contract"]["failures"] = [safe]
+        corrected["concerns"][0]["point"] = safe
+        corrected["development_priorities"][0] = {
+            "priority": "Clarify who activates the existing camera footage",
+            "why": "The source exists, but the final delivery remains unclear",
+            "how": "Connect the established access to the playback action",
+        }
+        corrected["uncertainties"] = [safe]
+        corrected["pass_reason"] = safe
+        reaudited = supported_audit(corrected)
+        reaudited["existing_evidence_verdicts"] = [
+            {
+                "field_path": check["field_path"],
+                "classification": "supported",
+                "note": "The corrected wording matches the screenplay.",
+            }
+            for check in cv.build_existing_evidence_checks(corrected, text)
+        ]
+        transport = FakeTransport([
+            (coverage, settled_usage()),
+            (audit, settled_usage()),
+            (corrected, settled_usage()),
+            (reaudited, settled_usage()),
+        ])
+
+        report, _usage = run_engine(
+            new_store(),
+            transport,
+            text=text,
+            content_sha256="b" * 64,
+        )
+
+        self.assertEqual(report["status"], "sealed")
+        serialized = json.dumps(report["coverage"])
+        self.assertNotIn("no camera", serialized)
+        for field in (
+            report["coverage"]["genre_contract"]["failures"][0],
+            report["coverage"]["concerns"][0]["point"],
+            report["coverage"]["uncertainties"][0],
+            report["coverage"]["pass_reason"],
+        ):
+            self.assertIn("activation", field)
+            self.assertIn("unconfirmed", field)
+        priority = report["coverage"]["development_priorities"][0]
+        self.assertIn("existing camera", priority["priority"])
+        self.assertNotIn("brand-new", json.dumps(priority))
 
     def test_incomplete_audit_retries_once_on_coverage_model(self):
         coverage = valid_coverage()
@@ -3388,6 +4198,9 @@ class TestFactAudit(unittest.TestCase):
         self.assertEqual(report["models"]["audit_effective"], "sonnet")
         self.assertEqual(report["cost"]["repair_calls_used"], 1)
         self.assertTrue(report["diagnostics"]["audit_first_pass_problems"])
+        retry_prompt = str(transport.calls[2]["user_blocks"][-1]["text"])
+        self.assertIn("PRIOR OUTPUT REJECTED", retry_prompt)
+        self.assertIn("audit did not classify", retry_prompt)
 
     def test_persistently_missing_noncentral_verdict_needs_review(self):
         # Live failure 2026-09-01: the auditor skipped one non-central claim
@@ -3446,7 +4259,7 @@ class TestFactAudit(unittest.TestCase):
             )
         )
 
-    def test_no_audit_retry_when_repair_slot_already_spent(self):
+    def test_audit_retries_after_coverage_repair_then_fails_closed(self):
         broken = valid_coverage()
         del broken["development_priorities"]
         fixed = valid_coverage()
@@ -3461,14 +4274,15 @@ class TestFactAudit(unittest.TestCase):
                 (broken, settled_usage()),
                 (fixed, settled_usage()),
                 (bad_audit, settled_usage()),
+                (bad_audit, settled_usage()),
             ]
         )
-        # coverage + coverage repair + audit = 3 calls, no retry; the
-        # missing non-central verdict is preserved as unclassified for review.
         report, _usage = run_engine(new_store(), transport)
-        self.assertEqual(len(transport.calls), 3)
+        self.assertEqual(len(transport.calls), 4)
         self.assertEqual(report["status"], "needs_review")
         self.assertTrue(report["human_review_recommended"])
+        self.assertEqual(report["cost"]["coverage_repair_calls_used"], 1)
+        self.assertEqual(report["cost"]["audit_retry_calls_used"], 1)
 
     def test_central_partial_is_fact_repaired_and_reaudited(self):
         # Brief #3, defect 6: an audit-identified factual imprecision in a
@@ -3778,7 +4592,7 @@ class TestFactAudit(unittest.TestCase):
 
     def test_fact_reaudit_core_resumes_at_details_without_rebuying_core(self):
         coverage = valid_coverage()
-        audit = supported_audit(coverage)
+        audit = provider_audit_core(coverage)
         audit["verdicts"][0]["classification"] = "partially_supported"
         audit["verdicts"][0]["note"] = "The fame claim is overstated."
         corrected = copy.deepcopy(coverage)
@@ -3789,6 +4603,7 @@ class TestFactAudit(unittest.TestCase):
         first = FakeTransport([
             (coverage, settled_usage()),
             (audit, settled_usage()),
+            (supported_detail_payload(coverage), settled_usage()),
             (corrected, settled_usage()),
             (provider_audit_core(corrected), settled_usage()),
             RuntimeError("proxy died during fact re-audit details"),

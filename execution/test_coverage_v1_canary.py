@@ -142,7 +142,7 @@ class PaidBatchTests(unittest.TestCase):
         bars = scorecard["automated_bars"]
         self.assertTrue(bars["batch_within_authorization"])
         self.assertTrue(bars["every_script_within_cap"])
-        self.assertTrue(bars["max_five_calls_per_script"])
+        self.assertTrue(bars["max_seven_calls_per_script"])
         self.assertTrue(bars["zero_unverified_citations"])
         self.assertTrue(bars["resume_repaid_nothing"])
         self.assertTrue(bars["settled_cost_target_060"])
@@ -153,6 +153,16 @@ class PaidBatchTests(unittest.TestCase):
         first = json.loads(reports[0].read_text(encoding="utf-8"))
         self.assertEqual(first["analysis_version"], "coverage_v1")
         self.assertEqual(len(first["coverage"]["development_priorities"]), 3)
+
+    def test_v12_call_ceiling_accepts_required_paths_but_not_retries(self):
+        self.assertTrue(canary._within_call_ceiling([
+            {"cost": {"call_count": 3}},
+            {"cost": {"call_count": 6}},
+            {"cost": {"call_count": 7}},
+        ]))
+        self.assertFalse(canary._within_call_ceiling([
+            {"cost": {"call_count": 8}},
+        ]))
 
     def test_checkpoints_survive_across_canary_invocations(self):
         # Live failure 2026-09-01: the store lived INSIDE the per-run
