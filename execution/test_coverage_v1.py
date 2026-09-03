@@ -492,18 +492,47 @@ def typed_detail_payload_for_rows(
         subject = row.get("subject", {})
         if row["kind"] == "citation_relevance":
             group = "citation_results"
-            value = json.loads(grounded_detail_value(row, text))
+            grounded = json.loads(grounded_detail_value(row, text))
+            value = {
+                "supports": grounded["checks"][0]["supports"],
+                "note": grounded["note"],
+            }
         elif row["kind"] == "sequence_evidence":
             group = "sequence_results"
-            value = json.loads(grounded_detail_value(row, text))
+            grounded = json.loads(grounded_detail_value(row, text))
+            checks = {
+                check["field"]: check for check in grounded["checks"]
+            }
+            knowledge_check = checks.get("character_knowledge")
+            if (
+                knowledge_check is not None
+                and cv._SEQUENCE_EXPLICIT_KNOWLEDGE_VERB.search(
+                    knowledge_check["excerpt"]
+                ) is None
+            ):
+                knowledge_check["supports"] = False
+                grounded["classification"] = "partially_supported"
+                grounded["note"] = (
+                    "Character knowledge is not staged in the bound excerpt."
+                )
+            value = {
+                "classification": grounded["classification"],
+                "note": grounded["note"],
+                "character_knowledge_status": (
+                    "checked"
+                    if "character_knowledge" in subject["required_fields"]
+                    else "not_required"
+                ),
+                **{
+                    f"{field}_{part}": checks[field][part]
+                    for field in subject["required_fields"]
+                    for part in ("page", "excerpt", "supports")
+                },
+            }
         elif subject.get("trigger") == "counting_claim":
             group = "count_results"
             value = {
-                "classification": "unsupported",
-                "observed_total": 0,
-                "observed_universe_total": 0,
                 "instances": [],
-                "note": "No matching instances were located in the source.",
             }
         elif subject.get("focused_evidence"):
             group = "focused_results"
@@ -2284,11 +2313,14 @@ Another video plays on another screen.
             cv.build_page_reference_map(SCREENPLAY_TEXT, 6, None),
             [],
         )[-1]["text"]
-        self.assertIn("verbatim 3-12-word excerpt", detail_text)
+        self.assertIn("verbatim 3-12-word source span", detail_text)
+        self.assertIn("verbatim 2-12-word excerpt", detail_text)
         self.assertIn("reveal provenance", detail_text)
         self.assertIn("capture/source", detail_text)
         self.assertIn("continuity_flags", detail_text)
-        self.assertIn("code owns the claimed totals", detail_text.lower())
+        self.assertIn(
+            "code owns both claimed and observed totals", detail_text.lower()
+        )
         self.assertIn("one intentional gag", detail_text)
         self.assertIn("subject.claimed_universe_total", detail_text)
         self.assertIn("story facts repeated inside the commercial", audit_charter)
@@ -2515,21 +2547,25 @@ Another video plays on another screen.
     def test_primary_typed_detail_arrays_seal_without_format_retry(self):
         coverage = valid_coverage()
         audit = provider_audit_core(coverage)
+        source = SCREENPLAY_TEXT.replace(
+            "[PAGE 6]",
+            "[PAGE 6]\nDiego knows the result and understands the physical risk.",
+        )
         normalized = cv.normalize_audit_tool_input(
             copy.deepcopy(audit), range(1, 7)
         )
         rows = cv.build_detail_audit_rows(
             coverage,
-            cv.build_existing_evidence_checks(coverage, SCREENPLAY_TEXT),
+            cv.build_existing_evidence_checks(coverage, source),
             normalized["sequence_ledger"],
         )
         transport = FakeTransport([
             (coverage, settled_usage()),
             (audit, settled_usage()),
-            (typed_detail_payload_for_rows(rows), settled_usage()),
+            (typed_detail_payload_for_rows(rows, source), settled_usage()),
         ])
 
-        report, usage = run_engine(new_store(), transport)
+        report, usage = run_engine(new_store(), transport, text=source)
 
         self.assertEqual(report["status"], "sealed")
         self.assertEqual(usage["call_count"], 3)
@@ -2537,6 +2573,356 @@ Another video plays on another screen.
         self.assertEqual(
             set(transport.calls[2]["tool"]["input_schema"]["properties"]),
             {"text_results", "citation_results", "sequence_results"},
+        )
+
+    def test_grounded_transport_uses_bound_citations_and_fixed_sequence_fields(self):
+        coverage = valid_coverage()
+        audit = cv.normalize_audit_tool_input(
+            provider_audit_core(coverage), range(1, 7)
+        )
+        rows = cv.build_detail_audit_rows(
+            coverage,
+            cv.build_existing_evidence_checks(coverage, SCREENPLAY_TEXT),
+            audit["sequence_ledger"],
+        )
+        citation_row = next(
+            row for row in rows if row["kind"] == "citation_relevance"
+        )
+        sequence_row = next(
+            row for row in rows if row["kind"] == "sequence_evidence"
+        )
+        count_row = {
+            "slot": "row_998",
+            "kind": "existing_evidence",
+            "identifier": "synthetic.count",
+            "subject": {"trigger": "counting_claim"},
+        }
+        schema = cv.build_detail_audit_tool([
+            count_row, citation_row, sequence_row,
+        ])["input_schema"]["properties"]
+
+        self.assertEqual(
+            set(schema["citation_results"]["items"]["properties"]),
+            {"slot", "supports", "note"},
+        )
+        self.assertEqual(
+            set(schema["count_results"]["items"]["properties"]),
+            {"slot", "instances"},
+        )
+        self.assertNotIn(
+            "label",
+            schema["count_results"]["items"]["properties"]["instances"][
+                "items"
+            ]["properties"],
+        )
+        sequence_properties = schema["sequence_results"]["items"][
+            "properties"
+        ]
+        self.assertNotIn("checks", sequence_properties)
+        self.assertNotIn("observed_actors", sequence_properties)
+        self.assertIn("actor_page", sequence_properties)
+        self.assertIn("character_knowledge_status", sequence_properties)
+
+        payload = typed_detail_payload_for_rows([
+            citation_row, sequence_row,
+        ])
+        expanded = cv._expand_detail_audit_payload(
+            payload, [citation_row, sequence_row]
+        )["results"]
+        self.assertEqual(
+            expanded[citation_row["slot"]]["checks"][0],
+            {
+                "field": "citation",
+                "page": citation_row["subject"]["page"],
+                "excerpt": citation_row["subject"]["excerpt"],
+                "supports": True,
+            },
+        )
+        self.assertEqual(
+            [check["field"] for check in expanded[sequence_row["slot"]][
+                "checks"
+            ]],
+            sequence_row["subject"]["required_fields"],
+        )
+
+    def test_fixed_sequence_transport_rejects_a_missing_required_scalar(self):
+        coverage = valid_coverage()
+        audit = cv.normalize_audit_tool_input(
+            provider_audit_core(coverage), range(1, 7)
+        )
+        row = next(
+            row for row in cv.build_detail_audit_rows(
+                coverage,
+                cv.build_existing_evidence_checks(coverage, SCREENPLAY_TEXT),
+                audit["sequence_ledger"],
+            )
+            if row["kind"] == "sequence_evidence"
+        )
+        payload = typed_detail_payload_for_rows([row])
+        payload["sequence_results"][0].pop("result_excerpt")
+
+        expanded = cv._expand_detail_audit_payload(payload, [row])
+
+        self.assertIsNone(expanded["results"][row["slot"]])
+
+    def test_fixed_sequence_transport_rejects_single_actor_substitution(self):
+        source = (
+            "[PAGE 1]\nCarlos performs the song. Diego performs the dance. "
+            "The audience applauds. The audience sees Diego perform."
+        )
+        row = {
+            "slot": "row_001",
+            "kind": "sequence_evidence",
+            "identifier": "sequence_ledger[1]",
+            "subject": {
+                "beat": {
+                    "order": 1,
+                    "phase": "climax",
+                    "page": 1,
+                    "actor": "Diego",
+                    "action": "Diego performs the dance.",
+                    "result": "The audience applauds.",
+                    "character_knowledge": "NOT LOCATED",
+                    "audience_knowledge": "The audience sees Diego perform.",
+                },
+                "required_fields": [
+                    "actor", "action", "result", "audience_knowledge",
+                ],
+                "claim_sha256": "a" * 64,
+            },
+        }
+        payload = {
+            "sequence_results": [{
+                "slot": row["slot"],
+                "classification": "supported",
+                "note": "Every claimed field is staged.",
+                "actor_page": 1,
+                "actor_excerpt": "Carlos performs the song",
+                "actor_supports": True,
+                "action_page": 1,
+                "action_excerpt": "Diego performs the dance",
+                "action_supports": True,
+                "result_page": 1,
+                "result_excerpt": "The audience applauds",
+                "result_supports": True,
+                "audience_knowledge_page": 1,
+                "audience_knowledge_excerpt": "The audience sees Diego perform",
+                "audience_knowledge_supports": True,
+                "character_knowledge_status": "not_required",
+            }],
+        }
+
+        expanded = cv._expand_detail_audit_payload(payload, [row])
+        decoded, reason = cv._decode_grounded_detail_value(
+            expanded["results"][row["slot"]], row, source
+        )
+
+        self.assertIsNone(decoded)
+        self.assertIn("Diego", str(reason))
+
+    def test_fixed_sequence_transport_rejects_actor_only_knowledge_excerpt(self):
+        source = (
+            "[PAGE 1]\nDiego enters the room. Later, Diego knows Carlos "
+            "stole the money."
+        )
+        row = {
+            "slot": "row_001",
+            "kind": "sequence_evidence",
+            "identifier": "sequence_ledger[0]",
+            "subject": {
+                "beat": {
+                    "order": 1,
+                    "phase": "climax",
+                    "page": 1,
+                    "actor": "Diego",
+                    "action": "Diego enters the room.",
+                    "result": "Diego is inside.",
+                    "character_knowledge": (
+                        "Diego knows Carlos stole the money."
+                    ),
+                    "audience_knowledge": "NOT LOCATED",
+                },
+                "required_fields": ["character_knowledge"],
+                "claim_sha256": "a" * 64,
+            },
+        }
+        payload = {
+            "sequence_results": [{
+                "slot": row["slot"],
+                "classification": "supported",
+                "note": "The chosen excerpt stages Diego's knowledge.",
+                "character_knowledge_page": 1,
+                "character_knowledge_excerpt": "Diego enters the room",
+                "character_knowledge_supports": True,
+                "character_knowledge_status": "checked",
+            }],
+        }
+
+        expanded = cv._expand_detail_audit_payload(payload, [row])
+        decoded, reason = cv._decode_grounded_detail_value(
+            expanded["results"][row["slot"]], row, source
+        )
+
+        self.assertIsNone(decoded)
+        self.assertIn("knowledge is not staged", str(reason))
+
+    def test_count_transport_derives_totals_and_accepts_exact_two_word_anchor(self):
+        source = "[PAGE 1]\nLlega Lucesita"
+        row = {
+            "slot": "row_001",
+            "kind": "existing_evidence",
+            "identifier": "story_spine.turning_points[0]",
+            "subject": {
+                "trigger": "counting_claim",
+                "claim": "One member arrives.",
+                "claimed_total": 1,
+                "claimed_universe_total": 1,
+                "count_quantifier": "exact",
+            },
+        }
+        payload = {
+            "count_results": [{
+                "slot": row["slot"],
+                "instances": [{
+                    "page": 1,
+                    "excerpt": "Llega Lucesita",
+                    "matches_claim": True,
+                    "multiplicity": 1,
+                }],
+            }],
+        }
+
+        expanded = cv._expand_detail_audit_payload(payload, [row])
+        evidence, _citations = cv.decode_detail_audit_payload(
+            expanded, [row], source
+        )
+        ledger = evidence[0]["count_ledger"]
+
+        self.assertEqual(evidence[0]["classification"], "supported")
+        self.assertEqual(ledger["observed_total"], 1)
+        self.assertEqual(ledger["observed_universe_total"], 1)
+        self.assertRegex(
+            ledger["instances"][0]["source_instance_id"], r"^[0-9a-f]{64}$"
+        )
+        duplicate_evidence, _ = cv.decode_detail_audit_payload(
+            expanded,
+            [row],
+            "[PAGE 1]\nLlega Lucesita. Después, llega Lucesita.",
+        )
+        self.assertFalse(duplicate_evidence[0]["count_ledger"]["valid"])
+        self.assertIn(
+            "not uniquely on its page",
+            duplicate_evidence[0]["count_ledger"]["reason"],
+        )
+        inflated_row = copy.deepcopy(row)
+        inflated_row["subject"].update({
+            "claim": "Five members arrive.",
+            "claimed_total": 5,
+            "claimed_universe_total": 5,
+            "count_entity": "members",
+        })
+        inflated_payload = copy.deepcopy(payload)
+        inflated_payload["count_results"][0]["instances"][0][
+            "multiplicity"
+        ] = 5
+        inflated = cv._expand_detail_audit_payload(
+            inflated_payload, [inflated_row]
+        )
+        inflated_evidence, _ = cv.decode_detail_audit_payload(
+            inflated, [inflated_row], source
+        )
+        self.assertFalse(inflated_evidence[0]["count_ledger"]["valid"])
+        self.assertIn(
+            "multiplicity is not explicitly proved",
+            inflated_evidence[0]["count_ledger"]["reason"],
+        )
+
+    def test_count_transport_derives_zero_instance_note(self):
+        row = {
+            "slot": "row_001",
+            "kind": "existing_evidence",
+            "identifier": "story_spine.turning_points[0]",
+            "subject": {
+                "trigger": "counting_claim",
+                "claim": "One member arrives.",
+                "claimed_total": 1,
+                "count_quantifier": "exact",
+            },
+        }
+        expanded = cv._expand_detail_audit_payload(
+            {"count_results": [{"slot": row["slot"], "instances": []}]},
+            [row],
+        )
+
+        evidence, _citations = cv.decode_detail_audit_payload(
+            expanded, [row], SCREENPLAY_TEXT
+        )
+
+        self.assertEqual(evidence[0]["classification"], "unsupported")
+        self.assertEqual(
+            evidence[0]["note"],
+            "Engine-verified count: 0 matching of 0 observed instances "
+            "against the exact claimed count of 1; classification: "
+            "unsupported.",
+        )
+
+    def test_legacy_count_note_is_replaced_by_verified_totals(self):
+        source = "[PAGE 1]\nLlega Lucesita"
+        subject = {
+            "trigger": "counting_claim",
+            "claim": "One member arrives.",
+            "claimed_total": 1,
+            "claimed_universe_total": 1,
+            "count_quantifier": "exact",
+        }
+        candidate = {
+            "classification": "supported",
+            "observed_total": 1,
+            "observed_universe_total": 1,
+            "instances": [{
+                "label": "p.1: Llega Lucesita",
+                "page": 1,
+                "excerpt": "Llega Lucesita",
+                "matches_claim": True,
+                "multiplicity": 1,
+            }],
+            "note": "Seven matching instances were found.",
+        }
+
+        decoded = cv._decode_count_audit_result(candidate, subject, source)
+
+        self.assertTrue(decoded["count_ledger"]["valid"])
+        self.assertIn("1 matching of 1 observed", decoded["note"])
+        self.assertNotIn("Seven", decoded["note"])
+
+    def test_derived_supported_count_rejects_a_contradictory_note(self):
+        source = "[PAGE 1]\nLlega Lucesita"
+        subject = {
+            "trigger": "counting_claim",
+            "claim": "One member arrives.",
+            "claimed_total": 1,
+            "claimed_universe_total": 1,
+            "count_quantifier": "exact",
+        }
+        candidate = {
+            "classification": "supported",
+            "observed_total": 1,
+            "observed_universe_total": 1,
+            "instances": [{
+                "label": "p.1: Llega Lucesita",
+                "page": 1,
+                "excerpt": "Llega Lucesita",
+                "matches_claim": True,
+                "multiplicity": 1,
+            }],
+            "note": "This evidence fails to support the claimed count.",
+        }
+
+        decoded = cv._decode_count_audit_result(candidate, subject, source)
+
+        self.assertFalse(decoded["count_ledger"]["valid"])
+        self.assertIn(
+            "contradicts its own note", decoded["count_ledger"]["reason"]
         )
 
     def test_cosquillitas_49_detail_rows_fit_one_strict_call(self):
@@ -2615,9 +3001,9 @@ Another video plays on another screen.
             "citation_results", "sequence_results",
         ])
         self.assertEqual(stats, {
-            "object_count": 9,
-            "property_count": 43,
-            "optional_parameter_count": 0,
+            "object_count": 7,
+            "property_count": 42,
+            "optional_parameter_count": 3,
             "union_parameter_count": 0,
             "maximum_depth": 5,
         })
@@ -5135,12 +5521,16 @@ class TestCheckpointsAndResume(unittest.TestCase):
     def test_legacy_detail_12_progress_resumes_with_typed_a_and_b_only(self):
         coverage = valid_coverage()
         audit = provider_audit_core(coverage)
+        source = SCREENPLAY_TEXT.replace(
+            "[PAGE 6]",
+            "[PAGE 6]\nDiego knows the result and understands the physical risk.",
+        )
         normalized = cv.normalize_audit_tool_input(
             copy.deepcopy(audit), range(1, 7)
         )
         rows = cv.build_detail_audit_rows(
             coverage,
-            cv.build_existing_evidence_checks(coverage, SCREENPLAY_TEXT),
+            cv.build_existing_evidence_checks(coverage, source),
             normalized["sequence_ledger"],
         )
         text_row = next(
@@ -5149,7 +5539,11 @@ class TestCheckpointsAndResume(unittest.TestCase):
         citation_row = next(
             row for row in rows if row["kind"] == "citation_relevance"
         )
-        malformed = supported_detail_payload(coverage)
+        grounded_rows = [
+            row for row in rows
+            if row["kind"] in {"citation_relevance", "sequence_evidence"}
+        ]
+        malformed = supported_detail_payload(coverage, normalized, source)
         malformed["results"][text_row["slot"]] = "supported"
         malformed["results"][citation_row["slot"]] = "supported"
         store = new_store()
@@ -5161,7 +5555,7 @@ class TestCheckpointsAndResume(unittest.TestCase):
         ])
 
         with self.assertRaises(RuntimeError):
-            run_engine(store, first)
+            run_engine(store, first, text=source)
 
         [core_path] = list(store.root.glob("*/audit_core.json"))
         core = json.loads(core_path.read_text(encoding="utf-8"))
@@ -5187,10 +5581,10 @@ class TestCheckpointsAndResume(unittest.TestCase):
         progress_path.write_text(json.dumps(progress), encoding="utf-8")
 
         resume = FakeTransport([
-            (typed_detail_payload_for_rows([text_row]), settled_usage()),
-            (typed_detail_payload_for_rows([citation_row]), settled_usage()),
+            (typed_detail_payload_for_rows([text_row], source), settled_usage()),
+            (typed_detail_payload_for_rows(grounded_rows, source), settled_usage()),
         ])
-        report, usage = run_engine(store, resume)
+        report, usage = run_engine(store, resume, text=source)
 
         self.assertEqual(
             [call["stage"] for call in resume.calls],
@@ -5202,6 +5596,265 @@ class TestCheckpointsAndResume(unittest.TestCase):
         self.assertTrue(report["replay"]["audit_core_replayed"])
         self.assertEqual(report["status"], "sealed")
         self.assertEqual(usage["call_count"], 2)
+
+    def test_legacy_detail_13_count_is_revalidated_before_resume(self):
+        coverage = valid_coverage()
+        coverage["story_spine"]["opposition"] = "Five members arrive."
+        source = SCREENPLAY_TEXT.replace(
+            "[PAGE 1]", "[PAGE 1]\nLlega Lucesita"
+        )
+        audit = provider_audit_core(coverage)
+        normalized = cv.normalize_audit_tool_input(
+            copy.deepcopy(audit), range(1, 7)
+        )
+        rows = cv.build_detail_audit_rows(
+            coverage,
+            cv.build_existing_evidence_checks(coverage, source),
+            normalized["sequence_ledger"],
+        )
+        count_row = next(
+            row for row in rows
+            if row.get("subject", {}).get("trigger") == "counting_claim"
+        )
+        store = new_store()
+        first = FakeTransport([
+            (coverage, settled_usage()),
+            (audit, settled_usage()),
+            (supported_detail_payload(coverage, normalized, source), settled_usage()),
+            RuntimeError("stop before typed recovery A"),
+        ])
+
+        with self.assertRaises(RuntimeError):
+            run_engine(store, first, text=source)
+
+        [progress_path] = list(
+            store.root.glob("*/audit_details_progress.json")
+        )
+        record = json.loads(progress_path.read_text(encoding="utf-8"))
+        payload = record["payload"]
+        payload["detail_contract_version"] = cv.LEGACY_DETAIL_PROGRESS_VERSION
+        payload["text_retry_plan"] = []
+        payload["typed_a_plan"] = []
+        payload["completed_typed_a_batches"] = []
+        payload["count_retry_feedback"] = {}
+        payload["evidence_rows"] = [
+            row for row in payload["evidence_rows"]
+            if row.get("field_path") != count_row["identifier"]
+        ]
+        payload["evidence_rows"].append({
+            "field_path": count_row["identifier"],
+            "classification": "supported",
+            "note": "Five members are represented by this one anchor.",
+            "count_ledger": {
+                "valid": True,
+                "claimed_total": 5,
+                "claimed_max_total": None,
+                "observed_total": 5,
+                "count_quantifier": "exact",
+                "claimed_universe_total": None,
+                "observed_universe_total": 5,
+                "instances": [{
+                    "label": "Lucesita",
+                    "page": 1,
+                    "excerpt": "Llega Lucesita",
+                    "matches_claim": True,
+                    "multiplicity": 5,
+                }],
+            },
+        })
+        progress_path.write_text(
+            json.dumps(cv._sealed_record(record["binding"], payload)),
+            encoding="utf-8",
+        )
+
+        resume = FakeTransport([
+            RuntimeError("stop after legacy count revalidation"),
+        ])
+        with self.assertRaises(RuntimeError):
+            run_engine(store, resume, text=source)
+
+        self.assertEqual(len(resume.calls), 1)
+        self.assertEqual(
+            resume.calls[0]["stage"],
+            "coverage_v1.fact_audit_details_typed_b",
+        )
+        count_schema = resume.calls[0]["tool"]["input_schema"]["properties"][
+            "count_results"
+        ]
+        self.assertEqual(
+            count_schema["items"]["properties"]["slot"]["enum"],
+            [count_row["slot"]],
+        )
+
+    def test_legacy_detail_13_preserves_completed_25_slot_typed_a(self):
+        coverage = valid_coverage()
+        coverage["synopsis"] = " ".join(
+            f"Two events occur in sequence {index}."
+            for index in range(19)
+        )
+        audit = provider_audit_core(coverage)
+        normalized = cv.normalize_audit_tool_input(
+            copy.deepcopy(audit), range(1, 7)
+        )
+        rows = cv.build_detail_audit_rows(
+            coverage,
+            cv.build_existing_evidence_checks(coverage, SCREENPLAY_TEXT),
+            normalized["sequence_ledger"],
+        )
+        typed_a_rows = [
+            row for row in rows if row["kind"] == "existing_evidence"
+        ]
+        self.assertEqual(len(typed_a_rows), 25)
+        main_detail = {
+            "results": {row["slot"]: "supported" for row in rows}
+        }
+        typed_a = typed_detail_payload_for_rows(typed_a_rows)
+        malformed_slots = {
+            row["slot"] for row in typed_a_rows[:4]
+        }
+        for values in typed_a.values():
+            for value in values:
+                if value["slot"] in malformed_slots:
+                    value.pop("note" if "note" in value else "instances")
+        store = new_store()
+        first = FakeTransport([
+            (coverage, settled_usage()),
+            (audit, settled_usage()),
+            (main_detail, settled_usage()),
+            (typed_a, settled_usage()),
+            RuntimeError("stop before typed recovery B"),
+        ])
+
+        with self.assertRaises(RuntimeError):
+            run_engine(store, first)
+
+        [progress_path] = list(
+            store.root.glob("*/audit_details_progress.json")
+        )
+        record = json.loads(progress_path.read_text(encoding="utf-8"))
+        payload = record["payload"]
+        self.assertEqual(len(payload["typed_a_plan"]), 25)
+        self.assertEqual(len(payload["evidence_rows"]), 21)
+        self.assertEqual(len(payload["completed_typed_a_batches"]), 1)
+        payload["detail_contract_version"] = cv.LEGACY_DETAIL_PROGRESS_VERSION
+        progress_path.write_text(
+            json.dumps(cv._sealed_record(record["binding"], payload)),
+            encoding="utf-8",
+        )
+
+        resume = FakeTransport([
+            RuntimeError("stop after migrated typed recovery B"),
+        ])
+        with self.assertRaises(RuntimeError):
+            run_engine(store, resume)
+
+        self.assertEqual(len(resume.calls), 1)
+        self.assertEqual(
+            resume.calls[0]["stage"],
+            "coverage_v1.fact_audit_details_typed_b",
+        )
+        migrated = json.loads(
+            progress_path.read_text(encoding="utf-8")
+        )["payload"]
+        self.assertEqual(
+            migrated["detail_contract_version"],
+            cv.DETAIL_AUDIT_CONTRACT_VERSION,
+        )
+        self.assertEqual(len(migrated["completed_typed_a_batches"]), 1)
+        self.assertEqual(len(migrated["evidence_rows"]), 21)
+
+    def test_legacy_detail_13_requeues_actor_only_knowledge_evidence(self):
+        class FailAuditSave(cv.LocalCheckpointStore):
+            def save(self, key, stage, record):
+                if stage == "audit":
+                    raise RuntimeError("stop before final audit checkpoint")
+                super().save(key, stage, record)
+
+        coverage = valid_coverage()
+        audit = provider_audit_core(coverage)
+        normalized = cv.normalize_audit_tool_input(
+            copy.deepcopy(audit), range(1, 7)
+        )
+        rows = cv.build_detail_audit_rows(
+            coverage,
+            cv.build_existing_evidence_checks(coverage, SCREENPLAY_TEXT),
+            normalized["sequence_ledger"],
+        )
+        target = next(
+            row for row in rows
+            if row["kind"] == "sequence_evidence"
+            and "character_knowledge"
+            in row["subject"]["required_fields"]
+        )
+        store = FailAuditSave(Path(tempfile.mkdtemp()) / "cv1")
+        first = FakeTransport([
+            (coverage, settled_usage()),
+            (audit, settled_usage()),
+            (supported_detail_payload(coverage, normalized), settled_usage()),
+        ])
+
+        with self.assertRaisesRegex(
+            RuntimeError, "stop before final audit checkpoint"
+        ):
+            run_engine(store, first)
+
+        [progress_path] = list(
+            store.root.glob("*/audit_details_progress.json")
+        )
+        record = json.loads(progress_path.read_text(encoding="utf-8"))
+        carried = next(
+            row for row in record["payload"]["evidence_rows"]
+            if row.get("field_path") == target["identifier"]
+        )
+        knowledge_check = next(
+            check for check in carried["checks"]
+            if check["field"] == "character_knowledge"
+        )
+        self.assertIsNone(
+            cv._SEQUENCE_EXPLICIT_KNOWLEDGE_VERB.search(
+                knowledge_check["excerpt"]
+            )
+        )
+        record["payload"]["detail_contract_version"] = (
+            cv.LEGACY_DETAIL_PROGRESS_VERSION
+        )
+        progress_path.write_text(
+            json.dumps(
+                cv._sealed_record(record["binding"], record["payload"])
+            ),
+            encoding="utf-8",
+        )
+
+        resume = FakeTransport([
+            RuntimeError("stop after legacy grounded requeue"),
+        ])
+        with self.assertRaisesRegex(
+            RuntimeError, "stop after legacy grounded requeue"
+        ):
+            run_engine(store, resume)
+
+        self.assertEqual(len(resume.calls), 1)
+        self.assertEqual(
+            resume.calls[0]["stage"],
+            "coverage_v1.fact_audit_details_typed_b",
+        )
+        sequence_schema = resume.calls[0]["tool"]["input_schema"][
+            "properties"
+        ]["sequence_results"]
+        self.assertIn(
+            target["slot"],
+            sequence_schema["items"]["properties"]["slot"]["enum"],
+        )
+        migrated = json.loads(
+            progress_path.read_text(encoding="utf-8")
+        )["payload"]
+        self.assertNotIn(
+            target["identifier"],
+            {
+                row.get("field_path")
+                for row in migrated["evidence_rows"]
+            },
+        )
 
     def test_legacy_detail_audit_is_discarded_without_rebuying_core(self):
         coverage = valid_coverage()
@@ -5910,7 +6563,9 @@ The footage continues.
             str(block.get("text", ""))
             for block in transport.calls[3]["user_blocks"]
         )
-        self.assertIn("instance 1 excerpt is not on its page", retry_prompt)
+        self.assertIn(
+            "instance 1 excerpt is not uniquely on its page", retry_prompt
+        )
         self.assertIn("invented count evidence", retry_prompt)
 
     def test_malformed_prose_detail_gets_one_typed_retry(self):
@@ -6981,6 +7636,60 @@ Dante hands cash to the judges as Tony watches.
         self.assertEqual(
             first_result["note"], "Confirmed against the complete screenplay."
         )
+
+    def test_final_typed_recovery_checkpoints_valid_siblings_before_failing(self):
+        coverage = valid_coverage()
+        audit = provider_audit_core(coverage)
+        normalized = cv.normalize_audit_tool_input(
+            copy.deepcopy(audit), range(1, 7)
+        )
+        rows = cv.build_detail_audit_rows(
+            coverage,
+            cv.build_existing_evidence_checks(coverage, SCREENPLAY_TEXT),
+            normalized["sequence_ledger"],
+        )
+        citation_rows = [
+            row for row in rows if row["kind"] == "citation_relevance"
+        ][:2]
+        malformed_main = supported_detail_payload(
+            coverage, normalized
+        )
+        for row in citation_rows:
+            malformed_main["results"][row["slot"]] = "supported"
+        partial_final = typed_detail_payload_for_rows(citation_rows)
+        partial_final["citation_results"][1].pop("supports")
+        store = new_store()
+        first = FakeTransport([
+            (coverage, settled_usage()),
+            (audit, settled_usage()),
+            (malformed_main, settled_usage()),
+            (partial_final, settled_usage()),
+        ])
+
+        with self.assertRaisesRegex(
+            cv.CoverageContractError, "recovery B returned a malformed result"
+        ):
+            run_engine(store, first)
+
+        progress_path = next(
+            store.root.glob("*/audit_details_progress.json")
+        )
+        progress = json.loads(progress_path.read_text(encoding="utf-8"))[
+            "payload"
+        ]
+        rescued_owners = {
+            row["owner"] for row in progress["citation_rows"]
+        }
+        self.assertIn(citation_rows[0]["identifier"], rescued_owners)
+        self.assertNotIn(citation_rows[1]["identifier"], rescued_owners)
+
+        resume = FakeTransport([])
+        with self.assertRaisesRegex(
+            cv.CoverageContractError,
+            "did not produce every canonical row",
+        ):
+            run_engine(store, resume)
+        self.assertEqual(resume.calls, [])
 
     def test_all_malformed_counts_retry_in_one_schema_safe_typed_batch(self):
         coverage = valid_coverage()

@@ -95,9 +95,9 @@ MAX_DETAIL_AUDIT_ROWS = 64
 MAX_DETAIL_DIRECT_SLOTS = 42
 MAX_SEQUENCE_FIELD_REPAIR_SLOTS = 40
 AUDIT_CORE_CONTRACT_VERSION = "coverage-v1.2-audit-core-1"
-DETAIL_AUDIT_CONTRACT_VERSION = "coverage-v1.2-detail-13"
+DETAIL_AUDIT_CONTRACT_VERSION = "coverage-v1.2-detail-14"
 LEGACY_AUDIT_CORE_VERSION = "coverage-v1.2-detail-12"
-LEGACY_DETAIL_PROGRESS_VERSION = "coverage-v1.2-detail-12"
+LEGACY_DETAIL_PROGRESS_VERSION = "coverage-v1.2-detail-13"
 # Keep already-settled call receipts and budget accounting on the prior
 # binding. Exact request fingerprints still decide whether a receipt replays,
 # while the separately versioned detail/core checkpoints migrate safely.
@@ -122,6 +122,7 @@ GROUNDED_SEQUENCE_FIELDS = (
     "actor", "action", "result", "character_knowledge",
     "audience_knowledge",
 )
+COUNT_EVIDENCE_MIN_WORDS = 2
 AUDIT_SEQUENCE_PHASES = (
     "climax", "ending", "final_scene", "tag", "aftermath",
 )
@@ -1148,27 +1149,16 @@ def build_detail_audit_tool(rows: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
         "items": {"type": "string"},
         "maxItems": 12,
     }
-    check = {
-        "type": "object",
-        "properties": {
-            "field": {"type": "string"},
-            "page": {"type": "integer"},
-            "excerpt": {"type": "string"},
-            "supports": {"type": "boolean"},
-        },
-        "required": ["field", "page", "excerpt", "supports"],
-    }
     instance = {
         "type": "object",
         "properties": {
-            "label": {"type": "string"},
             "page": {"type": "integer"},
             "excerpt": {"type": "string"},
             "matches_claim": {"type": "boolean"},
             "multiplicity": {"type": "integer", "minimum": 1},
         },
         "required": [
-            "label", "page", "excerpt", "matches_claim", "multiplicity",
+            "page", "excerpt", "matches_claim", "multiplicity",
         ],
     }
 
@@ -1222,48 +1212,44 @@ def build_detail_audit_tool(rows: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
         ),
         "count_results": (
             {
-                "classification": classification,
-                "observed_total": {"type": "integer", "minimum": 0},
-                "observed_universe_total": {
-                    "type": "integer", "minimum": 0,
-                },
                 "instances": {"type": "array", "items": instance},
-                "note": {"type": "string"},
             },
-            [
-                "classification", "observed_total",
-                "observed_universe_total", "instances", "note",
-            ],
+            ["instances"],
         ),
         "citation_results": (
             {
-                "classification": classification,
-                "checks": {
-                    "type": "array",
-                    "items": check,
-                    "minItems": 1,
-                    "maxItems": 1,
-                },
+                "supports": {"type": "boolean"},
                 "note": {"type": "string"},
             },
-            ["classification", "checks", "note"],
+            ["supports", "note"],
         ),
         "sequence_results": (
             {
                 "classification": classification,
-                "checks": {
-                    "type": "array",
-                    "items": check,
-                    "minItems": 1,
-                    "maxItems": len(GROUNDED_SEQUENCE_FIELDS),
-                },
                 "note": {"type": "string"},
-                "observed_actors": people,
-                "observed_knowers": people,
+                **{
+                    f"{field}_{part}": schema
+                    for field in GROUNDED_SEQUENCE_FIELDS
+                    for part, schema in (
+                        ("page", {"type": "integer"}),
+                        ("excerpt", {"type": "string"}),
+                        ("supports", {"type": "boolean"}),
+                    )
+                },
+                "character_knowledge_status": {
+                    "type": "string",
+                    "enum": ["checked", "not_required"],
+                },
             },
             [
-                "classification", "checks", "note",
-                "observed_actors", "observed_knowers",
+                "classification", "note",
+                *(
+                    f"{field}_{part}"
+                    for field in GROUNDED_SEQUENCE_FIELDS
+                    if field != "character_knowledge"
+                    for part in ("page", "excerpt", "supports")
+                ),
+                "character_knowledge_status",
             ],
         ),
     }
@@ -1275,7 +1261,9 @@ def build_detail_audit_tool(rows: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
     tool = {
         "name": "submit_detail_audit_v1_2",
         "description": (
-            "Classify every named evidence and citation check exactly once."
+            "Classify every named evidence row exactly once. Citation source "
+            "coordinates are already bound by the engine; sequence evidence "
+            "uses fixed scalar fields."
         ),
         "input_schema": {
             "type": "object",
@@ -1419,11 +1407,121 @@ def _expand_detail_audit_payload(
             if slot not in by_slot:
                 normalized[slot] = None
                 continue
-            value = {
+            value: Dict[str, Any] = {
                 key: copy.deepcopy(item)
                 for key, item in by_slot[slot].items()
                 if key != "slot"
             }
+            subject = row.get("subject")
+            if group == "citation_results":
+                if (
+                    set(value) != {"supports", "note"}
+                    or not isinstance(subject, dict)
+                ):
+                    normalized[slot] = None
+                    continue
+                value = {
+                    "classification": (
+                        "supported" if value["supports"] else "unsupported"
+                    ),
+                    "checks": [{
+                        "field": "citation",
+                        "page": subject.get("page"),
+                        "excerpt": subject.get("excerpt"),
+                        "supports": value["supports"],
+                    }],
+                    "note": value["note"],
+                }
+            elif group == "sequence_results":
+                if not isinstance(subject, dict):
+                    normalized[slot] = None
+                    continue
+                required_fields = subject.get("required_fields")
+                if (
+                    not isinstance(required_fields, list)
+                    or any(
+                        field not in GROUNDED_SEQUENCE_FIELDS
+                        for field in required_fields
+                    )
+                ):
+                    normalized[slot] = None
+                    continue
+                expected_keys = {
+                    "classification", "note", "character_knowledge_status",
+                    *(
+                        f"{field}_{part}"
+                        for field in required_fields
+                        for part in ("page", "excerpt", "supports")
+                    ),
+                }
+                knowledge_required = "character_knowledge" in required_fields
+                expected_status = (
+                    "checked" if knowledge_required else "not_required"
+                )
+                if (
+                    set(value) != expected_keys
+                    or value.get("character_knowledge_status")
+                    != expected_status
+                ):
+                    normalized[slot] = None
+                    continue
+                value = {
+                    "classification": value["classification"],
+                    "checks": [
+                        {
+                            "field": field,
+                            "page": value[f"{field}_page"],
+                            "excerpt": value[f"{field}_excerpt"],
+                            "supports": value[f"{field}_supports"],
+                        }
+                        for field in required_fields
+                    ],
+                    "note": value["note"],
+                }
+            elif group == "count_results":
+                if set(value) != {"instances"}:
+                    normalized[slot] = None
+                    continue
+                instances = value.get("instances")
+                valid_instances = bool(
+                    isinstance(instances, list)
+                    and all(
+                        isinstance(instance, dict)
+                        and set(instance) == {
+                            "page", "excerpt", "matches_claim", "multiplicity",
+                        }
+                        and isinstance(instance.get("excerpt"), str)
+                        and type(instance.get("page")) is int
+                        and type(instance.get("multiplicity")) is int
+                        and instance["multiplicity"] >= 1
+                        and type(instance.get("matches_claim")) is bool
+                        for instance in instances
+                    )
+                )
+                if valid_instances:
+                    instances = [
+                        {
+                            "label": (
+                                f'p.{instance["page"]}: '
+                                + " ".join(instance["excerpt"].split())
+                            ),
+                            **instance,
+                        }
+                        for instance in instances
+                    ]
+                    value["instances"] = instances
+                value["observed_universe_total"] = (
+                    sum(instance["multiplicity"] for instance in instances)
+                    if valid_instances else -1
+                )
+                value["observed_total"] = (
+                    sum(
+                        instance["multiplicity"]
+                        for instance in instances
+                        if instance["matches_claim"]
+                    )
+                    if valid_instances else -1
+                )
             normalized[slot] = value
     return {"results": {slot: normalized.get(slot) for slot in expected}}
 
@@ -2159,9 +2257,17 @@ def _decode_grounded_detail_value(
             return None, "result is not a JSON object"
     kind = row.get("kind")
     required_result_fields = {"classification", "checks", "note"}
-    if kind == "sequence_evidence":
-        required_result_fields.update({"observed_actors", "observed_knowers"})
-    if not isinstance(candidate, dict) or set(candidate) != required_result_fields:
+    legacy_observed_people = bool(
+        kind == "sequence_evidence"
+        and isinstance(candidate, dict)
+        and set(candidate) == {
+            *required_result_fields, "observed_actors", "observed_knowers",
+        }
+    )
+    if not isinstance(candidate, dict) or (
+        set(candidate) != required_result_fields
+        and not legacy_observed_people
+    ):
         return None, "result does not contain the exact grounded fields"
     classification = candidate.get("classification")
     checks = candidate.get("checks")
@@ -2293,6 +2399,51 @@ def _decode_grounded_detail_value(
                 allow_sentinel=allow_sentinel,
             ):
                 return None, "knower roles are absent from the claimed beat"
+        if not legacy_observed_people:
+            if checks_by_field.get("actor", {}).get("supports") is True:
+                actor_excerpt = str(
+                    checks_by_field["actor"].get("excerpt", "")
+                )
+                missing_actor_names = [
+                    actor for actor in _sequence_named_actors(
+                        str(beat.get("actor", ""))
+                    )
+                    if re.search(
+                        rf"(?<!\w){re.escape(_fold_evidence_text(actor))}(?!\w)",
+                        _fold_evidence_text(actor_excerpt),
+                    ) is None
+                ]
+                if missing_actor_names:
+                    return None, (
+                        "actor names are absent from the source excerpt: "
+                        + ", ".join(missing_actor_names)
+                    )
+                if not _sequence_subject_matches_context(
+                    str(beat.get("actor", "")),
+                    actor_excerpt,
+                    allow_sentinel=allow_sentinel,
+                ):
+                    return None, "actor roles are absent from the source excerpt"
+            if (
+                checks_by_field.get("character_knowledge", {}).get("supports")
+                is True
+            ):
+                knowledge_excerpt = str(
+                    checks_by_field["character_knowledge"].get("excerpt", "")
+                )
+                if _SEQUENCE_EXPLICIT_KNOWLEDGE_VERB.search(
+                    knowledge_excerpt
+                ) is None:
+                    return None, (
+                        "character knowledge is not staged in the source excerpt"
+                    )
+                if not _sequence_subject_matches_context(
+                    str(beat.get("character_knowledge", "")),
+                    knowledge_excerpt,
+                    knowledge=True,
+                    allow_sentinel=allow_sentinel,
+                ):
+                    return None, "knower roles are absent from the source excerpt"
     if classification == "supported" and not all(
         check["supports"] for check in normalized_checks
     ):
@@ -2304,7 +2455,7 @@ def _decode_grounded_detail_value(
         "claim_sha256": str(subject.get("claim_sha256", "")),
         "grounding_valid": True,
     }
-    if kind == "sequence_evidence":
+    if kind == "sequence_evidence" and legacy_observed_people:
         beat = subject["beat"]
         actor_check = checks_by_field.get("actor", {})
         knowledge_check = checks_by_field.get("character_knowledge", {})
@@ -2662,16 +2813,17 @@ def _invalid_count_audit_result(reason: str) -> Dict[str, Any]:
     }
 
 
-def _canonical_excerpt_span(
+def _canonical_excerpt_spans(
     page_text: str,
     excerpt: str,
-) -> Optional[Tuple[int, int]]:
-    """Locate an excerpt in one normalized source coordinate for overlap checks."""
+) -> List[Tuple[int, int]]:
+    """Locate every distinct normalized source coordinate for an excerpt."""
     normalized_page = re.sub(
         r"(?<=\w)-\s+(?=\w)",
         "",
         _revision_safe_evidence_text(page_text).replace("*", ""),
     )
+    spans: set[Tuple[int, int]] = set()
     for candidate, _suffix in _excerpt_variants(excerpt):
         normalized_candidate = re.sub(
             r"(?<=\w)-\s+(?=\w)",
@@ -2689,9 +2841,18 @@ def _canonical_excerpt_span(
                 (not before or not (before.isalnum() or before == "_"))
                 and (not after or not (after.isalnum() or after == "_"))
             ):
-                return index, end
+                spans.add((index, end))
             start = index + 1
-    return None
+    return sorted(spans)
+
+
+def _canonical_excerpt_span(
+    page_text: str,
+    excerpt: str,
+) -> Optional[Tuple[int, int]]:
+    """Locate the first normalized source coordinate for overlap checks."""
+    spans = _canonical_excerpt_spans(page_text, excerpt)
+    return spans[0] if spans else None
 
 
 def _enforce_count_ledger_uniqueness(
@@ -2852,9 +3013,12 @@ def _decode_count_audit_result(
         return invalid("the detailed auditor returned no JSON ledger")
     if isinstance(decoded, dict):
         rejected_candidate = decoded
-    if not isinstance(decoded, dict) or set(decoded) != {
-        "classification", "observed_total", "observed_universe_total",
-        "instances", "note",
+    typed_fields = {
+        "observed_total", "observed_universe_total", "instances",
+    }
+    legacy_fields = {"classification", "note", *typed_fields}
+    if not isinstance(decoded, dict) or frozenset(decoded) not in {
+        frozenset(typed_fields), frozenset(legacy_fields)
     }:
         return invalid("the ledger fields are incomplete")
 
@@ -2863,9 +3027,10 @@ def _decode_count_audit_result(
     observed_universe_total = decoded.get("observed_universe_total")
     instances = decoded.get("instances")
     raw_note = decoded.get("note")
-    if not isinstance(raw_note, str):
+    typed_result = set(decoded) == typed_fields
+    if not typed_result and not isinstance(raw_note, str):
         return invalid("classification or note is invalid")
-    note = " ".join(raw_note.split())
+    note = "" if typed_result else " ".join(raw_note.split())
     expected_total = subject.get("claimed_total")
     if type(expected_total) is not int:
         expected_total = _material_count_claimed_total(
@@ -2874,7 +3039,10 @@ def _decode_count_audit_result(
     expected_max_total = subject.get("claimed_max_total")
     expected_universe_total = subject.get("claimed_universe_total")
     quantifier = str(subject.get("count_quantifier", "exact"))
-    if classification not in AUDIT_CLASSIFICATIONS or not note:
+    if (
+        classification is not None
+        and classification not in AUDIT_CLASSIFICATIONS
+    ) or (not typed_result and not note):
         return invalid("classification or note is invalid")
     if quantifier not in {"exact", "minimum", "maximum", "range"}:
         return invalid("count_quantifier is invalid")
@@ -2965,10 +3133,37 @@ def _decode_count_audit_result(
             return invalid(
                 f"instance {index + 1} is outside the sequence beat pages"
             )
-        if not MIN_CITATION_EXCERPT_WORDS <= len(excerpt.split()) <= 12:
-            return invalid(f"instance {index + 1} excerpt must be 3-12 words")
-        if _lenient_excerpt_match_kind(pages[page], excerpt) is None:
-            return invalid(f"instance {index + 1} excerpt is not on its page")
+        if not COUNT_EVIDENCE_MIN_WORDS <= len(excerpt.split()) <= 12:
+            return invalid(f"instance {index + 1} excerpt must be 2-12 words")
+        source_spans = _canonical_excerpt_spans(pages[page], excerpt)
+        if (
+            len(source_spans) != 1
+            or (
+                len(excerpt.split()) >= MIN_CITATION_EXCERPT_WORDS
+                and _lenient_excerpt_match_kind(pages[page], excerpt) is None
+            )
+        ):
+            return invalid(
+                f"instance {index + 1} excerpt is not uniquely on its page"
+            )
+        source_span = source_spans[0]
+        if multiplicity > 1:
+            source_counts = _material_count_claims_details(excerpt)
+            count_entity = _fold_evidence_text(
+                str(subject.get("count_entity", ""))
+            )
+            if not any(
+                detail.get("count_quantifier") == "exact"
+                and detail.get("claimed_total") == multiplicity
+                and _fold_evidence_text(
+                    str(detail.get("count_entity", ""))
+                ) == count_entity
+                for detail in source_counts
+            ):
+                return invalid(
+                    f"instance {index + 1} multiplicity is not explicitly "
+                    "proved by its source excerpt"
+                )
         source_identity: Optional[str] = None
         if subject.get("require_distinct_instances") is True:
             source_identity, identity_error = _sequence_distinct_role_identity(
@@ -2981,9 +3176,6 @@ def _decode_count_audit_result(
                     f"instance {index + 1} duplicates a counted role identity"
                 )
             source_identities.add(str(source_identity))
-        source_span = _canonical_excerpt_span(pages[page], excerpt)
-        if source_span is None:
-            return invalid(f"instance {index + 1} has no canonical source span")
         if any(
             source_span[0] < previous[1] and previous[0] < source_span[1]
             for previous in evidence_spans.setdefault(page, [])
@@ -2996,6 +3188,10 @@ def _decode_count_audit_result(
             "excerpt": excerpt,
             "matches_claim": matches_claim,
             "multiplicity": multiplicity,
+            "source_instance_id": canonical_json_hash({
+                "page": page,
+                "span": list(source_span),
+            }),
             **({"source_identity": source_identity} if source_identity else {}),
             **{
                 key: anchor[key]
@@ -3017,6 +3213,52 @@ def _decode_count_audit_result(
     )
     if observed_total != matched_total:
         return invalid("observed_total does not match the marked instances")
+    count_matches = (
+        (quantifier == "minimum" and observed_total >= expected_total)
+        or (quantifier == "maximum" and observed_total <= expected_total)
+        or (quantifier == "exact" and observed_total == expected_total)
+        or (
+            quantifier == "range"
+            and expected_total <= observed_total <= expected_max_total
+        )
+    )
+    universe_matches = (
+        expected_universe_total is None
+        or observed_universe_total == expected_universe_total
+    )
+    if classification is None:
+        if count_matches and universe_matches:
+            classification = "supported"
+        elif observed_total == 0 and expected_total > 0:
+            classification = "unsupported"
+        elif expected_total == 0 and observed_total > 0:
+            classification = "contradicted"
+        else:
+            classification = "partially_supported"
+    if (
+        not typed_result
+        and
+        classification == "supported"
+        and _SUPPORTED_NOTE_CONTRADICTION.search(note)
+    ):
+        return invalid("a supported classification contradicts its own note")
+    expected_label = {
+        "exact": f"the exact claimed count of {expected_total}",
+        "minimum": f"the claimed minimum of {expected_total}",
+        "maximum": f"the claimed maximum of {expected_total}",
+        "range": (
+            f"the claimed range of {expected_total}-{expected_max_total}"
+        ),
+    }[quantifier]
+    universe_label = (
+        f" and expected universe of {expected_universe_total}"
+        if expected_universe_total is not None else ""
+    )
+    note = (
+        f"Engine-verified count: {observed_total} matching of "
+        f"{observed_universe_total} observed instances against "
+        f"{expected_label}{universe_label}; classification: {classification}."
+    )
     if classification == "supported":
         if quantifier == "minimum" and observed_total < expected_total:
             return invalid("the observed total is below the claimed minimum")
@@ -3060,6 +3302,71 @@ def _decode_count_audit_result(
             "instances": normalized_instances,
         },
     }
+
+
+def _revalidate_legacy_count_evidence(
+    evidence: Sequence[Dict[str, Any]],
+    rows: Sequence[Dict[str, Any]],
+    source_text: str,
+) -> Tuple[List[Dict[str, Any]], List[str], Dict[str, Dict[str, Any]]]:
+    """Recheck carried count ledgers before migrating detail progress."""
+    count_rows = {
+        str(row.get("identifier", "")): row
+        for row in rows
+        if isinstance(row.get("subject"), dict)
+        and row["subject"].get("trigger") == "counting_claim"
+    }
+    accepted: List[Dict[str, Any]] = []
+    rejected_slots: List[str] = []
+    feedback: Dict[str, Dict[str, Any]] = {}
+    for original in evidence:
+        identifier = str(original.get("field_path", ""))
+        detail_row = count_rows.get(identifier)
+        if detail_row is None:
+            accepted.append(copy.deepcopy(original))
+            continue
+        ledger = original.get("count_ledger")
+        candidate: Any = None
+        if isinstance(ledger, dict) and isinstance(
+            ledger.get("instances"), list
+        ):
+            candidate = {
+                "classification": original.get("classification"),
+                "observed_total": ledger.get("observed_total"),
+                "observed_universe_total": ledger.get(
+                    "observed_universe_total"
+                ),
+                "instances": [
+                    {
+                        key: instance[key]
+                        for key in (
+                            "label", "page", "excerpt", "matches_claim",
+                            "multiplicity",
+                        )
+                        if key in instance
+                    }
+                    for instance in ledger["instances"]
+                    if isinstance(instance, dict)
+                ],
+                "note": original.get("note"),
+            }
+        decoded = _decode_count_audit_result(
+            candidate, detail_row["subject"], source_text
+        )
+        if decoded.get("count_ledger", {}).get("valid") is True:
+            accepted.append({**copy.deepcopy(original), **decoded})
+            continue
+        slot = str(detail_row["slot"])
+        rejected_slots.append(slot)
+        feedback[slot] = {
+            "reason": str(
+                decoded.get("count_ledger", {}).get(
+                    "reason", "legacy count ledger failed current validation"
+                )
+            ),
+            "rejected_candidate": candidate,
+        }
+    return accepted, rejected_slots, feedback
 
 
 # ── Prompts ──────────────────────────────────────────────────────────────────
@@ -5129,8 +5436,8 @@ def build_detail_audit_user_blocks(
                 "focused_results, counting_claim in count_results, "
                 "citation_relevance in citation_results, and "
                 "sequence_evidence in sequence_results. Never put a slot in "
-                "more than one array. Every note must be one concise factual "
-                "sentence. For existing-evidence rows, "
+                "more than one array. Every requested note must be one concise "
+                "factual sentence. For existing-evidence rows, "
                 "search the COMPLETE screenplay for setup, synonyms, physical "
                 "staging, payoff, and aftermath before deciding. The code-"
                 "generated `focused_evidence` in those rows contains literal "
@@ -5152,28 +5459,29 @@ def build_detail_audit_user_blocks(
                 "unless the text explicitly says it appears inside the image. "
                 "Keep a dialogue speaker separate from the actor whose later "
                 "physical action pays off the line. For every "
-                "citation_relevance row, checks "
-                "must contain exactly one object with field `citation`, the "
-                "bound page, a verbatim 3-12-word excerpt overlapping the bound "
-                "excerpt, and supports. Decide whether that excerpt actually "
-                "supports the exact `subject.claim_span`, separately from "
-                "whether the text merely exists. A supported classification "
-                "may never have a note saying the excerpt is unrelated or does "
-                "not support the claim. Do not transfer an unrelated factual "
+                "citation_relevance row, the engine has already verified and "
+                "bound `subject.page` and `subject.excerpt`. Do not replace, "
+                "relocate, or re-quote that citation. Set supports only for "
+                "whether that exact bound citation supports the exact "
+                "`subject.claim_span`; the engine derives the classification. "
+                "Do not transfer an unrelated factual "
                 "error elsewhere in the same lens or concern onto this citation. "
                 "A local quote can prove that an event occurs; by itself it "
                 "cannot prove a global claim that setup is absent elsewhere. "
-                "For every sequence_evidence row, include observed_actors and "
-                "observed_knowers arrays. Put one explicitly evidenced person "
-                "or group in each "
-                "array item; use an empty array when the source names none. "
-                "The actor evidence excerpt must contain the complete observed "
-                "roster, and the character_knowledge excerpt must name each "
-                "observed knower. checks must cover every field named in "
-                "subject.required_fields exactly once. For actor, action, result, "
-                "character_knowledge, and audience_knowledge, quote staging on "
-                "the beat's page that actually proves the actor roster, outcome, "
-                "who witnessed or learned the fact, and what the audience sees. "
+                "For every sequence_evidence row, use the fixed scalar triplet "
+                "`FIELD_page`, `FIELD_excerpt`, and `FIELD_supports` for actor, "
+                "action, result, and audience_knowledge. Set "
+                "character_knowledge_status to `checked` and include its scalar "
+                "triplet only when character_knowledge appears in "
+                "subject.required_fields; otherwise set it to `not_required` "
+                "and omit that triplet. Each excerpt must be a verbatim 3-12-word "
+                "source span on an allowed beat page. The actor excerpt must "
+                "literally name the claimed actor or collective group. The "
+                "character_knowledge excerpt must literally name every claimed "
+                "knower and prove the atomic fact they learn. Never expand a "
+                "collective label into an inferred member roster. If a frozen "
+                "field is wrong, set its supports scalar false so the canonical "
+                "repair pass can correct it. "
                 "Dialogue proves only that its speaker said "
                 "something. If named characters did not witness or learn it, set "
                 "supports false and do not classify the row supported. "
@@ -5187,9 +5495,10 @@ def build_detail_audit_user_blocks(
                 "the flag supported; do not call the flag contradicted merely "
                 "because the underlying dialogue and staging contradict each "
                 "other. "
-                "For every `counting_claim` row, the code owns the claimed "
-                "totals; do not echo "
-                "or reinterpret them. A null `subject.claimed_universe_total` "
+                "For every `counting_claim` row, the code owns both claimed and "
+                "observed totals; return only the source instances and do not "
+                "echo or calculate totals or classification. A null "
+                "`subject.claimed_universe_total` "
                 "means the prose stated no denominator. "
                 "The code-generated `subject.count_entity` and "
                 "`subject.count_anchor` identify the exact occurrence to audit; "
@@ -5204,14 +5513,16 @@ def build_detail_audit_user_blocks(
                 "about an unrelated person cannot prove a distinct instance. "
                 "The code derives identity from the excerpt and binds it to "
                 "`subject.claimed_role_identities`; provider labels never do. "
-                "Each instance must contain exactly label, page, a verbatim "
-                "3-12-word excerpt from that page, matches_claim, and multiplicity. "
+                "Each instance must contain exactly page, a verbatim 2-12-word "
+                "excerpt from that page, matches_claim, and multiplicity. "
                 "Use multiplicity 1 for one event. When one source line literally "
-                "proves a collective count, use one instance with that literal "
-                "multiplicity; never duplicate or shift the same quote. Enumerate "
-                "the whole relevant universe: observed_universe_total must equal "
-                "the sum of all multiplicities, and observed_total must equal the "
-                "sum whose matches_claim is true. A ratio is supported only "
+                "states the exact total and the exact subject.count_entity, use "
+                "one instance with that literal multiplicity; otherwise use "
+                "separate multiplicity-1 anchors. Never duplicate or shift the "
+                "same quote. Enumerate "
+                "the whole relevant universe. The engine derives stable source "
+                "instance IDs and both totals from the verified instances. A "
+                "ratio is supported only "
                 "when its denominator is also proved. Respect "
                 "subject.count_quantifier: minimum allows more matching instances, "
                 "maximum allows fewer, range requires observed_total between "
@@ -8116,6 +8427,11 @@ def run_coverage_v1(
             )
         ):
             progress = None
+        legacy_detail_progress = bool(
+            progress is not None
+            and progress.get("detail_contract_version")
+            == LEGACY_DETAIL_PROGRESS_VERSION
+        )
         evidence_rows: List[Dict[str, Any]] = copy.deepcopy(
             (progress or {}).get("evidence_rows", seeded_evidence)
         )
@@ -8326,7 +8642,59 @@ def run_coverage_v1(
             completed_main.add(batch_sha256)
             save_progress()
 
-        rows_by_slot = {str(row["slot"]): row for row in rows}
+        rows_by_slot = {str(row["slot"]): row for row in all_rows}
+        if legacy_detail_progress:
+            evidence_rows, invalid_legacy_counts, legacy_feedback = (
+                _revalidate_legacy_count_evidence(
+                    evidence_rows, all_rows, text
+                )
+            )
+            grounded_rows = [
+                row for row in all_rows
+                if row.get("kind") in {
+                    "citation_relevance", "sequence_evidence",
+                }
+            ]
+            grounded_identifiers = {
+                str(row["identifier"]) for row in grounded_rows
+            }
+            evidence_rows = [
+                row for row in evidence_rows
+                if str(row.get("field_path", ""))
+                not in grounded_identifiers
+            ]
+            citation_rows = [
+                row for row in citation_rows
+                if str(row.get("owner", "")) not in grounded_identifiers
+            ]
+            pending_b = {
+                *typed_b_plan,
+                *invalid_legacy_counts,
+                *(str(row["slot"]) for row in grounded_rows),
+            }
+            typed_b_plan = [
+                str(row["slot"])
+                for row in all_rows
+                if str(row["slot"]) in pending_b
+            ]
+            grounded_retry_plan = list(dict.fromkeys([
+                *grounded_retry_plan,
+                *(str(row["slot"]) for row in grounded_rows),
+            ]))
+            completed_typed_b.clear()
+            count_retry_feedback.update(legacy_feedback)
+            for row in grounded_rows:
+                slot = str(row["slot"])
+                grounded_retry_feedback[slot] = {
+                    "reason": (
+                        "legacy grounded evidence must be re-audited under "
+                        "the engine-bound detail contract"
+                    ),
+                    "claim_sha256": row.get("subject", {}).get(
+                        "claim_sha256"
+                    ),
+                }
+            save_progress()
         invalid_counts = {
             str(row.get("field_path", "")): row
             for row in evidence_rows
@@ -8603,9 +8971,9 @@ def run_coverage_v1(
                         "validation. Re-audit every supplied row against "
                         "the complete screenplay. Use every result array "
                         "required by the tool and return every slot exactly "
-                        "once. Sequence rows require observed_actors and "
-                        "observed_knowers as well as one check for every "
-                        "required field. This is the final recovery attempt."
+                        "once. Use the engine-bound citation decision and "
+                        "fixed sequence scalar fields exactly as instructed. "
+                        "This is the final recovery attempt."
                     )
                     if mixed_recovery
                     else (
@@ -8614,9 +8982,9 @@ def run_coverage_v1(
                         "every supplied citation and sequence row against "
                         "the authoritative bound pages. Use citation_results "
                         "and sequence_results exactly as required by the "
-                        "tool. Sequence rows require observed_actors and "
-                        "observed_knowers as well as one check for every "
-                        "required field. This is the only recovery attempt."
+                        "tool. Use the engine-bound citation decision and "
+                        "fixed sequence scalar fields exactly as instructed. "
+                        "This is the only recovery attempt."
                     )
                 )
                 retry_blocks.append({
@@ -8645,24 +9013,40 @@ def run_coverage_v1(
                 malformed = _malformed_text_detail_rows(
                     typed_input, typed_b_rows, text
                 )
+                malformed_slots = {
+                    str(row["slot"]) for row in malformed
+                }
+                valid_rows = [
+                    row for row in typed_b_rows
+                    if str(row["slot"]) not in malformed_slots
+                ]
+                if valid_rows:
+                    valid_input = {
+                        "results": {
+                            str(row["slot"]): typed_input["results"][
+                                str(row["slot"])
+                            ]
+                            for row in valid_rows
+                        }
+                    }
+                    retried_evidence, retried_citations = (
+                        decode_detail_audit_payload(
+                            valid_input, valid_rows, text
+                        )
+                    )
+                    evidence_rows = merge_rows(
+                        evidence_rows, retried_evidence, "field_path"
+                    )
+                    citation_rows = merge_rows(
+                        citation_rows, retried_citations, "owner"
+                    )
+                completed_typed_b.add(batch_sha256)
+                save_progress()
                 if malformed:
                     raise CoverageContractError(
                         "Typed detail recovery B returned a malformed result for "
                         + ", ".join(str(row["slot"]) for row in malformed)
                     )
-                retried_evidence, retried_citations = (
-                    decode_detail_audit_payload(
-                        typed_input, typed_b_rows, text
-                    )
-                )
-                evidence_rows = merge_rows(
-                    evidence_rows, retried_evidence, "field_path"
-                )
-                citation_rows = merge_rows(
-                    citation_rows, retried_citations, "owner"
-                )
-                completed_typed_b.add(batch_sha256)
-                save_progress()
 
         evidence_rows = _enforce_count_ledger_uniqueness(
             evidence_rows, all_rows, text
