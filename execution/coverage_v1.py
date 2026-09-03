@@ -95,9 +95,10 @@ MAX_DETAIL_AUDIT_ROWS = 64
 MAX_DETAIL_DIRECT_SLOTS = 42
 MAX_SEQUENCE_FIELD_REPAIR_SLOTS = 40
 AUDIT_CORE_CONTRACT_VERSION = "coverage-v1.2-audit-core-1"
-DETAIL_AUDIT_CONTRACT_VERSION = "coverage-v1.2-detail-14"
+DETAIL_AUDIT_CONTRACT_VERSION = "coverage-v1.2-detail-15"
 LEGACY_AUDIT_CORE_VERSION = "coverage-v1.2-detail-12"
 LEGACY_DETAIL_PROGRESS_VERSION = "coverage-v1.2-detail-13"
+SOURCE_ANCHOR_MIGRATION_VERSION = "coverage-v1.2-detail-14"
 # Keep already-settled call receipts and budget accounting on the prior
 # binding. Exact request fingerprints still decide whether a receipt replays,
 # while the separately versioned detail/core checkpoints migrate safely.
@@ -1094,6 +1095,38 @@ def _reusable_detail_seed(
     return evidence, citations, pending
 
 
+def _detail_result_group(row: Dict[str, Any]) -> str:
+    """Route one detail row to its one strict transport shape."""
+    subject = row.get("subject")
+    if row.get("kind") == "citation_relevance":
+        return "citation_results"
+    if row.get("kind") == "sequence_evidence":
+        required_fields = (
+            subject.get("required_fields") if isinstance(subject, dict) else None
+        )
+        if not isinstance(required_fields, list) or frozenset(required_fields) not in {
+            frozenset(GROUNDED_SEQUENCE_FIELDS),
+            frozenset(GROUNDED_SEQUENCE_FIELDS) - {"character_knowledge"},
+        }:
+            raise CoverageContractError(
+                f"Detailed audit row {row.get('slot')!r} has invalid sequence fields"
+            )
+        return (
+            "sequence_knowledge_results"
+            if "character_knowledge" in required_fields
+            else "sequence_results"
+        )
+    if row.get("kind") != "existing_evidence":
+        raise CoverageContractError(
+            f"Detailed audit row {row.get('slot')!r} has an unknown kind"
+        )
+    if isinstance(subject, dict) and subject.get("trigger") == "counting_claim":
+        return "count_results"
+    if isinstance(subject, dict) and subject.get("focused_evidence"):
+        return "focused_results"
+    return "text_results"
+
+
 def build_detail_audit_tool(rows: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
     """Build typed result arrays whose slot set is verified again locally."""
     if not rows or len(rows) > MAX_DETAIL_AUDIT_ROWS:
@@ -1113,32 +1146,10 @@ def build_detail_audit_tool(rows: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
         "count_results": [],
         "citation_results": [],
         "sequence_results": [],
+        "sequence_knowledge_results": [],
     }
     for row in rows:
-        subject = row.get("subject")
-        if row.get("kind") == "citation_relevance":
-            group = "citation_results"
-        elif row.get("kind") == "sequence_evidence":
-            group = "sequence_results"
-        elif (
-            row.get("kind") == "existing_evidence"
-            and isinstance(subject, dict)
-            and subject.get("trigger") == "counting_claim"
-        ):
-            group = "count_results"
-        elif (
-            row.get("kind") == "existing_evidence"
-            and isinstance(subject, dict)
-            and subject.get("focused_evidence")
-        ):
-            group = "focused_results"
-        elif row.get("kind") == "existing_evidence":
-            group = "text_results"
-        else:
-            raise CoverageContractError(
-                f"Detailed audit row {row.get('slot')!r} has an unknown kind"
-            )
-        groups[group].append(row)
+        groups[_detail_result_group(row)].append(row)
 
     classification = {
         "type": "string",
@@ -1152,15 +1163,36 @@ def build_detail_audit_tool(rows: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
     instance = {
         "type": "object",
         "properties": {
-            "page": {"type": "integer"},
-            "excerpt": {"type": "string"},
+            "source_id": {"type": "string"},
             "matches_claim": {"type": "boolean"},
             "multiplicity": {"type": "integer", "minimum": 1},
         },
         "required": [
-            "page", "excerpt", "matches_claim", "multiplicity",
+            "source_id", "matches_claim", "multiplicity",
         ],
     }
+
+    def sequence_schema(
+        fields: Sequence[str], status: str,
+    ) -> Tuple[Dict[str, Any], List[str]]:
+        properties = {
+            "classification": classification,
+            "note": {"type": "string"},
+            **{
+                f"{field}_source_id": {"type": "string"}
+                for field in fields
+            },
+            "unsupported_fields": {
+                "type": "array",
+                "items": {"type": "string", "enum": list(fields)},
+                "maxItems": len(fields),
+            },
+            "character_knowledge_status": {
+                "type": "string",
+                "enum": [status],
+            },
+        }
+        return properties, list(properties)
 
     def result_array(
         group: str,
@@ -1223,34 +1255,16 @@ def build_detail_audit_tool(rows: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
             },
             ["supports", "note"],
         ),
-        "sequence_results": (
-            {
-                "classification": classification,
-                "note": {"type": "string"},
-                **{
-                    f"{field}_{part}": schema
-                    for field in GROUNDED_SEQUENCE_FIELDS
-                    for part, schema in (
-                        ("page", {"type": "integer"}),
-                        ("excerpt", {"type": "string"}),
-                        ("supports", {"type": "boolean"}),
-                    )
-                },
-                "character_knowledge_status": {
-                    "type": "string",
-                    "enum": ["checked", "not_required"],
-                },
-            },
-            [
-                "classification", "note",
-                *(
-                    f"{field}_{part}"
-                    for field in GROUNDED_SEQUENCE_FIELDS
-                    if field != "character_knowledge"
-                    for part in ("page", "excerpt", "supports")
-                ),
-                "character_knowledge_status",
-            ],
+        "sequence_results": sequence_schema(
+            tuple(
+                field for field in GROUNDED_SEQUENCE_FIELDS
+                if field != "character_knowledge"
+            ),
+            "not_required",
+        ),
+        "sequence_knowledge_results": sequence_schema(
+            GROUNDED_SEQUENCE_FIELDS,
+            "checked",
         ),
     }
     result_properties = {
@@ -1344,30 +1358,11 @@ def _expand_detail_audit_payload(
         "count_results": [],
         "citation_results": [],
         "sequence_results": [],
+        "sequence_knowledge_results": [],
     }
     for row in rows:
-        subject = row.get("subject")
-        if row.get("kind") == "citation_relevance":
-            group = "citation_results"
-        elif row.get("kind") == "sequence_evidence":
-            group = "sequence_results"
-        elif (
-            row.get("kind") == "existing_evidence"
-            and isinstance(subject, dict)
-            and subject.get("trigger") == "counting_claim"
-        ):
-            group = "count_results"
-        elif (
-            row.get("kind") == "existing_evidence"
-            and isinstance(subject, dict)
-            and subject.get("focused_evidence")
-        ):
-            group = "focused_results"
-        else:
-            group = "text_results"
-        grouped[group].append(row)
-    expected_groups = {group for group, values in grouped.items() if values}
-    if not isinstance(payload, dict) or set(payload) != expected_groups:
+        grouped[_detail_result_group(row)].append(row)
+    if not isinstance(payload, dict):
         return {"results": {slot: None for slot in expected}}
 
     normalized: Dict[str, Any] = {}
@@ -1381,17 +1376,14 @@ def _expand_detail_audit_payload(
             continue
         by_slot: Dict[str, Dict[str, Any]] = {}
         duplicate_slots: set[str] = set()
-        unexpected = False
         for value in values:
             if not isinstance(value, dict) or not isinstance(
                 value.get("slot"), str
             ):
-                unexpected = True
-                break
+                continue
             slot = str(value["slot"])
             if slot not in expected_slots:
-                unexpected = True
-                break
+                continue
             if slot in duplicate_slots:
                 continue
             if slot in by_slot:
@@ -1399,9 +1391,6 @@ def _expand_detail_audit_payload(
                 duplicate_slots.add(slot)
                 continue
             by_slot[slot] = value
-        if unexpected:
-            normalized.update({slot: None for slot in expected_slots})
-            continue
         for row in group_rows:
             slot = str(row["slot"])
             if slot not in by_slot:
@@ -1432,7 +1421,7 @@ def _expand_detail_audit_payload(
                     }],
                     "note": value["note"],
                 }
-            elif group == "sequence_results":
+            elif group in {"sequence_results", "sequence_knowledge_results"}:
                 if not isinstance(subject, dict):
                     normalized[slot] = None
                     continue
@@ -1447,21 +1436,28 @@ def _expand_detail_audit_payload(
                     normalized[slot] = None
                     continue
                 expected_keys = {
-                    "classification", "note", "character_knowledge_status",
+                    "classification", "note", "unsupported_fields",
+                    "character_knowledge_status",
                     *(
-                        f"{field}_{part}"
+                        f"{field}_source_id"
                         for field in required_fields
-                        for part in ("page", "excerpt", "supports")
                     ),
                 }
                 knowledge_required = "character_knowledge" in required_fields
                 expected_status = (
                     "checked" if knowledge_required else "not_required"
                 )
+                unsupported_fields = value.get("unsupported_fields")
                 if (
                     set(value) != expected_keys
                     or value.get("character_knowledge_status")
                     != expected_status
+                    or not isinstance(unsupported_fields, list)
+                    or len(unsupported_fields) != len(set(unsupported_fields))
+                    or any(
+                        field not in required_fields
+                        for field in unsupported_fields
+                    )
                 ):
                     normalized[slot] = None
                     continue
@@ -1470,9 +1466,8 @@ def _expand_detail_audit_payload(
                     "checks": [
                         {
                             "field": field,
-                            "page": value[f"{field}_page"],
-                            "excerpt": value[f"{field}_excerpt"],
-                            "supports": value[f"{field}_supports"],
+                            "source_id": value[f"{field}_source_id"],
+                            "supports": field not in unsupported_fields,
                         }
                         for field in required_fields
                     ],
@@ -1488,10 +1483,9 @@ def _expand_detail_audit_payload(
                     and all(
                         isinstance(instance, dict)
                         and set(instance) == {
-                            "page", "excerpt", "matches_claim", "multiplicity",
+                            "source_id", "matches_claim", "multiplicity",
                         }
-                        and isinstance(instance.get("excerpt"), str)
-                        and type(instance.get("page")) is int
+                        and isinstance(instance.get("source_id"), str)
                         and type(instance.get("multiplicity")) is int
                         and instance["multiplicity"] >= 1
                         and type(instance.get("matches_claim")) is bool
@@ -1501,18 +1495,16 @@ def _expand_detail_audit_payload(
                 if valid_instances:
                     instances = [
                         {
-                            "label": (
-                                f'p.{instance["page"]}: '
-                                + " ".join(instance["excerpt"].split())
-                            ),
                             **instance,
                         }
                         for instance in instances
                     ]
                     value["instances"] = instances
+                else:
+                    normalized[slot] = None
+                    continue
                 value["observed_universe_total"] = (
                     sum(instance["multiplicity"] for instance in instances)
-                    if valid_instances else -1
                 )
                 value["observed_total"] = (
                     sum(
@@ -1520,32 +1512,166 @@ def _expand_detail_audit_payload(
                         for instance in instances
                         if instance["matches_claim"]
                     )
-                    if valid_instances else -1
                 )
             normalized[slot] = value
     return {"results": {slot: normalized.get(slot) for slot in expected}}
 
 
-def _decode_text_detail_value(value: Any) -> Optional[Tuple[str, str]]:
-    if isinstance(value, dict) and set(value) == {"classification", "note"}:
+def _raw_detail_candidate(payload: Any, row: Dict[str, Any]) -> Any:
+    """Recover one provider object so a failed typed row keeps diagnostics."""
+    if not isinstance(payload, dict):
+        return None
+    slot = str(row["slot"])
+    results = payload.get("results")
+    if isinstance(results, dict):
+        return copy.deepcopy(results.get(slot))
+    group = _detail_result_group(row)
+    values = payload.get(group)
+    if not isinstance(values, list):
+        return None
+    matches = [
+        value for value in values
+        if isinstance(value, dict) and value.get("slot") == slot
+    ]
+    if len(matches) != 1:
+        return copy.deepcopy(matches) if matches else None
+    return {
+        key: copy.deepcopy(value)
+        for key, value in matches[0].items()
+        if key != "slot"
+    }
+
+
+def _typed_detail_transport_reason(
+    raw_payload: Any,
+    row: Dict[str, Any],
+) -> Tuple[Any, str]:
+    """Explain the exact typed shape failure for one canonical row."""
+    candidate = _raw_detail_candidate(raw_payload, row)
+    group = _detail_result_group(row)
+    if not isinstance(candidate, dict):
+        if isinstance(raw_payload, dict):
+            slot = str(row["slot"])
+            wrong_matches = [
+                (name, value)
+                for name, values in raw_payload.items()
+                if name != group and isinstance(values, list)
+                for value in values
+                if isinstance(value, dict) and value.get("slot") == slot
+            ]
+            if wrong_matches:
+                wrong_group, wrong_value = wrong_matches[0]
+                return {
+                    key: copy.deepcopy(value)
+                    for key, value in wrong_value.items()
+                    if key != "slot"
+                }, (
+                    f"slot was returned in {wrong_group}, expected {group}"
+                )
+        return candidate, "typed result is missing or duplicated"
+    item = build_detail_audit_tool([row])["input_schema"]["properties"][group][
+        "items"
+    ]
+    expected = set(item["required"]) - {"slot"}
+    actual = set(candidate)
+    missing = sorted(expected - actual)
+    unexpected = sorted(actual - expected)
+    details = []
+    if missing:
+        details.append("missing fields: " + ", ".join(missing))
+    if unexpected:
+        details.append("unexpected fields: " + ", ".join(unexpected))
+    if not details and group.startswith("sequence_"):
+        unsupported = candidate.get("unsupported_fields")
+        required_fields = row.get("subject", {}).get("required_fields", [])
+        expected_status = (
+            "checked"
+            if "character_knowledge" in required_fields
+            else "not_required"
+        )
+        if not isinstance(unsupported, list):
+            details.append("unsupported_fields must be an array")
+        elif len(unsupported) != len(set(unsupported)):
+            details.append("unsupported_fields contains duplicates")
+        elif any(field not in required_fields for field in unsupported):
+            details.append("unsupported_fields contains an unknown field")
+        if candidate.get("character_knowledge_status") != expected_status:
+            details.append(
+                "character_knowledge_status must be " + expected_status
+            )
+    if not details and group == "count_results":
+        instances = candidate.get("instances")
+        if not isinstance(instances, list):
+            details.append("instances must be an array")
+        else:
+            required_instance = {
+                "source_id", "matches_claim", "multiplicity",
+            }
+            for index, instance in enumerate(instances, start=1):
+                if not isinstance(instance, dict):
+                    details.append(f"instance {index} must be an object")
+                    break
+                missing_instance = sorted(required_instance - set(instance))
+                unexpected_instance = sorted(set(instance) - required_instance)
+                if missing_instance:
+                    details.append(
+                        f"instance {index} missing fields: "
+                        + ", ".join(missing_instance)
+                    )
+                    break
+                if unexpected_instance:
+                    details.append(
+                        f"instance {index} unexpected fields: "
+                        + ", ".join(unexpected_instance)
+                    )
+                    break
+                if not isinstance(instance["source_id"], str):
+                    details.append(f"instance {index} source_id must be a string")
+                    break
+                if type(instance["matches_claim"]) is not bool:
+                    details.append(f"instance {index} matches_claim must be boolean")
+                    break
+                if (
+                    type(instance["multiplicity"]) is not int
+                    or instance["multiplicity"] < 1
+                ):
+                    details.append(
+                        f"instance {index} multiplicity must be an integer >= 1"
+                    )
+                    break
+    return candidate, "; ".join(details) or "typed field values are invalid"
+
+
+def _decode_text_detail_value_with_reason(
+    value: Any,
+) -> Tuple[Optional[Tuple[str, str]], Optional[str]]:
+    if isinstance(value, dict):
+        if set(value) != {"classification", "note"}:
+            return None, "result must contain exactly classification and note"
         classification = value.get("classification")
         raw_note = value.get("note")
-        if (
-            not isinstance(classification, str)
-            or not isinstance(raw_note, str)
-        ):
-            return None
+        if not isinstance(classification, str):
+            return None, "classification must be a string"
+        if not isinstance(raw_note, str):
+            return None, "note must be a string"
         note = " ".join(raw_note.split())
     elif isinstance(value, str):
         classification, separator, raw_note = value.partition(":")
         if not separator:
-            return None
+            return None, "legacy result must separate classification and note"
         note = " ".join(raw_note.split())
     else:
-        return None
-    if classification not in AUDIT_CLASSIFICATIONS or not note:
-        return None
-    return str(classification), note
+        return None, "result must be an object"
+    if classification not in AUDIT_CLASSIFICATIONS:
+        return None, "classification is invalid"
+    if not note:
+        return None, "note must be non-empty"
+    return (str(classification), note), None
+
+
+def _decode_text_detail_value(value: Any) -> Optional[Tuple[str, str]]:
+    decoded, _reason = _decode_text_detail_value_with_reason(value)
+    return decoded
 
 
 def _focused_role_tokens(subject: Dict[str, Any]) -> List[str]:
@@ -2243,6 +2369,74 @@ def _normalize_observed_people(
     return people, None
 
 
+@lru_cache(maxsize=8)
+def _source_anchor_catalog(source_text: str) -> Dict[str, Dict[str, Any]]:
+    """Bind compact source IDs to exact printed-page line coordinates."""
+    _numbers, pages = _marked_page_contents(source_text)
+    catalog: Dict[str, Dict[str, Any]] = {}
+    for page, page_text in pages.items():
+        normalized_page = re.sub(
+            r"(?<=\w)-\s+(?=\w)",
+            "",
+            _revision_safe_evidence_text(page_text).replace("*", ""),
+        )
+        cursor = 0
+        for line_number, raw_line in enumerate(page_text.splitlines(), start=1):
+            line = " ".join(raw_line.split())
+            normalized_line = re.sub(
+                r"(?<=\w)-\s+(?=\w)",
+                "",
+                _revision_safe_evidence_text(raw_line).replace("*", ""),
+            )
+            if not normalized_line:
+                continue
+            line_start = normalized_page.find(normalized_line, cursor)
+            if line_start < 0:
+                line_start = normalized_page.find(normalized_line)
+            if line_start < 0:
+                continue
+            cursor = line_start + len(normalized_line)
+            if _PRINTED_PAGE_LINE.fullmatch(line):
+                continue
+            words = line.split()
+            if len(words) < COUNT_EVIDENCE_MIN_WORDS:
+                continue
+            window_starts = [0]
+            if len(words) > 12:
+                window_starts = list(range(0, len(words) - 11, 8))
+                window_starts.append(len(words) - 12)
+                window_starts = list(dict.fromkeys(window_starts))
+            for window_index, window_start in enumerate(window_starts):
+                window = words[window_start:window_start + 12]
+                excerpt = re.sub(
+                    r"^\W+|\W+$", "", " ".join(window), flags=re.UNICODE
+                )
+                if not excerpt:
+                    continue
+                normalized_excerpt = re.sub(
+                    r"(?<=\w)-\s+(?=\w)",
+                    "",
+                    _revision_safe_evidence_text(excerpt).replace("*", ""),
+                )
+                local_start = normalized_line.find(normalized_excerpt)
+                if local_start < 0:
+                    continue
+                suffix = (
+                    "" if len(window_starts) == 1
+                    else f"w{window_index + 1:02d}"
+                )
+                source_id = f"p{page:03d}-l{line_number:03d}{suffix}"
+                catalog[source_id] = {
+                    "page": page,
+                    "excerpt": excerpt,
+                    "span": (
+                        line_start + local_start,
+                        line_start + local_start + len(normalized_excerpt),
+                    ),
+                }
+    return catalog
+
+
 def _decode_grounded_detail_value(
     value: Any,
     row: Dict[str, Any],
@@ -2294,28 +2488,59 @@ def _decode_grounded_detail_value(
         return None, "checks must cover every required field exactly once"
     fields: List[str] = []
     _numbers, pages = _marked_page_contents(source_text)
+    source_anchors = _source_anchor_catalog(source_text)
     normalized_checks: List[Dict[str, Any]] = []
     checks_by_field: Dict[str, Dict[str, Any]] = {}
     for index, check in enumerate(checks):
-        if not isinstance(check, dict) or set(check) != {
-            "field", "page", "excerpt", "supports",
+        legacy_fields = {"field", "page", "excerpt", "supports"}
+        anchored_fields = {"field", "source_id", "supports"}
+        stored_anchor_fields = {
+            "field", "page", "excerpt", "supports", "source_anchor_id",
+        }
+        if not isinstance(check, dict) or frozenset(check) not in {
+            frozenset(legacy_fields),
+            frozenset(anchored_fields),
+            frozenset(stored_anchor_fields),
         }:
             return None, f"check {index + 1} fields are incomplete"
         field = check.get("field")
-        page = check.get("page")
-        raw_excerpt = check.get("excerpt")
         supports = check.get("supports")
         if not isinstance(field, str):
             return None, f"check {index + 1} field is invalid"
         fields.append(field)
+        source_anchor_id = check.get("source_id", check.get("source_anchor_id"))
+        if source_anchor_id is not None:
+            if not isinstance(source_anchor_id, str):
+                return None, f"check {index + 1} source_id is invalid"
+            source_anchor = source_anchors.get(source_anchor_id)
+            if source_anchor is None:
+                return None, f"check {index + 1} source_id is unknown"
+            page = source_anchor["page"]
+            excerpt = source_anchor["excerpt"]
+            if "page" in check and (
+                check.get("page") != page or check.get("excerpt") != excerpt
+            ):
+                return None, f"check {index + 1} source_id binding changed"
+        else:
+            page = check.get("page")
+            raw_excerpt = check.get("excerpt")
+            if not isinstance(raw_excerpt, str):
+                return None, f"check {index + 1} excerpt is invalid"
+            excerpt = " ".join(raw_excerpt.split())
         if type(page) is not int or page not in pages:
             return None, f"check {index + 1} page is invalid"
-        if not isinstance(raw_excerpt, str):
-            return None, f"check {index + 1} excerpt is invalid"
-        excerpt = " ".join(raw_excerpt.split())
-        if not MIN_CITATION_EXCERPT_WORDS <= len(excerpt.split()) <= 12:
+        excerpt_words = len(excerpt.split())
+        if source_anchor_id is not None and not (
+            COUNT_EVIDENCE_MIN_WORDS <= excerpt_words <= 12
+        ):
+            return None, f"check {index + 1} source_id binding is too short"
+        if source_anchor_id is None and not (
+            MIN_CITATION_EXCERPT_WORDS <= excerpt_words <= 12
+        ):
             return None, f"check {index + 1} excerpt must be 3-12 words"
-        if _lenient_excerpt_match_kind(pages[page], excerpt) is None:
+        if source_anchor_id is None and _lenient_excerpt_match_kind(
+            pages[page], excerpt
+        ) is None:
             return None, f"check {index + 1} excerpt is not on its page"
         if type(supports) is not bool:
             return None, f"check {index + 1} supports is invalid"
@@ -2369,6 +2594,10 @@ def _decode_grounded_detail_value(
             "page": page,
             "excerpt": excerpt,
             "supports": supports,
+            **(
+                {"source_anchor_id": source_anchor_id}
+                if source_anchor_id is not None else {}
+            ),
         })
         checks_by_field[field] = normalized_checks[-1]
     if len(fields) != len(set(fields)) or set(fields) != set(required_fields):
@@ -2862,6 +3091,7 @@ def _enforce_count_ledger_uniqueness(
 ) -> List[Dict[str, Any]]:
     """Reject overlapping source events across sibling count rows."""
     _numbers, pages = _marked_page_contents(source_text)
+    source_anchors = _source_anchor_catalog(source_text)
     subjects = {
         str(row.get("identifier", "")): row.get("subject", {})
         for row in rows
@@ -2885,8 +3115,13 @@ def _enforce_count_ledger_uniqueness(
         for instance in ledger.get("instances", []):
             page = instance.get("page")
             excerpt = str(instance.get("excerpt", ""))
+            source_anchor = source_anchors.get(
+                str(instance.get("source_anchor_id", ""))
+            )
             span = (
-                _canonical_excerpt_span(pages.get(page, ""), excerpt)
+                tuple(source_anchor["span"])
+                if source_anchor is not None and source_anchor.get("page") == page
+                else _canonical_excerpt_span(pages.get(page, ""), excerpt)
                 if type(page) is int
                 else None
             )
@@ -3069,6 +3304,7 @@ def _decode_count_audit_result(
         return invalid("instances is not a list")
 
     _numbers, pages = _marked_page_contents(source_text)
+    source_anchors = _source_anchor_catalog(source_text)
     labels: set[str] = set()
     source_identities: set[str] = set()
     claimed_role_identities = subject.get("claimed_role_identities")
@@ -3089,20 +3325,40 @@ def _decode_count_audit_result(
     evidence_spans: Dict[int, List[Tuple[int, int]]] = {}
     normalized_instances: List[Dict[str, Any]] = []
     for index, instance in enumerate(instances):
-        if not isinstance(instance, dict) or set(instance) not in ({
-            "label", "page", "excerpt", "matches_claim"
-        }, {
-            "label", "page", "excerpt", "matches_claim", "multiplicity"
-        }):
+        legacy_instance_fields = {
+            frozenset({"label", "page", "excerpt", "matches_claim"}),
+            frozenset({
+                "label", "page", "excerpt", "matches_claim", "multiplicity",
+            }),
+        }
+        anchored_instance_fields = frozenset({
+            "source_id", "matches_claim", "multiplicity",
+        })
+        if not isinstance(instance, dict) or frozenset(instance) not in {
+            *legacy_instance_fields, anchored_instance_fields,
+        }:
             return invalid(f"instance {index + 1} fields are incomplete")
-        raw_label = instance.get("label")
-        raw_excerpt = instance.get("excerpt")
+        source_anchor_id = instance.get("source_id")
+        source_anchor = (
+            source_anchors.get(source_anchor_id)
+            if isinstance(source_anchor_id, str) else None
+        )
+        if source_anchor_id is not None and source_anchor is None:
+            return invalid(f"instance {index + 1} source_id is unknown")
+        raw_label = source_anchor_id or instance.get("label")
+        raw_excerpt = (
+            source_anchor.get("excerpt")
+            if source_anchor is not None else instance.get("excerpt")
+        )
         if not isinstance(raw_label, str):
             return invalid(f"instance {index + 1} label is invalid")
         if not isinstance(raw_excerpt, str):
             return invalid(f"instance {index + 1} excerpt is invalid")
         label = " ".join(raw_label.split())
-        page = instance.get("page")
+        page = (
+            source_anchor.get("page")
+            if source_anchor is not None else instance.get("page")
+        )
         excerpt = " ".join(raw_excerpt.split())
         matches_claim = instance.get("matches_claim")
         multiplicity = instance.get("multiplicity", 1)
@@ -3120,7 +3376,11 @@ def _decode_count_audit_result(
             return invalid(
                 f"instance {index + 1} must represent one distinct role"
             )
-        anchor = _normalize_count_evidence_anchor(page, excerpt, pages)
+        anchor = (
+            {"page": page, "excerpt": excerpt}
+            if source_anchor is not None
+            else _normalize_count_evidence_anchor(page, excerpt, pages)
+        )
         page = anchor["page"]
         excerpt = anchor["excerpt"]
         if type(page) is not int or page not in pages:
@@ -3135,8 +3395,12 @@ def _decode_count_audit_result(
             )
         if not COUNT_EVIDENCE_MIN_WORDS <= len(excerpt.split()) <= 12:
             return invalid(f"instance {index + 1} excerpt must be 2-12 words")
-        source_spans = _canonical_excerpt_spans(pages[page], excerpt)
-        if (
+        source_spans = (
+            [tuple(source_anchor["span"])]
+            if source_anchor is not None
+            else _canonical_excerpt_spans(pages[page], excerpt)
+        )
+        if source_anchor is None and (
             len(source_spans) != 1
             or (
                 len(excerpt.split()) >= MIN_CITATION_EXCERPT_WORDS
@@ -3192,6 +3456,10 @@ def _decode_count_audit_result(
                 "page": page,
                 "span": list(source_span),
             }),
+            **(
+                {"source_anchor_id": source_anchor_id}
+                if source_anchor_id is not None else {}
+            ),
             **({"source_identity": source_identity} if source_identity else {}),
             **{
                 key: anchor[key]
@@ -3367,6 +3635,175 @@ def _revalidate_legacy_count_evidence(
             "rejected_candidate": candidate,
         }
     return accepted, rejected_slots, feedback
+
+
+def _stored_count_candidate(result: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    ledger = result.get("count_ledger")
+    if not isinstance(ledger, dict) or not isinstance(
+        ledger.get("instances"), list
+    ):
+        return None
+    return {
+        "classification": result.get("classification"),
+        "observed_total": ledger.get("observed_total"),
+        "observed_universe_total": ledger.get("observed_universe_total"),
+        "instances": [
+            {
+                key: instance[key]
+                for key in (
+                    "label", "page", "excerpt", "matches_claim",
+                    "multiplicity", "source_id",
+                )
+                if key in instance
+            }
+            for instance in ledger["instances"]
+            if isinstance(instance, dict)
+        ],
+        "note": result.get("note"),
+    }
+
+
+def _migrate_source_anchor_progress(
+    progress: Dict[str, Any],
+    prior_rows: Sequence[Dict[str, Any]],
+    rows: Sequence[Dict[str, Any]],
+    source_text: str,
+) -> Tuple[
+    List[Dict[str, Any]],
+    List[Dict[str, str]],
+    List[Dict[str, Any]],
+    Dict[str, Dict[str, Any]],
+]:
+    """Revalidate detail-14 rows by canonical identifier before any new call."""
+    evidence_source = [
+        row for row in progress.get("evidence_rows", [])
+        if isinstance(row, dict)
+    ]
+    citation_source = [
+        row for row in progress.get("citation_rows", [])
+        if isinstance(row, dict)
+    ]
+    evidence_by_identifier: Dict[str, List[Dict[str, Any]]] = {}
+    citations_by_identifier: Dict[str, List[Dict[str, Any]]] = {}
+    prior_by_identifier = {
+        str(row.get("identifier", "")): row for row in prior_rows
+    }
+    for result in evidence_source:
+        evidence_by_identifier.setdefault(
+            str(result.get("field_path", "")), []
+        ).append(result)
+    for result in citation_source:
+        citations_by_identifier.setdefault(
+            str(result.get("owner", "")), []
+        ).append(result)
+
+    accepted_evidence: List[Dict[str, Any]] = []
+    accepted_citations: List[Dict[str, str]] = []
+    pending: List[Dict[str, Any]] = []
+    feedback: Dict[str, Dict[str, Any]] = {}
+    for row in rows:
+        slot = str(row["slot"])
+        identifier = str(row["identifier"])
+        is_citation = row.get("kind") == "citation_relevance"
+        matches = (
+            citations_by_identifier if is_citation else evidence_by_identifier
+        ).get(identifier, [])
+        reason = "detail-14 row is missing"
+        candidate: Any = None
+        prior_row = prior_by_identifier.get(identifier)
+        if (
+            prior_row is None
+            or _detail_row_identity(prior_row) != _detail_row_identity(row)
+        ):
+            reason = "detail-14 row belongs to a different canonical subject"
+        elif len(matches) == 1:
+            result = matches[0]
+            subject = row.get("subject")
+            if not isinstance(subject, dict):
+                reason = "canonical row subject is malformed"
+            elif row.get("kind") in {
+                "citation_relevance", "sequence_evidence",
+            }:
+                candidate = {
+                    key: copy.deepcopy(result.get(key))
+                    for key in ("classification", "checks", "note")
+                }
+                if result.get("claim_sha256") != subject.get("claim_sha256"):
+                    reason = "stored grounding belongs to a different claim"
+                else:
+                    decoded, decode_reason = _decode_grounded_detail_value(
+                        candidate, row, source_text
+                    )
+                    reason = str(decode_reason or "grounding failed validation")
+                    if decoded is not None:
+                        if is_citation:
+                            accepted_citations.append(copy.deepcopy(result))
+                        else:
+                            accepted_evidence.append(copy.deepcopy(result))
+                        continue
+            elif subject.get("trigger") == "counting_claim":
+                candidate = _stored_count_candidate(result)
+                decoded = _decode_count_audit_result(
+                    candidate, subject, source_text
+                )
+                ledger = decoded.get("count_ledger", {})
+                reason = str(ledger.get("reason", "count ledger is invalid"))
+                if ledger.get("valid") is True:
+                    accepted_evidence.append(copy.deepcopy(result))
+                    continue
+            elif subject.get("focused_evidence"):
+                normalized_note = result.get("note")
+                normalized_focused = bool(
+                    result.get("classification") == "unsupported"
+                    and result.get("classification_normalized_from")
+                    in AUDIT_CLASSIFICATIONS
+                    and isinstance(result.get("note_normalized_from"), str)
+                    and result["note_normalized_from"].strip()
+                    and normalized_note in {
+                        "FOCUSED_EVIDENCE_AMBIGUOUS: no unique reveal cluster "
+                        "could be identified from the claim and source.",
+                        "FOCUSED_EVIDENCE_CONTRADICTION: the auditor marked the "
+                        "source inferable or established but also asserted "
+                        "that a new source is required.",
+                    }
+                )
+                if normalized_focused:
+                    accepted_evidence.append(copy.deepcopy(result))
+                    continue
+                candidate = {
+                    key: copy.deepcopy(result.get(key))
+                    for key in (
+                        "classification", "note", "reviewed_roles",
+                        "source_status", "activation_status",
+                    )
+                }
+                decoded, decode_reason = _decode_focused_detail_value(
+                    candidate, subject
+                )
+                reason = str(decode_reason or "focused evidence is invalid")
+                if decoded is not None:
+                    accepted_evidence.append(copy.deepcopy(result))
+                    continue
+            else:
+                candidate = {
+                    "classification": result.get("classification"),
+                    "note": result.get("note"),
+                }
+                if _decode_text_detail_value(candidate) is not None:
+                    accepted_evidence.append(copy.deepcopy(result))
+                    continue
+                reason = "classification or factual note is invalid"
+        elif len(matches) > 1:
+            reason = "detail-14 contains duplicate canonical rows"
+        pending.append(row)
+        feedback[slot] = {
+            "reason": reason,
+            **(
+                {"rejected_candidate": candidate}
+                if candidate is not None else {}
+            ),
+        }
+    return accepted_evidence, accepted_citations, pending, feedback
 
 
 # ── Prompts ──────────────────────────────────────────────────────────────────
@@ -3840,6 +4277,14 @@ _COUNT_SCORE_WORDS = frozenset(
     otorga otorgan otorgaron otorgó rate rated rates rating ratings score
     scored scores scoring
     """.split()
+)
+_SUBJECTIVE_COUNT_QUALITY = re.compile(
+    r"\b(?:best|earned|effective|genuinely|meaningful|satisfying|strongest)\b",
+    re.IGNORECASE,
+)
+_SUBJECTIVE_PRECOUNT_QUALITY = re.compile(
+    r"\b(?:best|effective|genuinely|meaningful|satisfying|strongest)\s*$",
+    re.IGNORECASE,
 )
 _COLLECTIVE_COUNT_TOKENS = frozenset(
     {"couple", "cuarteto", "pair", "pareja", "quartet", "trio", "trío"}
@@ -4360,7 +4805,11 @@ def _first_material_count_claim_details(
     }
 
 
-def _material_count_claims_details(claim: str) -> List[Dict[str, Any]]:
+def _material_count_claims_details(
+    claim: str,
+    *,
+    annotate_subjectivity: bool = False,
+) -> List[Dict[str, Any]]:
     working = claim
     results: List[Dict[str, Any]] = []
     while details := _first_material_count_claim_details(working):
@@ -4464,6 +4913,13 @@ def _material_count_claims_details(claim: str) -> List[Dict[str, Any]]:
 
     results.sort(key=lambda details: int(details["_count_start"]))
     for details in results:
+        if annotate_subjectivity:
+            start = int(details["_count_start"])
+            end = int(details["_count_end"])
+            details["_subjective_count"] = bool(
+                _SUBJECTIVE_COUNT_QUALITY.search(claim[start:end])
+                or _SUBJECTIVE_PRECOUNT_QUALITY.search(claim[:start])
+            )
         details.pop("_count_start")
         details.pop("_count_end")
     return results
@@ -4821,6 +5277,8 @@ def _has_nonquantitative_absolute(claim: str) -> bool:
 def build_existing_evidence_checks(
     coverage: Dict[str, Any],
     text: str,
+    *,
+    include_subjective_counts: bool = False,
 ) -> List[Dict[str, Any]]:
     """Create full-script search leads for risky claims and every priority.
 
@@ -4858,7 +5316,17 @@ def build_existing_evidence_checks(
             )
         ):
             continue
-        count_details = _material_count_claims_details(value)
+        count_details = _material_count_claims_details(
+            value,
+            annotate_subjectivity=not include_subjective_counts,
+        )
+        if not include_subjective_counts:
+            count_details = [
+                details for details in count_details
+                if not details.get("_subjective_count")
+            ]
+        for details in count_details:
+            details.pop("_subjective_count", None)
         has_absolute = _has_nonquantitative_absolute(value)
         if count_details:
             multiple = len(count_details) > 1 or has_absolute
@@ -5400,6 +5868,43 @@ def build_rejected_sequence_field_retry_user_blocks(
     ]
 
 
+def _detail_anchor_pages(
+    rows: Sequence[Dict[str, Any]],
+) -> Optional[set[int]]:
+    """Return bounded source pages, or None when a row needs the full script."""
+    selected: set[int] = set()
+    for row in rows:
+        subject = row.get("subject")
+        if not isinstance(subject, dict):
+            continue
+        if row.get("kind") == "citation_relevance":
+            page = subject.get("page")
+            if type(page) is int:
+                selected.add(page)
+            continue
+        if subject.get("trigger") == "counting_claim":
+            allowed_pages = subject.get("allowed_pages")
+            if not isinstance(allowed_pages, list):
+                return None
+            selected.update(page for page in allowed_pages if type(page) is int)
+            continue
+        beat = subject.get("beat")
+        if row.get("kind") != "sequence_evidence" or not isinstance(beat, dict):
+            continue
+        beat_page = beat.get("page")
+        if type(beat_page) is int:
+            selected.add(beat_page)
+        for field in GROUNDED_SEQUENCE_FIELDS:
+            spans = (
+                _sequence_action_page_spans
+                if field in {"actor", "action"}
+                else _prose_page_spans
+            )(str(beat.get("action" if field == "actor" else field, "")))
+            for start, end in spans:
+                selected.update(range(start, end + 1))
+    return selected
+
+
 def build_detail_audit_user_blocks(
     text: str,
     title: str,
@@ -5408,6 +5913,21 @@ def build_detail_audit_user_blocks(
     rows: Sequence[Dict[str, Any]],
 ) -> List[Dict[str, Any]]:
     """Separate strict pass for existing-evidence and citation detail rows."""
+    anchor_pages = _detail_anchor_pages(rows)
+    anchor_lines = [
+        "# ENGINE-BOUND SOURCE IDS (code-generated; AUTHORITATIVE)",
+        "",
+        "Copy these IDs exactly. The engine owns their printed page and text.",
+    ]
+    current_page: Optional[int] = None
+    for source_id, anchor in _source_anchor_catalog(text).items():
+        page = int(anchor["page"])
+        if anchor_pages is not None and page not in anchor_pages:
+            continue
+        if page != current_page:
+            anchor_lines.extend(["", f"[PAGE {page}]"])
+            current_page = page
+        anchor_lines.append(f'[{source_id}] {anchor["excerpt"]}')
     return [
         _screenplay_block(text),
         _character_index_block(text),
@@ -5417,6 +5937,10 @@ def build_detail_audit_user_blocks(
                 "# PAGE REFERENCE MAP (code-generated; AUTHORITATIVE)\n\n"
                 + json.dumps(page_reference_map, ensure_ascii=False, indent=1)
             ),
+        },
+        {
+            "type": "text",
+            "text": "\n".join(anchor_lines),
         },
         {
             "type": "text",
@@ -5435,7 +5959,9 @@ def build_detail_audit_user_blocks(
                 "existing_evidence in text_results, focused_evidence in "
                 "focused_results, counting_claim in count_results, "
                 "citation_relevance in citation_results, and "
-                "sequence_evidence in sequence_results. Never put a slot in "
+                "sequence_evidence without character knowledge in "
+                "sequence_results or with character knowledge in "
+                "sequence_knowledge_results. Never put a slot in "
                 "more than one array. Every requested note must be one concise "
                 "factual sentence. For existing-evidence rows, "
                 "search the COMPLETE screenplay for setup, synonyms, physical "
@@ -5468,19 +5994,18 @@ def build_detail_audit_user_blocks(
                 "error elsewhere in the same lens or concern onto this citation. "
                 "A local quote can prove that an event occurs; by itself it "
                 "cannot prove a global claim that setup is absent elsewhere. "
-                "For every sequence_evidence row, use the fixed scalar triplet "
-                "`FIELD_page`, `FIELD_excerpt`, and `FIELD_supports` for actor, "
-                "action, result, and audience_knowledge. Set "
-                "character_knowledge_status to `checked` and include its scalar "
-                "triplet only when character_knowledge appears in "
-                "subject.required_fields; otherwise set it to `not_required` "
-                "and omit that triplet. Each excerpt must be a verbatim 3-12-word "
-                "source span on an allowed beat page. The actor excerpt must "
+                "For every sequence_evidence row, copy one authoritative "
+                "`FIELD_source_id` for every field in subject.required_fields. "
+                "Never return a page or quote. Put exactly the fields not proved "
+                "by their selected source IDs in unsupported_fields; the engine "
+                "derives every supports value. Set character_knowledge_status "
+                "to `checked` only for sequence_knowledge_results and to "
+                "`not_required` for sequence_results. The actor source must "
                 "literally name the claimed actor or collective group. The "
-                "character_knowledge excerpt must literally name every claimed "
+                "character_knowledge source must literally name every claimed "
                 "knower and prove the atomic fact they learn. Never expand a "
                 "collective label into an inferred member roster. If a frozen "
-                "field is wrong, set its supports scalar false so the canonical "
+                "field is wrong, include it in unsupported_fields so the canonical "
                 "repair pass can correct it. "
                 "Dialogue proves only that its speaker said "
                 "something. If named characters did not witness or learn it, set "
@@ -5513,8 +6038,8 @@ def build_detail_audit_user_blocks(
                 "about an unrelated person cannot prove a distinct instance. "
                 "The code derives identity from the excerpt and binds it to "
                 "`subject.claimed_role_identities`; provider labels never do. "
-                "Each instance must contain exactly page, a verbatim 2-12-word "
-                "excerpt from that page, matches_claim, and multiplicity. "
+                "Each instance must contain exactly source_id, matches_claim, "
+                "and multiplicity. Never return a page, excerpt, or label. "
                 "Use multiplicity 1 for one event. When one source line literally "
                 "states the exact total and the exact subject.count_entity, use "
                 "one instance with that literal multiplicity; otherwise use "
@@ -5548,29 +6073,19 @@ def _grounded_detail_source_packet(
     rows: Sequence[Dict[str, Any]],
 ) -> str:
     """Send grounded retries only pages their frozen claims may cite."""
+    if any(
+        row.get("kind") == "existing_evidence"
+        and not (
+            isinstance(row.get("subject"), dict)
+            and row["subject"].get("trigger") == "counting_claim"
+        )
+        for row in rows
+    ):
+        return text
     _numbers, pages = _marked_page_contents(text)
-    selected: set[int] = set()
-    for row in rows:
-        subject = row.get("subject")
-        if not isinstance(subject, dict):
-            continue
-        page = subject.get("page")
-        if type(page) is int:
-            selected.add(page)
-        beat = subject.get("beat")
-        if not isinstance(beat, dict):
-            continue
-        beat_page = beat.get("page")
-        if type(beat_page) is int:
-            selected.add(beat_page)
-        for field in GROUNDED_SEQUENCE_FIELDS:
-            spans = (
-                _sequence_action_page_spans
-                if field in {"actor", "action"}
-                else _prose_page_spans
-            )(str(beat.get("action" if field == "actor" else field, "")))
-            for start, end in spans:
-                selected.update(range(start, end + 1))
+    selected = _detail_anchor_pages(rows)
+    if selected is None:
+        return text
     selected.intersection_update(pages)
     if not selected:
         return text
@@ -8413,24 +8928,49 @@ def run_coverage_v1(
             binding,
             progress_stage,
         )
-        if (
-            progress is not None
-            and (
-                progress.get("detail_contract_version") not in {
+        source_anchor_prior_rows: List[Dict[str, Any]] = []
+        if progress is not None:
+            progress_version = progress.get("detail_contract_version")
+            source_anchor_migration = (
+                progress_version == SOURCE_ANCHOR_MIGRATION_VERSION
+            )
+            if source_anchor_migration:
+                source_anchor_prior_rows = build_detail_audit_rows(
+                    candidate_coverage,
+                    build_existing_evidence_checks(
+                        candidate_coverage,
+                        text,
+                        include_subjective_counts=True,
+                    ),
+                    candidate.get("sequence_ledger", []),
+                )
+            if (
+                progress_version not in {
                     DETAIL_AUDIT_CONTRACT_VERSION,
                     LEGACY_DETAIL_PROGRESS_VERSION,
+                    SOURCE_ANCHOR_MIGRATION_VERSION,
                 }
                 or progress.get("coverage_sha256") != coverage_sha256
                 or progress.get("candidate_sha256") != candidate_sha256
-                or progress.get("rows_sha256") != rows_sha256
                 or progress.get("seed_sha256") != seed_sha256
-            )
-        ):
-            progress = None
+                or (
+                    progress.get("rows_sha256")
+                    != (
+                        canonical_json_hash(source_anchor_prior_rows)
+                        if source_anchor_migration else rows_sha256
+                    )
+                )
+            ):
+                progress = None
         legacy_detail_progress = bool(
             progress is not None
             and progress.get("detail_contract_version")
             == LEGACY_DETAIL_PROGRESS_VERSION
+        )
+        source_anchor_progress = bool(
+            progress is not None
+            and progress.get("detail_contract_version")
+            == SOURCE_ANCHOR_MIGRATION_VERSION
         )
         evidence_rows: List[Dict[str, Any]] = copy.deepcopy(
             (progress or {}).get("evidence_rows", seeded_evidence)
@@ -8506,6 +9046,51 @@ def run_coverage_v1(
                     },
                 ),
             )
+
+        if source_anchor_progress:
+            (
+                evidence_rows,
+                citation_rows,
+                migrated_pending,
+                migrated_feedback,
+            ) = _migrate_source_anchor_progress(
+                progress, source_anchor_prior_rows, all_rows, text
+            )
+            completed_main = {
+                canonical_json_hash(rows[start:start + MAX_DETAIL_AUDIT_ROWS])
+                for start in range(0, len(rows), MAX_DETAIL_AUDIT_ROWS)
+            }
+            completed_typed_b.clear()
+            text_retry_plan = []
+            focused_retry_plan = []
+            grounded_retry_plan = []
+            typed_a_plan = []
+            typed_b_plan = [str(row["slot"]) for row in migrated_pending]
+            text_retry_feedback = {}
+            focused_retry_feedback = {}
+            grounded_retry_feedback = {}
+            count_retry_feedback = {}
+            for row in migrated_pending:
+                slot = str(row["slot"])
+                feedback = migrated_feedback[slot]
+                subject = row.get("subject")
+                if row.get("kind") in {
+                    "citation_relevance", "sequence_evidence",
+                }:
+                    grounded_retry_feedback[slot] = feedback
+                elif (
+                    isinstance(subject, dict)
+                    and subject.get("trigger") == "counting_claim"
+                ):
+                    count_retry_feedback[slot] = feedback
+                elif (
+                    isinstance(subject, dict)
+                    and subject.get("focused_evidence")
+                ):
+                    focused_retry_feedback[slot] = feedback
+                else:
+                    text_retry_feedback[slot] = feedback
+            save_progress()
 
         for start in range(0, len(rows), MAX_DETAIL_AUDIT_ROWS):
             batch = rows[start:start + MAX_DETAIL_AUDIT_ROWS]
@@ -8952,13 +9537,7 @@ def run_coverage_v1(
                         }
                     )
                 retry_blocks = build_detail_audit_user_blocks(
-                    (
-                        text
-                        if mixed_recovery
-                        else _grounded_detail_source_packet(
-                            text, typed_b_rows
-                        )
-                    ),
+                    _grounded_detail_source_packet(text, typed_b_rows),
                     title,
                     candidate_coverage,
                     page_reference_map,
@@ -8972,7 +9551,7 @@ def run_coverage_v1(
                         "the complete screenplay. Use every result array "
                         "required by the tool and return every slot exactly "
                         "once. Use the engine-bound citation decision and "
-                        "fixed sequence scalar fields exactly as instructed. "
+                        "engine-bound source IDs exactly as instructed. "
                         "This is the final recovery attempt."
                     )
                     if mixed_recovery
@@ -8981,9 +9560,10 @@ def run_coverage_v1(
                         "results failed deterministic validation. Re-audit "
                         "every supplied citation and sequence row against "
                         "the authoritative bound pages. Use citation_results "
-                        "and sequence_results exactly as required by the "
+                        "and the required sequence result arrays exactly as "
+                        "required by the "
                         "tool. Use the engine-bound citation decision and "
-                        "fixed sequence scalar fields exactly as instructed. "
+                        "engine-bound source IDs exactly as instructed. "
                         "This is the only recovery attempt."
                     )
                 )
@@ -9007,6 +9587,7 @@ def run_coverage_v1(
                     stage=stage + "_typed_b",
                     pipeline_pass="coverage_v1",
                 )
+                raw_typed_input = copy.deepcopy(typed_input)
                 typed_input = _expand_detail_audit_payload(
                     typed_input, typed_b_rows
                 )
@@ -9040,6 +9621,67 @@ def run_coverage_v1(
                     citation_rows = merge_rows(
                         citation_rows, retried_citations, "owner"
                     )
+                for row in malformed:
+                    slot = str(row["slot"])
+                    rejected = typed_input["results"].get(slot)
+                    raw_rejected = _raw_detail_candidate(
+                        raw_typed_input, row
+                    )
+                    transport_reason: Optional[str] = None
+                    if rejected is None:
+                        raw_rejected, transport_reason = (
+                            _typed_detail_transport_reason(raw_typed_input, row)
+                        )
+                    subject = row.get("subject")
+                    if row.get("kind") in {
+                        "citation_relevance", "sequence_evidence",
+                    }:
+                        _decoded, reason = _decode_grounded_detail_value(
+                            rejected, row, text
+                        )
+                        grounded_retry_feedback[slot] = {
+                            "reason": transport_reason or reason,
+                            "claim_sha256": (
+                                subject.get("claim_sha256")
+                                if isinstance(subject, dict) else None
+                            ),
+                            "rejected_candidate": raw_rejected,
+                        }
+                    elif (
+                        isinstance(subject, dict)
+                        and subject.get("trigger") == "counting_claim"
+                    ):
+                        decoded_count = _decode_count_audit_result(
+                            rejected, subject, text
+                        )
+                        count_retry_feedback[slot] = {
+                            "reason": transport_reason or str(
+                                decoded_count.get("count_ledger", {}).get(
+                                    "reason", "count ledger is invalid"
+                                )
+                            ),
+                            "rejected_candidate": raw_rejected,
+                        }
+                    elif (
+                        isinstance(subject, dict)
+                        and subject.get("focused_evidence")
+                    ):
+                        _decoded, reason = _decode_focused_detail_value(
+                            rejected, subject
+                        )
+                        focused_retry_feedback[slot] = {
+                            "reason": transport_reason or reason,
+                            "required_roles": _focused_role_tokens(subject),
+                            "rejected_candidate": raw_rejected,
+                        }
+                    else:
+                        _decoded, reason = _decode_text_detail_value_with_reason(
+                            rejected
+                        )
+                        text_retry_feedback[slot] = {
+                            "reason": transport_reason or reason,
+                            "rejected_candidate": raw_rejected,
+                        }
                 completed_typed_b.add(batch_sha256)
                 save_progress()
                 if malformed:
@@ -9057,6 +9699,32 @@ def run_coverage_v1(
             and row["count_ledger"].get("valid") is False
         ]
         if invalid_after_recovery:
+            slots_by_identifier = {
+                str(row.get("identifier", "")): str(row.get("slot", ""))
+                for row in all_rows
+            }
+            for invalid in invalid_after_recovery:
+                identifier = str(invalid.get("field_path", ""))
+                slot = slots_by_identifier.get(identifier, "")
+                if slot:
+                    ledger = invalid.get("count_ledger", {})
+                    count_retry_feedback[slot] = {
+                        "reason": str(
+                            ledger.get(
+                                "reason",
+                                "count ledger overlaps a sibling row",
+                            )
+                        ),
+                        **(
+                            {
+                                "rejected_candidate": invalid[
+                                    "rejected_candidate"
+                                ]
+                            }
+                            if "rejected_candidate" in invalid else {}
+                        ),
+                    }
+            save_progress()
             raise CoverageContractError(
                 "Typed detail recovery left invalid count ledgers: "
                 + ", ".join(
