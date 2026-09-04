@@ -10616,6 +10616,7 @@ def run_coverage_v1(
     repair_calls_used = 0
     coverage_repair_calls_used = 0
     audit_retry_calls_used = 0
+    fact_repair_deferred_at_call_cap = 0
 
     # Renumber [PAGE N] markers to printed header numbers when the offset is
     # confidently detectable, so every downstream page reference (prompt,
@@ -10879,6 +10880,22 @@ def run_coverage_v1(
         != DETAIL_AUDIT_CONTRACT_VERSION
     ):
         audit_payload = None
+    if (
+        audit_payload is not None
+        and guard.in_flight is None
+        and guard.calls_started < guard.max_calls
+        and any(
+            isinstance(row, dict)
+            and row.get("classification") == "unclassified"
+            for field in (
+                "existing_evidence_verdicts",
+                "sequence_evidence",
+                "citation_relevance",
+            )
+            for row in audit_payload.get(field, [])
+        )
+    ):
+        audit_payload = None
     audit_replayed = audit_payload is not None
     audit_core_payload = (
         _verified_payload(
@@ -10928,6 +10945,7 @@ def run_coverage_v1(
             Dict[str, Any],
         ]] = None,
     ) -> Dict[str, Any]:
+        nonlocal fact_repair_deferred_at_call_cap
         all_rows = build_detail_audit_rows(
             candidate_coverage,
             candidate_evidence,
@@ -11056,6 +11074,15 @@ def run_coverage_v1(
         count_retry_feedback = copy.deepcopy(
             (progress or {}).get("count_retry_feedback", {})
         )
+        fact_repair_deferred_at_call_cap = max(
+            fact_repair_deferred_at_call_cap,
+            int(
+                (progress or {}).get(
+                    "fact_repair_deferred_at_call_cap", 0
+                )
+                or 0
+            ),
+        )
 
         def save_progress() -> None:
             checkpoint_store.save(
@@ -11087,6 +11114,9 @@ def run_coverage_v1(
                         "focused_retry_feedback": focused_retry_feedback,
                         "grounded_retry_feedback": grounded_retry_feedback,
                         "count_retry_feedback": count_retry_feedback,
+                        "fact_repair_deferred_at_call_cap": (
+                            fact_repair_deferred_at_call_cap
+                        ),
                         "evidence_rows": evidence_rows,
                         "citation_rows": citation_rows,
                     },
@@ -11668,6 +11698,42 @@ def run_coverage_v1(
                 "Detailed audit recovery exceeds its bounded typed batches"
             )
         save_progress()
+
+        if (
+            not typed_b_plan
+            and guard.in_flight is None
+            and guard.calls_started < guard.max_calls
+        ):
+            unclassified_identifiers = {
+                str(row.get(identifier_field, ""))
+                for detail_rows, identifier_field in (
+                    (evidence_rows, "field_path"),
+                    (citation_rows, "owner"),
+                )
+                for row in detail_rows
+                if isinstance(row, dict)
+                and row.get("classification") == "unclassified"
+            }
+            retry_rows = [
+                row for row in all_rows
+                if str(row.get("identifier", ""))
+                in unclassified_identifiers
+            ]
+            if retry_rows:
+                reservation = _request_cost_ceiling_microusd(
+                    typed_b_call_kwargs(retry_rows)
+                )
+                if reservation <= (
+                    guard.max_microusd - guard.charged_microusd
+                ):
+                    fact_repair_deferred_at_call_cap = guard.max_calls
+                    typed_b_plan = [
+                        str(row["slot"]) for row in retry_rows
+                    ]
+                    completed_typed_b.discard(
+                        canonical_json_hash(retry_rows)
+                    )
+                    save_progress()
 
         def preserve_unclassified(
             failed_rows: Sequence[Dict[str, Any]],
@@ -12444,6 +12510,9 @@ def run_coverage_v1(
             "first_pass_problems": audit_first_pass_problems,
             "repair_calls_used": repair_calls_used,
             "audit_retry_calls_used": audit_retry_calls_used,
+            "fact_repair_deferred_at_call_cap": (
+                fact_repair_deferred_at_call_cap
+            ),
         }
         checkpoint_store.save(
             checkpoint_key, "audit", _sealed_record(binding, audit_payload)
@@ -12494,7 +12563,16 @@ def run_coverage_v1(
     unrepairable_central_failures = sorted(
         set(central_failures) - set(repair_targets)
     )
-    if repair_targets and not unrepairable_central_failures:
+    fact_repair_deferred_at_call_cap = int(
+        audit_payload.get("fact_repair_deferred_at_call_cap", 0) or 0
+    )
+    if (
+        repair_targets
+        and not unrepairable_central_failures
+        and guard.in_flight is None
+        and guard.calls_started < guard.max_calls
+        and guard.max_calls > fact_repair_deferred_at_call_cap
+    ):
         stage3 = _verified_payload(
             checkpoint_store.load(checkpoint_key, "fact_repair"),
             binding,

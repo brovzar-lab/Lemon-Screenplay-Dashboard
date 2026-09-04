@@ -10793,6 +10793,15 @@ Dante hands cash to the judges as Tony watches.
         )
 
     def test_partial_typed_b_resume_at_call_cap_preserves_valid_rows(self):
+        class FailAuditSaveOnce(cv.LocalCheckpointStore):
+            fail_audit_save = False
+
+            def save(self, key, stage, record):
+                if stage == "audit" and self.fail_audit_save:
+                    self.fail_audit_save = False
+                    raise RuntimeError("crash before final audit checkpoint")
+                super().save(key, stage, record)
+
         coverage = valid_coverage()
         audit = provider_audit_core(coverage)
         next(
@@ -10818,7 +10827,7 @@ Dante hands cash to the judges as Tony watches.
                 result.pop("supports")
         partial_final = typed_detail_payload_for_rows(citation_rows)
         partial_final["citation_results"][1].pop("supports")
-        store = new_store()
+        store = FailAuditSaveOnce(Path(tempfile.mkdtemp()) / "cv1")
 
         with self.assertRaisesRegex(
             cv.CoverageContractError, "recovery B returned a malformed result"
@@ -10910,6 +10919,43 @@ Dante hands cash to the judges as Tony watches.
             migrated["grounded_retry_feedback"],
         )
         self.assertTrue(list(store.root.glob("*/audit.json")))
+
+        retry = FakeTransport([(
+            typed_detail_payload_for_rows([citation_rows[1]]),
+            settled_usage(),
+        )])
+        store.fail_audit_save = True
+        with self.assertRaisesRegex(
+            RuntimeError, "crash before final audit checkpoint"
+        ):
+            run_engine(store, retry, max_calls=6)
+
+        self.assertEqual(len(retry.calls), 1)
+        self.assertTrue(retry.calls[0]["stage"].endswith("_typed_b"))
+        progress = json.loads(
+            progress_path.read_text(encoding="utf-8")
+        )["payload"]
+        self.assertEqual(
+            progress["fact_repair_deferred_at_call_cap"], 6
+        )
+
+        same_cap = FakeTransport([])
+        same_cap_report, same_cap_usage = run_engine(
+            store, same_cap, max_calls=6
+        )
+        self.assertEqual(same_cap.calls, [])
+        self.assertEqual(same_cap_usage["call_count"], 0)
+        retried_citation = next(
+            row
+            for row in same_cap_report["fact_audit"]["citation_relevance"]
+            if row["owner"] == citation_rows[1]["identifier"]
+        )
+        self.assertNotEqual(
+            retried_citation["classification"], "unclassified"
+        )
+        self.assertFalse(
+            same_cap_report["diagnostics"]["fact_repair"]["attempted"]
+        )
 
     def test_partial_typed_b_resume_at_dollar_cap_uses_no_transport(self):
         coverage = valid_coverage()
