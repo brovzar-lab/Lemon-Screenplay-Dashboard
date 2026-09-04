@@ -2041,6 +2041,183 @@ Another video plays on another screen.
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]["trigger"], "recommendation")
 
+    def test_cosquillitas_resolution_cascade_stays_human_taste(self):
+        coverage = valid_coverage()
+        coverage["development_priorities"][0] = {
+            "priority": "Thin and sequence the final resolution cascade",
+            "why": "The comic pile-on overwhelms the emotional landing",
+            "how": "Let the romance breathe, then accelerate the parody",
+        }
+
+        checks = [
+            row for row in cv.build_existing_evidence_checks(
+                coverage, SCREENPLAY_TEXT
+            )
+            if row["source_field_path"] == "development_priorities[0]"
+        ]
+        [row] = [
+            item for item in cv.build_detail_audit_rows(coverage, checks)
+            if item["identifier"] == "development_priorities[0]"
+        ]
+        evidence, _citations = cv.decode_detail_audit_payload(
+            {"results": {row["slot"]: (
+                "unsupported: The pacing recommendation is a producer choice."
+            )}},
+            [row],
+            SCREENPLAY_TEXT,
+        )
+        self.assertEqual(
+            evidence[0]["factual_applicability"], "not_applicable"
+        )
+        reconciled = cv._replace_audit_details(
+            supported_audit(coverage), evidence, []
+        )
+        guard = next(
+            item for item in reconciled["verdicts"]
+            if item["claim_id"] == "guard.existing_evidence"
+        )
+        self.assertEqual(guard["classification"], "supported")
+
+        coverage["development_priorities"][0] = {
+            "priority": "Add a murder weapon",
+            "why": "No weapon appears anywhere in the screenplay",
+            "how": "Plant one before the climax",
+        }
+        checks = cv.build_existing_evidence_checks(coverage, SCREENPLAY_TEXT)
+        [row] = [
+            item for item in cv.build_detail_audit_rows(coverage, checks)
+            if item["identifier"] == "development_priorities[0]"
+        ]
+        evidence, _citations = cv.decode_detail_audit_payload(
+            {"results": {row["slot"]: (
+                "unsupported: This is editorial advice, not a factual claim."
+            )}},
+            [row],
+            SCREENPLAY_TEXT,
+        )
+        self.assertNotIn("factual_applicability", evidence[0])
+
+    def test_cosquillitas_mixed_resolution_priority_stays_fact_auditable(self):
+        coverage = valid_coverage()
+        coverage["development_priorities"][0] = {
+            "priority": "Thin and sequence the final resolution cascade",
+            "why": (
+                "The script resolves five character arcs plus a meta-satirical "
+                "layer in approximately three pages (pp. 98–101), so rapidly "
+                "that the pregnancy announcement (Juanito's deepest unfulfilled "
+                "need, established as early as p. 15) and the Richie-Lucesita "
+                "reunion (the script's emotional engine since p. 12) are swamped "
+                "by world peace declarations and STI-cure jokes. The absurdist "
+                "pile-on reads as structural exhaustion rather than intentional "
+                "parody unless the order and rhythm are controlled."
+            ),
+            "how": (
+                "Stage the two genuinely earned resolutions first and give each "
+                "a full beat: (1) Richie's return to Lucesita with the wig — let "
+                "this breathe for at least a page, it is the most romantic thing "
+                "in the script; (2) Lucyfer's pregnancy reveal — this is "
+                "Juanito's true All Is Lost element and deserves a clean "
+                "emotional landing before the comedy resumes. Then introduce the "
+                "escalating absurd cascade (car, peso, world peace, gonorrhea) as "
+                "a deliberate comedic coda — four rapid beats in succession — "
+                "making it clear the tone has shifted to parody of the genre's "
+                "resolution conventions. This structure preserves emotional "
+                "catharsis while honoring the script's satirical voice."
+            ),
+        }
+
+        checks = cv.build_existing_evidence_checks(
+            coverage, SCREENPLAY_TEXT
+        )
+        [row] = [
+            item for item in cv.build_detail_audit_rows(coverage, checks)
+            if item["identifier"] == "development_priorities[0]"
+        ]
+        evidence, _citations = cv.decode_detail_audit_payload(
+            {"results": {row["slot"]: (
+                "unsupported: The recommendation mixes taste with factual "
+                "claims about the ending."
+            )}},
+            [row],
+            SCREENPLAY_TEXT,
+        )
+
+        self.assertNotIn("factual_applicability", evidence[0])
+
+    def test_character_event_recommendation_stays_fact_auditable(self):
+        coverage = valid_coverage()
+        coverage["development_priorities"][0] = {
+            "priority": "Cut the scene where Carlos kills Anita",
+            "why": "It repeats information",
+            "how": "Move directly to the aftermath",
+        }
+
+        checks = cv.build_existing_evidence_checks(
+            coverage, SCREENPLAY_TEXT
+        )
+        [row] = [
+            item for item in cv.build_detail_audit_rows(coverage, checks)
+            if item["identifier"] == "development_priorities[0]"
+        ]
+        for classification in (
+            "unsupported", "partially_supported", "contradicted"
+        ):
+            with self.subTest(classification=classification):
+                evidence, _citations = cv.decode_detail_audit_payload(
+                    {"results": {row["slot"]: (
+                        f"{classification}: Carlos does not kill Anita in "
+                        "the screenplay."
+                    )}},
+                    [row],
+                    SCREENPLAY_TEXT,
+                )
+
+                self.assertNotIn("factual_applicability", evidence[0])
+
+    def test_factual_clause_cannot_hide_behind_an_editorial_verb(self):
+        claims = (
+            (
+                "Trim the sequence because the house burns down before the "
+                "family escapes."
+            ),
+            "Tighten the scene because he steals the money.",
+        )
+
+        for claim in claims:
+            with self.subTest(claim=claim):
+                self.assertFalse(
+                    cv._recommendation_is_editorial_only(
+                        claim, "unsupported"
+                    )
+                )
+
+    def test_concrete_story_edit_is_not_pure_editorial_taste(self):
+        priorities = (
+            (
+                "Trim the car explosion",
+                "The action pacing feels repetitive",
+                "Tighten the beat",
+            ),
+            (
+                "Cut the courtroom scene",
+                "The comic pacing feels slow",
+                "Tighten the transition",
+            ),
+            (
+                "Move the funeral earlier",
+                "The emotional rhythm feels slow",
+                "Tighten the ending",
+            ),
+        )
+
+        for parts in priorities:
+            with self.subTest(priority=parts[0]):
+                self.assertFalse(
+                    cv._recommendation_is_editorial_only(
+                        " ".join(parts), "unsupported", parts
+                    )
+                )
+
     def test_count_and_independent_absence_claim_get_separate_guards(self):
         coverage = valid_coverage()
         coverage["story_spine"]["opposition"] = (
@@ -7776,6 +7953,21 @@ El público pide otra canción
             problems,
         )
 
+    def test_sequence_adjacency_cannot_cross_a_scene_heading(self):
+        actor = {"source_anchor_id": "p001-l001"}
+        action = {"source_anchor_id": "p001-l003"}
+        page = "Diego leaves.\nINT. OTHER HOUSE - DAY\nCarlos shoots Ana."
+
+        self.assertIsNone(
+            cv._sequence_anchor_line_distance(actor, action, page)
+        )
+        self.assertEqual(
+            cv._sequence_anchor_line_distance(
+                actor, action, "Diego leaves.\nHe stops.\nDiego returns."
+            ),
+            2,
+        )
+
     def test_continuity_flags_are_validated_and_preserved(self):
         coverage = valid_coverage()
         coverage["continuity_flags"] = [
@@ -8713,6 +8905,240 @@ class TestCheckpointsAndResume(unittest.TestCase):
         self.assertTrue(report["replay"]["coverage_replayed"])
         self.assertTrue(report["replay"]["audit_replayed"])
 
+    def test_exhausted_replay_reconciles_evidence_without_spend(self):
+        coverage = valid_coverage()
+        coverage["development_priorities"][0] = {
+            "priority": "Plant and assign the surveillance video",
+            "why": "No camera source exists before the reveal",
+            "how": "Show Richie filming it",
+        }
+        coverage["development_priorities"][1] = {
+            "priority": "Thin and sequence the final resolution cascade",
+            "why": "The comic pile-on overwhelms the emotional landing",
+            "how": "Let the romance breathe, then accelerate the parody",
+        }
+        source = SCREENPLAY_TEXT.replace(
+            "[PAGE 3]", "[PAGE 3]\nA hidden camera records the bribe."
+        ).replace(
+            "[PAGE 4]",
+            "[PAGE 4]\nRichie films the bribe with the hidden camera.\n"
+            "The surveillance video plays on screen.",
+        )
+        core = provider_audit_core(coverage)
+        normalized = cv.normalize_audit_tool_input(
+            copy.deepcopy(core), range(1, 7)
+        )
+        rows = cv.build_detail_audit_rows(
+            coverage,
+            cv.build_existing_evidence_checks(coverage, source),
+            normalized["sequence_ledger"],
+        )
+        focused = next(
+            row for row in rows
+            if row["identifier"] == "development_priorities[0]"
+        )
+        store = new_store()
+        run_engine(
+            store,
+            FakeTransport([
+                (coverage, settled_usage()),
+                (core, settled_usage()),
+                (
+                    supported_detail_payload(coverage, normalized, source),
+                    settled_usage(),
+                ),
+                (
+                    typed_detail_payload_for_rows([focused], source),
+                    settled_usage(),
+                ),
+            ]),
+            text=source,
+            max_calls=4,
+        )
+
+        [audit_path] = list(store.root.glob("*/audit.json"))
+        audit_record = json.loads(audit_path.read_text(encoding="utf-8"))
+        evidence = {
+            row["field_path"]: row
+            for row in audit_record["payload"]["existing_evidence_verdicts"]
+        }
+        evidence["development_priorities[0]"].update({
+            "classification": "partially_supported",
+            "note": "The source is established, but activation is unclear.",
+            "source_status": "established",
+            "activation_status": "unconfirmed",
+        })
+        evidence["development_priorities[1]"].update({
+            "classification": "unsupported",
+            "note": "This is editorial advice, not a factual claim.",
+        })
+        evidence["development_priorities[1]"].pop(
+            "factual_applicability", None
+        )
+        stale_guard = next(
+            row for row in audit_record["payload"]["verdicts"]
+            if row["claim_id"] == "guard.existing_evidence"
+        )
+        stale_guard.update({
+            "classification": "supported",
+            "note": "Stale checkpoint aggregate.",
+        })
+        audit_path.write_text(
+            json.dumps(cv._sealed_record(
+                audit_record["binding"], audit_record["payload"]
+            )),
+            encoding="utf-8",
+        )
+        [budget_path] = list(store.root.glob("*/budget.json"))
+        [receipts_path] = list(store.root.glob("*/call_receipts.json"))
+        budget_before = budget_path.read_bytes()
+        receipts_before = receipts_path.read_bytes()
+
+        replay = FakeTransport([])
+        report, usage = run_engine(
+            store, replay, text=source, max_calls=4
+        )
+
+        self.assertEqual(replay.calls, [])
+        self.assertEqual(usage["call_count"], 0)
+        self.assertEqual(budget_path.read_bytes(), budget_before)
+        self.assertEqual(receipts_path.read_bytes(), receipts_before)
+        replayed_evidence = {
+            row["field_path"]: row
+            for row in report["fact_audit"]["existing_evidence_verdicts"]
+        }
+        self.assertEqual(
+            replayed_evidence["development_priorities[0]"]["classification"],
+            "unsupported",
+        )
+        self.assertEqual(
+            replayed_evidence["development_priorities[1]"][
+                "factual_applicability"
+            ],
+            "not_applicable",
+        )
+        replayed_guard = next(
+            row for row in report["fact_audit"]["verdicts"]
+            if row["claim_id"] == "guard.existing_evidence"
+        )
+        self.assertEqual(replayed_guard["classification"], "unsupported")
+
+    def test_engine_only_taste_parts_preserve_settled_detail_receipt(self):
+        class FailProgressAfterDetail(cv.LocalCheckpointStore):
+            fail_progress = False
+
+            def save(self, key, stage, record):
+                if stage == "audit_details_progress" and self.fail_progress:
+                    self.fail_progress = False
+                    raise RuntimeError("crash after settled detail receipt")
+                super().save(key, stage, record)
+
+        coverage = valid_coverage()
+        store = FailProgressAfterDetail(
+            Path(tempfile.mkdtemp()) / "cv1"
+        )
+        current_builder = cv.build_existing_evidence_checks
+
+        def old_shape_checks(*args, **kwargs):
+            checks = current_builder(*args, **kwargs)
+            for check in checks:
+                check.pop("_recommendation_parts", None)
+            return checks
+
+        current_checks = current_builder(coverage, SCREENPLAY_TEXT)
+        old_checks = old_shape_checks(coverage, SCREENPLAY_TEXT)
+        audit = provider_audit_core(coverage)
+        normalized = cv.normalize_audit_tool_input(
+            copy.deepcopy(audit), range(1, 7)
+        )
+        page_map = cv.build_page_reference_map(
+            SCREENPLAY_TEXT, 6, None
+        )
+        audit_args = (
+            SCREENPLAY_TEXT,
+            "El Último Portero",
+            cv.build_audit_claims(coverage),
+        )
+        self.assertEqual(
+            cv.canonical_json_hash(cv.build_audit_user_blocks(
+                *audit_args,
+                coverage=coverage,
+                page_reference_map=page_map,
+                evidence_checks=current_checks,
+                sequence_focus=cv.build_sequence_focus(SCREENPLAY_TEXT),
+            )),
+            cv.canonical_json_hash(cv.build_audit_user_blocks(
+                *audit_args,
+                coverage=coverage,
+                page_reference_map=page_map,
+                evidence_checks=old_checks,
+                sequence_focus=cv.build_sequence_focus(SCREENPLAY_TEXT),
+            )),
+        )
+        self.assertEqual(
+            cv.canonical_json_hash(cv.build_detail_audit_rows(
+                coverage, current_checks, normalized["sequence_ledger"]
+            )),
+            cv.canonical_json_hash(cv.build_detail_audit_rows(
+                coverage, old_checks, normalized["sequence_ledger"]
+            )),
+        )
+
+        class ArmCrashTransport(FakeTransport):
+            def __call__(self, **kwargs):
+                result = super().__call__(**kwargs)
+                if kwargs.get("stage") == "coverage_v1.fact_audit_details":
+                    store.fail_progress = True
+                return result
+
+        first = ArmCrashTransport([
+            (coverage, settled_usage()),
+            (audit, settled_usage()),
+            (supported_detail_payload(coverage), settled_usage()),
+        ])
+        with patch.object(
+            cv,
+            "build_existing_evidence_checks",
+            side_effect=old_shape_checks,
+        ):
+            with self.assertRaisesRegex(
+                RuntimeError, "crash after settled detail receipt"
+            ):
+                run_engine(store, first, max_calls=3)
+
+        budget_path = next(store.root.glob("*/budget.json"))
+        receipts_path = next(store.root.glob("*/call_receipts.json"))
+        budget_before = budget_path.read_bytes()
+        receipts_before = receipts_path.read_bytes()
+
+        resume = FakeTransport([])
+        usage = {}
+        with patch.object(
+            cv._CostGuard,
+            "clear_receipts",
+            side_effect=RuntimeError("stop before receipt cleanup"),
+        ):
+            with self.assertRaisesRegex(
+                RuntimeError, "stop before receipt cleanup"
+            ):
+                run_engine(
+                    store,
+                    resume,
+                    max_calls=3,
+                    usage_sink=usage,
+                )
+        self.assertEqual(resume.calls, [])
+        self.assertEqual(usage["call_count"], 0)
+        self.assertEqual(budget_path.read_bytes(), budget_before)
+        self.assertEqual(receipts_path.read_bytes(), receipts_before)
+        self.assertTrue(list(store.root.glob("*/audit.json")))
+
+        finish = FakeTransport([])
+        report, finish_usage = run_engine(store, finish, max_calls=3)
+        self.assertEqual(finish.calls, [])
+        self.assertEqual(finish_usage["call_count"], 0)
+        self.assertEqual(report["status"], "sealed")
+
     def test_audit_contract_drift_reuses_stage_bound_coverage(self):
         coverage = valid_coverage()
         store = new_store()
@@ -9092,12 +9518,19 @@ The footage continues.
         safe_row["subject"]["claim"] = (
             "Clarify activation of the existing camera footage."
         )
-        payload["results"][row["slot"]] = copy.deepcopy(focused_result)
+        payload["results"][row["slot"]] = {
+            **copy.deepcopy(focused_result),
+            "note": "The existing camera source is inferable.",
+        }
         for unsafe_claim in (
             "Add a brand-new camera before the reveal.",
             "Introduce an additional recording device before the reveal.",
             "Plant another camera before the reveal.",
             "Plant and play the video-exposure mechanism in Act 2.",
+            (
+                "Plant and assign the surveillance video evidence earlier "
+                "by showing a character filming it."
+            ),
             "Show the hero placing or activating the camera.",
             "The existing source is insufficient, so create a camera for "
             "the climax.",
@@ -9124,6 +9557,7 @@ The footage continues.
             "Create a camera payoff for the existing p.73 setup.",
             "Add a camera-activation beat using the established device.",
             "Introduce a camera-activation moment for the existing source.",
+            "Confirm Richie filmed the existing video with the established camera.",
         ):
             with self.subTest(safe_claim=safe_claim):
                 safe_row["subject"]["claim"] = safe_claim
@@ -13032,6 +13466,163 @@ Angela knows she said yes under puppeting.""",
         targets = cv._fact_repair_targets(by_claim, audit, checks)
 
         self.assertIn("guard.existing_evidence", targets)
+
+    def test_cosquillitas_richie_evidence_repair_ignores_unrelated_sequence_gaps(self):
+        coverage = valid_coverage()
+        coverage["development_priorities"][0] = {
+            "priority": (
+                "Plant and assign the surveillance video that exonerates "
+                "Cosquillitas at the climax"
+            ),
+            "why": (
+                "The video appears with no identified agent even though an "
+                "existing camera is visible earlier."
+            ),
+            "how": (
+                "Show Richie filming Tony's bribery, then submitting the footage."
+            ),
+        }
+        source = """\
+[PAGE 73]
+Vemos una pequeña cámara oculta.
+[PAGE 87]
+Tony entrega billetes. Richie escucha todo.
+[PAGE 97]
+Aparece un video en la gran pantalla.
+[PAGE 98]
+Siguen videos donde Richie espía a Lucesita.
+"""
+        checks = cv.build_existing_evidence_checks(
+            coverage, source
+        )
+        target = next(
+            row for row in checks
+            if row["field_path"] == "development_priorities[0]"
+        )
+        audit = cv._replace_audit_details(
+            supported_audit(coverage), [{
+            "field_path": target["field_path"],
+            "classification": "partially_supported",
+            "note": (
+                "The source is established, but activation remains unconfirmed."
+            ),
+            "reviewed_roles": cv._focused_role_tokens(target),
+            "source_status": "established",
+            "activation_status": "unconfirmed",
+        }], [], checks)
+        normalized = audit["existing_evidence_verdicts"][0]
+        self.assertEqual(normalized["classification"], "unsupported")
+        self.assertIn("FOCUSED_EVIDENCE_CONTRADICTION", normalized["note"])
+        audit["sequence_evidence"] = [{
+            "field_path": "sequence_ledger[9]",
+            "classification": "unclassified",
+            "note": "The auditor did not return a verdict for this claim.",
+            "grounding_status": "unresolved",
+            "grounding_valid": False,
+        }]
+        by_claim = {
+            row["claim_id"]: row for row in audit["verdicts"]
+        }
+
+        targets = cv._fact_repair_targets(by_claim, audit, checks)
+
+        self.assertIn("guard.existing_evidence", targets)
+
+    def test_cosquillitas_richie_beat_cannot_move_after_the_expose(self):
+        coverage = valid_coverage()
+        coverage["story_spine"]["climax"] = (
+            "Diego plays the exposé, then Cosquillitas receive the trophy."
+        )
+        coverage["story_spine"]["ending"] = (
+            "Richie reunites with Lucesita and receives her wig."
+        )
+        audit = supported_audit(coverage)
+        climax_template = audit["sequence_ledger"][0]
+        richie = copy.deepcopy(climax_template)
+        ground_sequence_row_for_test(
+            richie,
+            page=4,
+            actor="Richie",
+            action=(
+                "Richie approaches Lucesita and declares his love before "
+                "the exposé."
+            ),
+            knowledge="Richie knows he still loves Lucesita.",
+            audience="The audience sees Richie reunite with Lucesita.",
+        )
+        expose = copy.deepcopy(climax_template)
+        ground_sequence_row_for_test(
+            expose,
+            page=5,
+            actor="Diego",
+            action="Diego plays the exposé and overturns the corrupt result.",
+            knowledge="Diego knows the corrupt result is overturned.",
+            audience="The audience sees Diego play the exposé.",
+        )
+        trophy = copy.deepcopy(climax_template)
+        ground_sequence_row_for_test(
+            trophy,
+            page=6,
+            actor="The conductor",
+            action="The conductor awards Cosquillitas the trophy.",
+            knowledge="The conductor knows Cosquillitas won.",
+            audience="The audience sees Cosquillitas receive the trophy.",
+        )
+        for order, row in enumerate((richie, expose, trophy), start=1):
+            row["order"] = order
+            row["phase"] = "climax"
+        audit["sequence_ledger"] = [
+            richie,
+            expose,
+            trophy,
+            *[
+                {**row, "order": index}
+                for index, row in enumerate(
+                    audit["sequence_ledger"][1:], start=4
+                )
+            ],
+        ]
+
+        reconciled = cv._reconcile_literal_sequence_claims(audit, coverage)
+
+        cross_field = next(
+            row for row in reconciled["verdicts"]
+            if row["claim_id"] == "guard.cross_field_consistency"
+        )
+        self.assertEqual(cross_field["classification"], "unsupported")
+        self.assertIn(
+            "Richie",
+            " ".join(reconciled["sequence_normalization_diagnostics"]),
+        )
+        reconciled["sequence_evidence"] = [
+            {
+                "field_path": "sequence_ledger[0]",
+                "classification": "supported",
+                "grounding_valid": True,
+            },
+            {
+                "field_path": "sequence_ledger[1]",
+                "classification": "unclassified",
+                "grounding_status": "unresolved",
+                "grounding_valid": False,
+            },
+        ]
+        by_claim = {
+            row["claim_id"]: row for row in reconciled["verdicts"]
+        }
+        self.assertIn(
+            "guard.cross_field_consistency",
+            cv._fact_repair_targets(by_claim, reconciled, []),
+        )
+        reconciled["sequence_evidence"][0].update({
+            "classification": "unclassified",
+            "grounding_status": "unresolved",
+            "grounding_valid": False,
+        })
+        self.assertNotIn(
+            "guard.cross_field_consistency",
+            cv._fact_repair_targets(by_claim, reconciled, []),
+        )
 
     def test_fact_repair_gets_one_targeted_citation_scope_retry(self):
         coverage = valid_coverage()

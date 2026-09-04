@@ -164,6 +164,7 @@ def run_canary(
         "mode": "paid" if execute else "dry_run",
         "max_total_usd": max_total_usd,
         "max_script_usd": max_script_usd,
+        "configured_max_calls_per_script": MAX_CANARY_CALLS_PER_SCRIPT,
         "scripts": [],
         "totals": {
             "charged_usd": 0.0,
@@ -172,7 +173,7 @@ def run_canary(
             "call_count": 0,
         },
         "hard_failures": [],
-        "resume_drill": None,
+        "resume_drill": {"status": "not_run", "repaid_nothing": None},
     }
 
     charged_total = 0.0
@@ -278,7 +279,9 @@ def run_canary(
                 ]
                 drill["resume_run_call_count"] = int(usage.get("call_count", 0))
                 drill["repaid_nothing"] = drill["resumed_coverage_replayed"]
-                scorecard["resume_drill"] = {**drill, "script": title}
+                scorecard["resume_drill"] = {
+                    "status": "completed", **drill, "script": title
+                }
                 if not drill["repaid_nothing"]:
                     scorecard["hard_failures"].append(
                         f"#{index} {title}: resume drill repaid work"
@@ -334,6 +337,9 @@ def run_canary(
         # The engine's durable budget ledger already includes calls made by
         # the killed invocation, so the resumed report is the lifetime total.
         cost = dict(report["cost"])
+        invocation_cost = coverage_v1._usage_cost_split(
+            coverage_v1._merge_usage(kill_sink, run_sink)
+        )
         charged_total += float(cost["charged_usd"])
         row.update(
             {
@@ -343,11 +349,14 @@ def run_canary(
                 "film_now_nominated": report["film_now_nominated"],
                 "human_review_recommended": report["human_review_recommended"],
                 "review_reasons": report["review_reasons"],
-                "support_rate": report["fact_audit"]["support_rate"],
+                "fact_audit_support_rate": report["fact_audit"][
+                    "support_rate"
+                ],
                 "central_failures": report["fact_audit"]["central_failures"],
                 "citations_total": (report.get("citation_verification") or {}).get("total"),
                 "citations_unverified": (report.get("citation_verification") or {}).get("unverified"),
                 "cost": cost,
+                "invocation_cost": invocation_cost,
                 "resume_drill": drill,
                 "spine": report["coverage"]["story_spine"],
                 "development_priorities": report["coverage"][
@@ -382,19 +391,24 @@ def run_canary(
         bars["every_script_within_cap"] = all(
             s["cost"]["charged_usd"] <= max_script_usd + 1e-9 for s in completed
         )
-        # V1.2 needs 3 base calls, 3 independent fact-repair calls, and at
-        # most 1 prior coverage-structure repair for canary acceptance.
-        bars["max_seven_calls_per_script"] = _within_call_ceiling(completed)
+        # The configured cap is the only authoritative call ceiling.
+        bars["within_configured_call_cap"] = _within_call_ceiling(completed)
         bars["zero_unverified_citations"] = all(
             (s.get("citations_unverified") or 0) == 0 for s in completed
         )
-        bars["settled_cost_max_usd"] = max(
-            (s["cost"]["settled_usd"] for s in completed), default=0.0
+        bars["invocation_settled_cost_max_usd"] = max(
+            (s["invocation_cost"]["settled_usd"] for s in completed),
+            default=0.0,
         )
-        bars["settled_cost_target_060"] = bars["settled_cost_max_usd"] <= 0.60
+        bars["invocation_settled_cost_target_060"] = (
+            bars["invocation_settled_cost_max_usd"] <= 0.60
+        )
         drill_result = scorecard.get("resume_drill")
-        bars["resume_repaid_nothing"] = bool(
-            drill_result and drill_result.get("repaid_nothing")
+        bars["resume_repaid_nothing"] = (
+            bool(drill_result.get("repaid_nothing"))
+            if isinstance(drill_result, dict)
+            and drill_result.get("status") == "completed"
+            else None
         )
 
     scorecard["finished_at"] = datetime.now(timezone.utc).isoformat()

@@ -910,6 +910,86 @@ def normalize_audit_tool_input(
     return normalized_payload
 
 
+_LITERAL_SEQUENCE_MISMATCH_PREFIX = "DETERMINISTIC_SPINE_SEQUENCE_MISMATCH:"
+
+
+def _reconcile_literal_sequence_claims(
+    audit_payload: Dict[str, Any],
+    coverage: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Fail a cross-field claim when a mid-climax beat was moved to ending."""
+    sequence = audit_payload.get("sequence_ledger")
+    spine = coverage.get("story_spine")
+    if not isinstance(sequence, list) or not isinstance(spine, dict):
+        return audit_payload
+    climax_rows = [
+        (index, row) for index, row in enumerate(sequence)
+        if isinstance(row, dict) and row.get("phase") == "climax"
+    ]
+    climax_text = _fold_evidence_text(str(spine.get("climax", "")))
+    ending_text = _fold_evidence_text(str(spine.get("ending", "")))
+    if len(climax_rows) < 2 or not climax_text or not ending_text:
+        return audit_payload
+
+    def contains(text: str, name: str) -> bool:
+        return bool(re.search(rf"\b{re.escape(name)}\b", text))
+
+    mismatches: List[str] = []
+    mismatch_rows: List[Dict[str, Any]] = []
+    for ledger_index, beat in climax_rows[:-1]:
+        actor_names = [
+            _fold_evidence_text(name)
+            for name in _sequence_named_actors(str(beat.get("actor", "")))
+        ]
+        action_names = [
+            _fold_evidence_text(name)
+            for name in _sequence_named_actors(str(beat.get("action", "")))
+        ]
+        misplaced = next((
+            name for name in actor_names
+            if contains(ending_text, name)
+            and not contains(climax_text, name)
+            and any(
+                companion != name
+                and contains(ending_text, companion)
+                and not contains(climax_text, companion)
+                for companion in action_names
+            )
+        ), None)
+        if misplaced:
+            mismatches.append(
+                f"{_LITERAL_SEQUENCE_MISMATCH_PREFIX} climax beat "
+                f"{beat.get('order')} ({beat.get('actor')}) occurs before "
+                "later climax beats, but its named event appears only in "
+                "story_spine.ending."
+            )
+            mismatch_rows.append({
+                "ledger_index": ledger_index,
+                "order": beat.get("order"),
+                "actor": beat.get("actor"),
+            })
+    if not mismatches:
+        return audit_payload
+
+    reconciled = copy.deepcopy(audit_payload)
+    reconciled["deterministic_sequence_mismatches"] = mismatch_rows
+    diagnostics = reconciled.setdefault(
+        "sequence_normalization_diagnostics", []
+    )
+    for mismatch in mismatches:
+        if mismatch not in diagnostics:
+            diagnostics.append(mismatch)
+    for verdict in reconciled.get("verdicts", []):
+        if (
+            isinstance(verdict, dict)
+            and verdict.get("claim_id") == "guard.cross_field_consistency"
+            and verdict.get("classification") == "supported"
+        ):
+            verdict["classification"] = "unsupported"
+            verdict["note"] = " ".join(mismatches)
+    return reconciled
+
+
 def _citation_claim_span(item: Dict[str, Any]) -> str:
     """Return the cited sentence instead of treating a whole lens as one claim."""
     prose = next(
@@ -935,6 +1015,15 @@ def _citation_claim_span(item: Dict[str, Any]) -> str:
     return matches[0] if len(matches) == 1 else " ".join(prose.split())
 
 
+def _provider_evidence_check(check: Dict[str, Any]) -> Dict[str, Any]:
+    """Remove local-only annotations from paid request identities."""
+    return {
+        key: copy.deepcopy(value)
+        for key, value in check.items()
+        if key != "_recommendation_parts"
+    }
+
+
 def build_detail_audit_rows(
     coverage: Dict[str, Any],
     evidence_checks: Sequence[Dict[str, Any]],
@@ -953,7 +1042,7 @@ def build_detail_audit_rows(
         rows.append({
             "kind": "existing_evidence",
             "identifier": str(check["field_path"]),
-            "subject": copy.deepcopy(check),
+            "subject": _provider_evidence_check(check),
         })
     for owner, item in _iter_citations(coverage):
         claim_span = _citation_claim_span(item)
@@ -2697,7 +2786,9 @@ def _sequence_check_line_range(
 
 
 def _sequence_anchor_line_distance(
-    first_check: Dict[str, Any], second_check: Dict[str, Any]
+    first_check: Dict[str, Any],
+    second_check: Dict[str, Any],
+    page_text: str,
 ) -> Optional[int]:
     coordinates = []
     for check in (first_check, second_check):
@@ -2710,7 +2801,14 @@ def _sequence_anchor_line_distance(
         coordinates.append((int(match.group("page")), int(match.group("line"))))
     if coordinates[0][0] != coordinates[1][0]:
         return None
-    return abs(coordinates[0][1] - coordinates[1][1])
+    first_line, second_line = coordinates[0][1], coordinates[1][1]
+    lines = page_text.splitlines()
+    if max(first_line, second_line) > len(lines) or any(
+        SCENE_HEADING_PATTERN.match(line)
+        for line in lines[min(first_line, second_line):max(first_line, second_line) - 1]
+    ):
+        return None
+    return abs(first_line - second_line)
 
 
 def _sequence_actor_number(actor: str) -> str:
@@ -4055,7 +4153,7 @@ def _decode_grounded_detail_value(
                     return None, actor_reason
                 if field == "result":
                     result_distance = _sequence_anchor_line_distance(
-                        action_check, field_check
+                        action_check, field_check, page_text
                     )
                     anchored_result = (
                         action_actor_bound
@@ -4076,10 +4174,10 @@ def _decode_grounded_detail_value(
                     distances = [
                         distance for distance in (
                             _sequence_anchor_line_distance(
-                                action_check, field_check
+                                action_check, field_check, page_text
                             ),
                             _sequence_anchor_line_distance(
-                                actor_check, field_check
+                                actor_check, field_check, page_text
                             ),
                         )
                         if distance is not None
@@ -4628,6 +4726,57 @@ def _malformed_text_detail_rows(
     return malformed
 
 
+def _normalize_existing_evidence_result(
+    decoded: Dict[str, Any],
+    subject: Dict[str, Any],
+) -> Dict[str, Any]:
+    normalized = copy.deepcopy(decoded)
+    classification = str(normalized["classification"])
+    note = str(normalized["note"])
+    focused = subject.get("focused_evidence", [])
+    claim = str(subject.get("claim", ""))
+    if (
+        subject.get("trigger") == "recommendation"
+        and _recommendation_is_editorial_only(
+            claim,
+            classification,
+            subject.get("_recommendation_parts", ()),
+        )
+    ):
+        normalized["factual_applicability"] = "not_applicable"
+        return normalized
+    if subject.get("focused_evidence_ambiguous"):
+        return {
+            "classification": "unsupported",
+            "note": (
+                "FOCUSED_EVIDENCE_AMBIGUOUS: no unique reveal "
+                "cluster could be identified from the claim and source."
+            ),
+            "classification_normalized_from": classification,
+            "note_normalized_from": note,
+        }
+    if focused:
+        source_contradiction = bool(
+            normalized.get("source_status") in {"established", "inferable"}
+            and (
+                _asserts_new_or_missing_source(claim)
+                or _asserts_new_or_missing_source(note)
+            )
+        )
+        if source_contradiction:
+            return {
+                "classification": "unsupported",
+                "note": (
+                    "FOCUSED_EVIDENCE_CONTRADICTION: the auditor marked "
+                    "the source inferable or established but also asserted "
+                    "that a new source is required."
+                ),
+                "classification_normalized_from": classification,
+                "note_normalized_from": note,
+            }
+    return normalized
+
+
 def decode_detail_audit_payload(
     payload: Any,
     rows: Sequence[Dict[str, Any]],
@@ -4710,39 +4859,7 @@ def decode_detail_audit_payload(
                     "classification": classification,
                     "note": note,
                 }
-            classification = str(decoded["classification"])
-            note = str(decoded["note"])
-            source_contradiction = bool(
-                decoded.get("source_status")
-                in {"established", "inferable"}
-                and (
-                    _asserts_new_or_missing_source(
-                        str(subject.get("claim", ""))
-                    )
-                    or _asserts_new_or_missing_source(note)
-                )
-            )
-            if subject.get("focused_evidence_ambiguous"):
-                decoded = {
-                    "classification": "unsupported",
-                    "note": (
-                        "FOCUSED_EVIDENCE_AMBIGUOUS: no unique reveal "
-                        "cluster could be identified from the claim and source."
-                    ),
-                    "classification_normalized_from": classification,
-                    "note_normalized_from": note,
-                }
-            elif source_contradiction:
-                decoded = {
-                    "classification": "unsupported",
-                    "note": (
-                        "FOCUSED_EVIDENCE_CONTRADICTION: the auditor marked "
-                        "the source inferable or established but also asserted "
-                        "that a new source is required."
-                    ),
-                    "classification_normalized_from": classification,
-                    "note_normalized_from": note,
-                }
+            decoded = _normalize_existing_evidence_result(decoded, subject)
             evidence.append({"field_path": identifier, **decoded})
         else:
             raise CoverageContractError(
@@ -6859,6 +6976,7 @@ _CONTRADICTORY_NEW_SOURCE = re.compile(
     r"activation|delivery|release|link|conexi[oó]n|activaci[oó]n|entrega|"
     r"v[ií]nculo)\b)|"
     r"plant(?: and play)? (?:the )?video[- ]exposure mechanism|"
+    r"plant and assign (?:the )?(?:surveillance )?video(?: evidence)?|"
     r"(?:plac(?:e|es|ed|ing)|colocar|coloca)\b.{0,30}\b(?:camera|c[aá]mara)|"
     r"(?:new|brand-new|additional) (?:camera|recording(?: device)?|source) "
     r"is required)\b",
@@ -7118,6 +7236,97 @@ def _has_nonquantitative_absolute(claim: str) -> bool:
     ) is not None
 
 
+def _recommendation_has_factual_premise(claim: str) -> bool:
+    """Keep applicability deterministic instead of trusting the auditor note."""
+    cleaned = re.sub(
+        r"\bno (?:amount of|more than|less than)\b", " ", claim,
+        flags=re.IGNORECASE,
+    )
+    factual_absolute = any(
+        _fold_evidence_text(match.group(0)) not in {"first", "primera"}
+        for match in _ABSOLUTE_NEGATIVE.finditer(
+            _QUANTITATIVE_ABSOLUTE.sub(" ", cleaned)
+        )
+    )
+    objective_count = any(
+        not details.get("_subjective_count")
+        for details in _material_count_claims_details(
+            claim, annotate_subjectivity=True
+        )
+    )
+    return factual_absolute or objective_count or _is_reveal_provenance_claim(
+        claim
+    )
+
+
+_RECOMMENDATION_CLAUSE_BREAK = re.compile(
+    r"\s*(?:[.;:!?—–,]|\b(?:and|but|because|since|where|when|before|"
+    r"after|while|then)\b)\s*",
+    re.IGNORECASE,
+)
+_EDITORIAL_DIRECTIVE_WORDS = {
+    "accelerate", "breathe", "cut", "let", "move", "pace", "reframe",
+    "sequence", "slow", "stage", "thin", "tighten", "trim",
+}
+_EDITORIAL_JUDGMENT_WORDS = {
+    "abrupt", "breathe", "buries", "bury", "clearer", "crowd", "crowds",
+    "dilute", "dilutes", "drag", "drags", "fast", "feel", "feels", "land",
+    "lands", "overwhelm", "overwhelms", "read", "reads", "repetitive",
+    "rush", "rushes", "slow", "stronger", "weaker",
+}
+_EDITORIAL_CLAUSE_WORDS = (
+    _EDITORIAL_DIRECTIVE_WORDS
+    | _EDITORIAL_JUDGMENT_WORDS
+    | {
+        "a", "an", "and", "action", "absurdist", "beat", "beats",
+        "breathing", "cascade", "coda", "comedically", "comedic", "comic",
+        "down", "earlier", "emotional", "ending", "faster", "final",
+        "finale", "first", "for", "genre", "give", "its", "landing",
+        "landings", "later", "less", "more", "moment", "moments", "of",
+        "on", "or", "overall", "pace", "pacing", "parody", "pile",
+        "resolution", "rhythm", "romance", "room", "satirical", "scene",
+        "scenes", "sequence", "sequences", "slower", "structural", "that",
+        "the", "then", "this", "to", "tonal", "tone", "transition",
+        "transitions", "up", "very",
+    }
+)
+
+
+def _is_editorial_clause(clause: str) -> bool:
+    words = re.findall(r"[a-z]+", _fold_evidence_text(clause))
+    return bool(words) and set(words) <= _EDITORIAL_CLAUSE_WORDS and (
+        words[0] in _EDITORIAL_DIRECTIVE_WORDS
+        or any(word in _EDITORIAL_JUDGMENT_WORDS for word in words)
+    )
+
+
+def _recommendation_is_editorial_only(
+    claim: str,
+    classification: str,
+    parts: Sequence[str] = (),
+) -> bool:
+    """Exclude only positively identified taste; mixed claims fail closed."""
+    if (
+        classification != "unsupported"
+        or _recommendation_has_factual_premise(claim)
+        or _prose_page_spans(claim)
+        or re.search(r'["\u201c\u201d\u00ab\u00bb]', claim)
+        or re.search(r"\d", claim)
+    ):
+        return False
+    source_parts = (
+        [part for part in parts if isinstance(part, str) and part.strip()]
+        or [claim]
+    )
+    clauses = [
+        clause.strip()
+        for part in source_parts
+        for clause in _RECOMMENDATION_CLAUSE_BREAK.split(part)
+        if clause.strip()
+    ]
+    return bool(clauses) and all(_is_editorial_clause(clause) for clause in clauses)
+
+
 def build_existing_evidence_checks(
     coverage: Dict[str, Any],
     text: str,
@@ -7134,15 +7343,18 @@ def build_existing_evidence_checks(
     for index, priority in enumerate(coverage.get("development_priorities", [])):
         if isinstance(priority, dict):
             path = f"development_priorities[{index}]"
-            combined = " ".join(
-                str(priority.get(field, ""))
+            parts = [
+                " ".join(str(priority.get(field, "")).split())
                 for field in ("priority", "why", "how")
-            )
+                if str(priority.get(field, "")).strip()
+            ]
+            combined = " ".join(parts)
             candidates.append({
                 "path": path,
                 "source_path": path,
                 "claim": combined,
                 "trigger": "recommendation",
+                "_recommendation_parts": parts,
             })
     for path, value in _iter_coverage_text_fields(coverage):
         if path.startswith("development_priorities["):
@@ -7240,7 +7452,11 @@ def build_existing_evidence_checks(
             }
         if trigger == "counting_claim":
             check.update(candidate["count_details"])
-        elif (
+        if trigger == "recommendation":
+            check["_recommendation_parts"] = candidate[
+                "_recommendation_parts"
+            ]
+        if (
             trigger in {"absolute_negative", "recommendation"}
             and _is_reveal_provenance_claim(claim)
         ):
@@ -7451,7 +7667,14 @@ def build_audit_user_blocks(
                 "type": "text",
                 "text": (
                     "# EXISTING-EVIDENCE CHECKS (code-generated search leads)\n\n"
-                    + json.dumps(list(evidence_checks), ensure_ascii=False, indent=1)
+                    + json.dumps(
+                        [
+                            _provider_evidence_check(check)
+                            for check in evidence_checks
+                        ],
+                        ensure_ascii=False,
+                        indent=1,
+                    )
                     + "\n\nExact-term hits are leads, not proof of meaning. Inspect "
                     "the complete screenplay for synonyms, physical staging, "
                     "setup, payoff, and aftermath before ruling on absence."
@@ -9019,7 +9242,12 @@ def validate_audit_payload(
         (sequence_rows, "guard.sequence_integrity"),
     ):
         detailed_failure = any(
-            row.get("classification") != "supported" for row in rows
+            row.get("classification") != "supported"
+            and not (
+                guard_id == "guard.existing_evidence"
+                and row.get("factual_applicability") == "not_applicable"
+            )
+            for row in rows
         )
         guard_row = verdict_by_id.get(guard_id, {})
         guard_supported = guard_row.get("classification") == "supported"
@@ -9820,6 +10048,7 @@ def _replace_audit_details(
     payload: Dict[str, Any],
     evidence_rows: Sequence[Dict[str, str]],
     citation_rows: Sequence[Dict[str, str]],
+    evidence_checks: Sequence[Dict[str, Any]] = (),
 ) -> Dict[str, Any]:
     """Replace incomplete detail arrays and derive their aggregate guards."""
     updated = copy.deepcopy(payload)
@@ -9827,8 +10056,21 @@ def _replace_audit_details(
         row for row in evidence_rows
         if str(row.get("field_path", "")).startswith("sequence_ledger[")
     ]
+    evidence_subjects = {
+        str(row.get("field_path", "")): row
+        for row in evidence_checks
+        if isinstance(row, dict)
+    }
     coverage_evidence_rows = [
-        row for row in evidence_rows
+        {
+            "field_path": str(row.get("field_path", "")),
+            **_normalize_existing_evidence_result(
+                row, evidence_subjects[str(row.get("field_path", ""))]
+            ),
+        }
+        if str(row.get("field_path", "")) in evidence_subjects
+        else row
+        for row in evidence_rows
         if not str(row.get("field_path", "")).startswith("sequence_ledger[")
     ]
     updated["existing_evidence_verdicts"] = coverage_evidence_rows
@@ -9851,14 +10093,22 @@ def _replace_audit_details(
         (citation_rows, "guard.citation_relevance", "owner"),
         (sequence_rows, "guard.sequence_integrity", "field_path"),
     ):
+        factual_rows = (
+            [
+                row for row in rows
+                if row.get("factual_applicability") != "not_applicable"
+            ]
+            if guard_id == "guard.existing_evidence"
+            else rows
+        )
         worst = max(
-            (str(row["classification"]) for row in rows),
+            (str(row["classification"]) for row in factual_rows),
             key=lambda classification: rank[classification],
             default="supported",
         )
         failures = [
             str(row[id_field])
-            for row in rows
+            for row in factual_rows
             if row["classification"] != "supported"
         ]
         guard = verdicts.get(guard_id)
@@ -9892,7 +10142,9 @@ def _reconcile_complete_audit_details(
     citation_rows = _reconcile_citation_relevance_with_evidence(
         payload.get("citation_relevance", []), evidence_rows, rows
     )
-    return _replace_audit_details(payload, evidence_rows, citation_rows)
+    return _replace_audit_details(
+        payload, evidence_rows, citation_rows, evidence_checks
+    )
 
 
 def _synthesize_missing_verdicts(
@@ -9979,19 +10231,21 @@ def _fact_repair_targets(
     evidence_checks: Sequence[Dict[str, Any]],
 ) -> List[str]:
     """Return fact disputes that have evidence strong enough to rewrite once."""
-    if any(
-        isinstance(row, dict)
-        and row.get("classification") == "unclassified"
-        and row.get("grounding_status") == "unresolved"
-        and row.get("grounding_valid") is False
+    unresolved_detail = {
+        field
         for field in (
             "existing_evidence_verdicts",
             "sequence_evidence",
             "citation_relevance",
         )
-        for row in audit_payload.get(field, [])
-    ):
-        return []
+        if any(
+            isinstance(row, dict)
+            and row.get("classification") == "unclassified"
+            and row.get("grounding_status") == "unresolved"
+            and row.get("grounding_valid") is False
+            for row in audit_payload.get(field, [])
+        )
+    }
     evidence_trigger = {
         str(row.get("field_path", "")): row.get("trigger")
         for row in evidence_checks
@@ -10004,31 +10258,60 @@ def _fact_repair_targets(
         }
         and evidence_trigger.get(str(row.get("field_path", "")))
         in {"absolute_negative", "recommendation"}
+        and row.get("factual_applicability") != "not_applicable"
         and not str(row.get("note", "")).startswith(
             "FOCUSED_EVIDENCE_AMBIGUOUS"
         )
         for row in audit_payload.get("existing_evidence_verdicts", [])
     )
-    targets = {
-        claim_id
-        for claim_id, row in by_claim.items()
-        if row.get("classification") == "partially_supported"
-        and claim_id != "guard.sequence_integrity"
-    }
+    targets = set()
+    if not unresolved_detail:
+        targets = {
+            claim_id
+            for claim_id, row in by_claim.items()
+            if row.get("classification") == "partially_supported"
+            and claim_id != "guard.sequence_integrity"
+        }
     evidence_classification = by_claim.get(
         "guard.existing_evidence", {}
     ).get("classification")
     if (
         evidence_classification in {"unsupported", "contradicted"}
         and repairable_evidence_failure
+        and "existing_evidence_verdicts" not in unresolved_detail
     ):
         targets.add("guard.existing_evidence")
         if by_claim.get("guard.citation_relevance", {}).get(
             "classification"
-        ) in {"unsupported", "contradicted"}:
+        ) in {"unsupported", "contradicted"} and (
+            "citation_relevance" not in unresolved_detail
+        ):
             targets.add("guard.citation_relevance")
+    deterministic_sequence_mismatches = audit_payload.get(
+        "deterministic_sequence_mismatches", []
+    )
+    grounded_sequence_paths = {
+        str(row.get("field_path", ""))
+        for row in audit_payload.get("sequence_evidence", [])
+        if isinstance(row, dict)
+        and row.get("classification") == "supported"
+        and row.get("grounding_valid") is True
+    }
+    grounded_deterministic_mismatches = bool(
+        deterministic_sequence_mismatches
+    ) and all(
+        isinstance(row, dict)
+        and f"sequence_ledger[{row.get('ledger_index')}]"
+        in grounded_sequence_paths
+        for row in deterministic_sequence_mismatches
+    )
     if (
         audit_payload.get("sequence_normalization_diagnostics")
+        and (
+            grounded_deterministic_mismatches
+            if deterministic_sequence_mismatches
+            else "sequence_evidence" not in unresolved_detail
+        )
         and by_claim.get("guard.cross_field_consistency", {}).get(
             "classification"
         ) in {"unsupported", "contradicted"}
@@ -12215,7 +12498,7 @@ def run_coverage_v1(
             citation_rows, evidence_rows, all_rows
         )
         return _replace_audit_details(
-            candidate, evidence_rows, citation_rows
+            candidate, evidence_rows, citation_rows, candidate_evidence
         )
 
 
@@ -12535,6 +12818,19 @@ def run_coverage_v1(
             audit_payload.get("audit_retry_calls_used", 0)
         )
 
+    audit_payload = _replace_audit_details(
+        audit_payload,
+        [
+            *audit_payload.get("existing_evidence_verdicts", []),
+            *audit_payload.get("sequence_evidence", []),
+        ],
+        audit_payload.get("citation_relevance", []),
+        existing_evidence_checks,
+    )
+    audit_payload = _reconcile_literal_sequence_claims(
+        audit_payload, coverage_payload
+    )
+
     # ── Adjudication (pure code) ────────────────────────────────────────────
     by_claim, central_failures, central_partials, unclassified, support_rate = (
         _adjudicate_verdicts(audit_payload["verdicts"])
@@ -12681,7 +12977,10 @@ def run_coverage_v1(
                                             ]
                                         ),
                                         "existing_evidence_checks": (
-                                            existing_evidence_checks
+                                            [
+                                                _provider_evidence_check(check)
+                                                for check in existing_evidence_checks
+                                            ]
                                         ),
                                         "sequence_ledger": audit_payload[
                                             "sequence_ledger"

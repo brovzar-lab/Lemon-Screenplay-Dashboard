@@ -10,6 +10,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -142,10 +143,10 @@ class PaidBatchTests(unittest.TestCase):
         bars = scorecard["automated_bars"]
         self.assertTrue(bars["batch_within_authorization"])
         self.assertTrue(bars["every_script_within_cap"])
-        self.assertTrue(bars["max_seven_calls_per_script"])
+        self.assertTrue(bars["within_configured_call_cap"])
         self.assertTrue(bars["zero_unverified_citations"])
         self.assertTrue(bars["resume_repaid_nothing"])
-        self.assertTrue(bars["settled_cost_target_060"])
+        self.assertTrue(bars["invocation_settled_cost_target_060"])
 
         # Reports were written for every script.
         reports = sorted((root / "out" / "reports").glob("*.json"))
@@ -163,6 +164,28 @@ class PaidBatchTests(unittest.TestCase):
         self.assertFalse(canary._within_call_ceiling([
             {"cost": {"call_count": 8}},
         ]))
+
+    def test_scorecard_names_configured_cap_and_disabled_checks_truthfully(self):
+        with patch.object(canary, "MAX_CANARY_CALLS_PER_SCRIPT", 11):
+            scorecard, _transport, _root = self.run_batch(
+                1, resume_drill_index=0
+            )
+
+        self.assertEqual(scorecard["configured_max_calls_per_script"], 11)
+        self.assertEqual(
+            scorecard["resume_drill"],
+            {"status": "not_run", "repaid_nothing": None},
+        )
+        row = scorecard["scripts"][0]
+        self.assertIn("fact_audit_support_rate", row)
+        self.assertNotIn("support_rate", row)
+        self.assertIn("invocation_cost", row)
+        bars = scorecard["automated_bars"]
+        self.assertTrue(bars["within_configured_call_cap"])
+        self.assertNotIn("max_seven_calls_per_script", bars)
+        self.assertIsNone(bars["resume_repaid_nothing"])
+        self.assertTrue(bars["invocation_settled_cost_target_060"])
+        self.assertNotIn("settled_cost_target_060", bars)
 
     def test_unknown_spend_stops_batch_and_charges_full_reserve(self):
         class UnknownSpendTransport:
