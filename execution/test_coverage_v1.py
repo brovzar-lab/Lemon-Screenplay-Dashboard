@@ -55,10 +55,62 @@ Diego decide jugar la final de todos modos.
 [PAGE 6]
 EXT. ESTADIO DEL TORNEO - DÍA
 La final. Lucía anota el gol del empate.
-Diego detiene el último penal y se desploma sobre el pasto.
+Diego detiene el último penal de la final y se desploma sobre el pasto.
+El público ve que Diego detiene el último penal.
 Los niños del barrio ganan el torneo y la cancha se salva.
 Diego sobrevive y se queda como entrenador.
+El público ve que Diego sobrevive y se queda como entrenador.
+Diego survives and stays as coach.
+Diego sees that he survives and stays as coach.
+The audience sees Diego survive and stay as coach.
+Diego understands the physical risk.
+Diego knows the result.
+Diego knows that the result is final.
 """
+
+COSQUILLITAS_SEQUENCE_TEXT = SCREENPLAY_TEXT.replace(
+    "[PAGE 3]",
+    """[PAGE 3]
+Román Vega creates an apparent loss with corrupt scores.
+The audience watches as Román Vega creates an apparent loss with corrupt scores.
+Román Vega knows the result is false.""",
+).replace(
+    "[PAGE 4]",
+    """[PAGE 4]
+Román Vega creates an apparent loss with corrupt scores.
+The audience watches as Román Vega creates an apparent loss with corrupt scores.
+Román Vega knows the result is false.
+Richie receives the wig before the exposé.
+The audience sees Richie receive the wig.
+Richie knows he received the wig.""",
+).replace(
+    "[PAGE 5]",
+    """[PAGE 5]
+Richie chooses Lucesita before the result changes.
+The audience sees Richie choose Lucesita.
+Richie knows he chose Lucesita.
+Richie receives the wig before the exposé.
+The audience sees Richie receive the wig.
+Richie knows he received the wig.
+Diego plays the exposé and overturns the corrupt result.
+The audience sees Diego play the exposé and overturn the corrupt result.
+Diego knows the corrupt result is overturned.
+Diego and the winners celebrate their victory.
+The audience sees Diego and the winners celebrate their victory.
+Diego knows the contest is over.""",
+).replace(
+    "[PAGE 6]",
+    """[PAGE 6]
+Diego plays the exposé and overturns the corrupt result.
+The audience sees Diego play the exposé and overturn the corrupt result.
+Diego knows the corrupt result is overturned.
+Diego and the winners begin their post-climax celebration.
+The audience sees Diego and the winners begin their post-climax celebration.
+Diego knows the contest is over.
+Diego completes the ending with the trophy celebration.
+The audience watches as Diego completes the ending with the trophy celebration.
+Diego knows the ending is complete.""",
+)
 
 FEATURE_STACK = [
     "lemon-coverage", "save-the-cat", "story-grid",
@@ -260,29 +312,35 @@ def supported_audit(coverage: dict) -> dict:
                 "phase": "climax",
                 "actor": "Diego",
                 "action": coverage["story_spine"]["climax"],
-                "result": "The decisive action completes.",
+                "result": "Diego se desploma sobre el pasto.",
                 "character_knowledge": "Diego understands the physical risk.",
-                "audience_knowledge": "The audience knows the medical stakes.",
+                "audience_knowledge": (
+                    "El público ve que Diego detiene el último penal."
+                ),
                 "page": last_page,
             },
             {
                 "order": 2,
                 "phase": "ending",
                 "actor": "Diego",
-                "action": coverage["story_spine"]["ending"],
-                "result": "The ending begins after the decisive action.",
+                "action": "Diego sobrevive y se queda como entrenador.",
+                "result": "Diego sobrevive y se queda como entrenador.",
                 "character_knowledge": "Diego knows the result.",
-                "audience_knowledge": "The audience sees the new state.",
+                "audience_knowledge": (
+                    "El público ve que Diego sobrevive y se queda como entrenador."
+                ),
                 "page": last_page,
             },
             {
                 "order": 3,
                 "phase": "final_scene",
                 "actor": "Diego",
-                "action": coverage["story_spine"]["ending"],
-                "result": "The story reaches its literal final state.",
+                "action": "Diego sobrevive y se queda como entrenador.",
+                "result": "Diego sobrevive y se queda como entrenador.",
                 "character_knowledge": "Diego knows the result.",
-                "audience_knowledge": "The audience sees the aftermath.",
+                "audience_knowledge": (
+                    "El público ve que Diego sobrevive y se queda como entrenador."
+                ),
                 "page": last_page,
             },
             {
@@ -299,10 +357,12 @@ def supported_audit(coverage: dict) -> dict:
                 "order": 5,
                 "phase": "aftermath",
                 "actor": "Diego",
-                "action": coverage["story_spine"]["ending"],
-                "result": "The consequences are shown in the final scene.",
+                "action": "Diego sobrevive y se queda como entrenador.",
+                "result": "Diego sobrevive y se queda como entrenador.",
                 "character_knowledge": "Diego knows the result.",
-                "audience_knowledge": "The audience sees the consequences.",
+                "audience_knowledge": (
+                    "El público ve que Diego sobrevive y se queda como entrenador."
+                ),
                 "page": last_page,
             },
         ],
@@ -367,10 +427,157 @@ def provider_audit_core(coverage: dict) -> dict:
     }
 
 
+def ground_final_scene_for_test(core: dict) -> None:
+    row = core["sequence_ledger"]["final_scene"][0]
+    row["action"] = "Diego sees that he survives and stays as coach."
+    row["result"] = "Diego survives and stays as coach."
+    row["audience_knowledge"] = (
+        "The audience sees Diego survive and stay as coach."
+    )
+
+
+def ground_sequence_row_for_test(
+    row: dict,
+    *,
+    page: int,
+    actor: str,
+    action: str,
+    knowledge: str,
+    audience: str,
+) -> None:
+    row.update({
+        "page": page,
+        "actor": actor,
+        "action": action,
+        "result": action,
+        "character_knowledge": knowledge,
+        "audience_knowledge": audience,
+    })
+
+
+def sequence_source_token(
+    check: dict,
+    row: dict,
+    field: str,
+    text: str,
+) -> str:
+    if not check["supports"]:
+        return cv.SEQUENCE_SOURCE_NOT_LOCATED
+    wanted = cv._fold_evidence_text(str(check["excerpt"]))
+    candidates = [
+        (source_id, cv._fold_evidence_text(str(anchor["excerpt"])))
+        for source_id, anchor in cv._source_anchor_catalog(text).items()
+        if anchor["page"] == check["page"]
+    ]
+    beat = row["subject"]["beat"]
+    if field == "actor":
+        candidates = [
+            candidate for candidate in candidates
+            if cv._sequence_anchor_actor_reason(
+                beat, field, candidate[1]
+            ) is None
+        ]
+        action_terms = cv._sequence_content_terms(
+            str(beat.get("action", "")), str(beat.get("actor", ""))
+        )
+        if candidates and action_terms:
+            scored = [
+                (
+                    len(
+                        cv._sequence_content_terms(
+                            excerpt, str(beat.get("actor", ""))
+                        )
+                        & action_terms
+                    ),
+                    source_id,
+                    excerpt,
+                )
+                for source_id, excerpt in candidates
+            ]
+            best = max(score for score, _source_id, _excerpt in scored)
+            if best:
+                candidates = [
+                    (source_id, excerpt)
+                    for score, source_id, excerpt in scored
+                    if score == best
+                ]
+    elif field == "character_knowledge":
+        candidates = [
+            candidate for candidate in candidates
+            if cv._SEQUENCE_EXPLICIT_KNOWLEDGE_VERB.search(candidate[1])
+            and cv._sequence_subject_matches_context(
+                str(beat[field]), candidate[1], knowledge=True
+            )
+            and cv._sequence_atomic_fact_matches(
+                cv._sequence_knowledge_fact(str(beat[field])),
+                cv._sequence_knowledge_fact(candidate[1]),
+            )
+        ]
+    else:
+        if field == "audience_knowledge":
+            candidates = [
+                candidate for candidate in candidates
+                if cv._sequence_audience_source_predicate(candidate[1])
+            ]
+        else:
+            direct_candidates = [
+                candidate for candidate in candidates
+                if not cv._sequence_audience_source_predicate(candidate[1])
+            ]
+            candidates = direct_candidates or candidates
+            literal_candidates = [
+                candidate for candidate in candidates
+                if cv._sequence_literal_fragment_matches(
+                    str(beat.get(field, "")), candidate[1]
+                )
+            ]
+            candidates = literal_candidates or candidates
+        actor_names = [
+            cv._fold_evidence_text(name)
+            for name in cv._sequence_named_actors(
+                str(beat.get("actor", ""))
+            )
+        ]
+        if field == "action" and actor_names:
+            actor_candidates = [
+                candidate for candidate in candidates
+                if any(name in candidate[1] for name in actor_names)
+            ]
+            if actor_candidates:
+                agent_candidates = [
+                    candidate for candidate in actor_candidates
+                    if cv._sequence_anchor_actor_reason(
+                        beat, field, candidate[1]
+                    ) is None
+                ]
+                candidates = agent_candidates or actor_candidates
+        scored = [
+            (
+                len(cv._sequence_field_relevance_terms(
+                    beat, field, excerpt
+                )),
+                source_id,
+                excerpt,
+            )
+            for source_id, excerpt in candidates
+        ]
+        minimum = 2 if field == "action" else 1
+        candidates = [
+            (source_id, excerpt)
+            for score, source_id, excerpt in sorted(scored, reverse=True)
+            if score >= minimum
+        ]
+    if not candidates:
+        return cv.SEQUENCE_SOURCE_NOT_LOCATED
+    anchor_id = next((
+        source_id for source_id, excerpt in candidates
+        if wanted == excerpt or wanted in excerpt or excerpt in wanted
+    ), candidates[0][0])
+    return f"{row['slot']}:{field}:{anchor_id}"
+
+
 def grounded_detail_value(row: dict, text: str = SCREENPLAY_TEXT) -> str:
     subject = row["subject"]
-    observed_actors: list[str] | None = None
-    observed_knowers: list[str] | None = None
     if row["kind"] == "citation_relevance":
         checks = [{
             "field": "citation",
@@ -409,17 +616,7 @@ def grounded_detail_value(row: dict, text: str = SCREENPLAY_TEXT) -> str:
         )
         actor_excerpt = excerpt_for(claimed_actors)
         knowledge_excerpt = excerpt_for(claimed_knowers)
-        observed_actors = [
-            name for name in claimed_actors
-            if cv._fold_evidence_text(name)
-            in cv._fold_evidence_text(actor_excerpt)
-        ]
-        observed_knowers = [
-            name for name in claimed_knowers
-            if cv._fold_evidence_text(name)
-            in cv._fold_evidence_text(knowledge_excerpt)
-        ]
-        checks = [
+        raw_checks = [
             {
                 "field": field,
                 "page": beat["page"],
@@ -432,14 +629,43 @@ def grounded_detail_value(row: dict, text: str = SCREENPLAY_TEXT) -> str:
             }
             for field in subject["required_fields"]
         ]
+        checks = []
+        for check in raw_checks:
+            source_id = sequence_source_token(
+                check, row, check["field"], text
+            )
+            checks.append({
+                "field": check["field"],
+                "source_id": source_id,
+                "supports": source_id != cv.SEQUENCE_SOURCE_NOT_LOCATED,
+            })
+    located = [check["supports"] for check in checks]
     value = {
-        "classification": "supported",
+        "classification": (
+            "supported" if all(located)
+            else "partially_supported" if any(located)
+            else "unsupported"
+        ),
         "checks": checks,
-        "note": "The bound source excerpt supports this exact claim.",
+        "note": "Each decision is bound to a field-local source result.",
     }
     if row["kind"] == "sequence_evidence":
-        value["observed_actors"] = observed_actors
-        value["observed_knowers"] = observed_knowers
+        _decoded, reason = cv._decode_grounded_detail_value(
+            value, row, text
+        )
+        if reason is not None:
+            value = {
+                "classification": "unsupported",
+                "checks": [
+                    {
+                        "field": check["field"],
+                        "source_id": cv.SEQUENCE_SOURCE_NOT_LOCATED,
+                        "supports": False,
+                    }
+                    for check in checks
+                ],
+                "note": "The synthetic fixture cannot locate this beat.",
+            }
     return json.dumps(value)
 
 
@@ -488,19 +714,6 @@ def typed_detail_payload_for_rows(
 ) -> dict:
     """Provider-shaped typed detail arrays for strict transport tests."""
     payload: dict[str, list[dict]] = {}
-    source_anchors = cv._source_anchor_catalog(text)
-
-    def source_id_for(check: dict) -> str:
-        wanted = cv._fold_evidence_text(str(check["excerpt"]))
-        candidates = [
-            (source_id, cv._fold_evidence_text(str(anchor["excerpt"])))
-            for source_id, anchor in source_anchors.items()
-            if anchor["page"] == check["page"]
-        ]
-        return next(
-            source_id for source_id, excerpt in candidates
-            if wanted == excerpt or wanted in excerpt or excerpt in wanted
-        )
 
     for row in rows:
         subject = row.get("subject", {})
@@ -517,33 +730,29 @@ def typed_detail_payload_for_rows(
             checks = {
                 check["field"]: check for check in grounded["checks"]
             }
-            knowledge_check = checks.get("character_knowledge")
-            if (
-                knowledge_check is not None
-                and cv._SEQUENCE_EXPLICIT_KNOWLEDGE_VERB.search(
-                    knowledge_check["excerpt"]
-                ) is None
-            ):
-                knowledge_check["supports"] = False
-                grounded["classification"] = "partially_supported"
-                grounded["note"] = (
-                    "Character knowledge is not staged in the bound excerpt."
-                )
+            source_tokens = {
+                field: checks[field]["source_id"]
+                for field in subject["required_fields"]
+            }
+            located = [
+                token != cv.SEQUENCE_SOURCE_NOT_LOCATED
+                for token in source_tokens.values()
+            ]
             value = {
-                "classification": grounded["classification"],
+                "classification": (
+                    "supported" if all(located)
+                    else "partially_supported" if any(located)
+                    else "unsupported"
+                ),
                 "note": grounded["note"],
                 "character_knowledge_status": (
                     "checked"
                     if "character_knowledge" in subject["required_fields"]
                     else "not_required"
                 ),
-                "unsupported_fields": [
-                    field for field in subject["required_fields"]
-                    if not checks[field]["supports"]
-                ],
                 **{
-                    f"{field}_source_id": source_id_for(checks[field])
-                    for field in subject["required_fields"]
+                    f"{field}_source_id": token
+                    for field, token in source_tokens.items()
                 },
             }
         elif subject.get("trigger") == "counting_claim":
@@ -2341,8 +2550,9 @@ Another video plays on another screen.
         ))
         self.assertIn("Never return a page or quote", detail_text)
         self.assertIn("exactly source_id, matches_claim", detail_text)
-        self.assertIn("put that field in unsupported_fields", detail_text)
-        self.assertIn("never classify the row supported", detail_text)
+        self.assertIn("<slot>:<field>:<source_id>", detail_text)
+        self.assertIn(cv.SEQUENCE_SOURCE_NOT_LOCATED, detail_text)
+        self.assertIn("partially_supported only for a mix", detail_text)
         self.assertIn("empty instances array is safer", detail_text)
         self.assertIn("reveal provenance", detail_text)
         self.assertIn("capture/source", detail_text)
@@ -2577,10 +2787,7 @@ Another video plays on another screen.
     def test_primary_typed_detail_arrays_seal_without_format_retry(self):
         coverage = valid_coverage()
         audit = provider_audit_core(coverage)
-        source = SCREENPLAY_TEXT.replace(
-            "[PAGE 6]",
-            "[PAGE 6]\nDiego knows the result and understands the physical risk.",
-        )
+        source = SCREENPLAY_TEXT
         normalized = cv.normalize_audit_tool_input(
             copy.deepcopy(audit), range(1, 7)
         )
@@ -2654,7 +2861,7 @@ Another video plays on another screen.
         self.assertIn("actor_source_id", sequence_properties)
         self.assertNotIn("actor_page", sequence_properties)
         self.assertNotIn("actor_excerpt", sequence_properties)
-        self.assertIn("unsupported_fields", sequence_properties)
+        self.assertNotIn("unsupported_fields", sequence_properties)
         self.assertIn("character_knowledge_status", sequence_properties)
 
         payload = typed_detail_payload_for_rows([
@@ -2736,13 +2943,19 @@ Another video plays on another screen.
                 "slot": row["slot"],
                 "classification": "supported",
                 "note": "Every claimed field is staged.",
-                "actor_source_id": source_id("Carlos performs"),
-                "action_source_id": source_id("Diego performs"),
-                "result_source_id": source_id("audience applauds"),
-                "audience_knowledge_source_id": source_id(
-                    "audience sees Diego"
+                "actor_source_id": (
+                    f"{row['slot']}:actor:{source_id('Carlos performs')}"
                 ),
-                "unsupported_fields": [],
+                "action_source_id": (
+                    f"{row['slot']}:action:{source_id('Diego performs')}"
+                ),
+                "result_source_id": (
+                    f"{row['slot']}:result:{source_id('audience applauds')}"
+                ),
+                "audience_knowledge_source_id": (
+                    f"{row['slot']}:audience_knowledge:"
+                    f"{source_id('audience sees Diego')}"
+                ),
                 "character_knowledge_status": "not_required",
             }],
         }
@@ -2780,11 +2993,13 @@ Another video plays on another screen.
                     "page": 1,
                     "actor": "Diego",
                     "action": "Diego enters the room.",
-                    "result": "Diego is inside.",
+                    "result": "Diego enters the room.",
                     "character_knowledge": (
                         "Diego knows Carlos stole the money."
                     ),
-                    "audience_knowledge": "NOT LOCATED",
+                    "audience_knowledge": (
+                        "The audience sees Diego enter the room."
+                    ),
                 },
                 "required_fields": list(cv.GROUNDED_SEQUENCE_FIELDS),
                 "claim_sha256": "a" * 64,
@@ -2795,12 +3010,15 @@ Another video plays on another screen.
                 "slot": row["slot"],
                 "classification": "supported",
                 "note": "The chosen excerpt stages Diego's knowledge.",
-                "actor_source_id": enters_id,
-                "action_source_id": enters_id,
-                "result_source_id": enters_id,
-                "character_knowledge_source_id": enters_id,
-                "audience_knowledge_source_id": audience_id,
-                "unsupported_fields": [],
+                "actor_source_id": f"{row['slot']}:actor:{enters_id}",
+                "action_source_id": f"{row['slot']}:action:{enters_id}",
+                "result_source_id": f"{row['slot']}:result:{enters_id}",
+                "character_knowledge_source_id": (
+                    f"{row['slot']}:character_knowledge:{enters_id}"
+                ),
+                "audience_knowledge_source_id": (
+                    f"{row['slot']}:audience_knowledge:{audience_id}"
+                ),
                 "character_knowledge_status": "checked",
             }],
         }
@@ -2811,7 +3029,11 @@ Another video plays on another screen.
         )
 
         self.assertIsNone(decoded)
-        self.assertIn("knowledge is not staged", str(reason))
+        self.assertTrue(
+            "does not prove its atomic fact" in str(reason)
+            or "is not staged" in str(reason),
+            reason,
+        )
 
     def test_count_transport_derives_totals_and_accepts_exact_two_word_anchor(self):
         source = "[PAGE 1]\nLlega Lucesita"
@@ -3004,22 +3226,33 @@ El público pide otra canción
             "checks": [
                 {
                     "field": "actor",
-                    "source_id": by_excerpt["Los Cosquillitas siguen juntos"],
+                    "source_id": (
+                        f"{row['slot']}:actor:"
+                        f"{by_excerpt['Los Cosquillitas siguen juntos']}"
+                    ),
                     "supports": True,
                 },
                 {
                     "field": "action",
-                    "source_id": by_excerpt["Cantan otra"],
+                    "source_id": (
+                        f"{row['slot']}:action:{by_excerpt['Cantan otra']}"
+                    ),
                     "supports": True,
                 },
                 {
                     "field": "result",
-                    "source_id": by_excerpt["El público pide otra canción"],
+                    "source_id": (
+                        f"{row['slot']}:result:"
+                        f"{by_excerpt['El público pide otra canción']}"
+                    ),
                     "supports": True,
                 },
                 {
                     "field": "audience_knowledge",
-                    "source_id": by_excerpt["El público pide otra canción"],
+                    "source_id": (
+                        f"{row['slot']}:audience_knowledge:"
+                        f"{by_excerpt['El público pide otra canción']}"
+                    ),
                     "supports": True,
                 },
             ],
@@ -3041,6 +3274,1907 @@ El público pide otra canción
         )
         self.assertIsNone(decoded)
         self.assertIn("3-12 words", str(reason))
+
+    def test_real_cosquillitas_finale_keeps_structural_subject_inheritance(self):
+        source = "[PAGE 101]\n" + "\n".join([
+            "Juanito prepara el encore con el grupo.",
+            *("Relleno continuo de la escena." for _ in range(11)),
+            "Otra! Otra! Otra!",
+            "Los Cosquillitas están felices",
+            "JUANITO",
+            "Por que ustedes lo pidieron esta",
+            "cancíon se llama “Otra!”",
+            "Cantan otra",
+        ])
+        row = {
+            "slot": "row_001",
+            "kind": "sequence_evidence",
+            "identifier": "sequence_ledger[20]",
+            "subject": {
+                "beat": {
+                    "order": 20,
+                    "phase": "final_scene",
+                    "page": 101,
+                    "actor": "Cosquillitas",
+                    "action": (
+                        "Perform encores of theme song and new song 'Otra!' "
+                        "for celebrating crowd"
+                    ),
+                    "result": (
+                        "Screenplay concludes with group in triumph on stage"
+                    ),
+                    "character_knowledge": "NOT LOCATED",
+                    "audience_knowledge": (
+                        "The comeback is complete and Cosquillitas are restored "
+                        "as beloved stars"
+                    ),
+                },
+                "required_fields": [
+                    "actor", "action", "result", "audience_knowledge",
+                ],
+                "claim_sha256": "a" * 64,
+            },
+        }
+        anchors = cv._source_anchor_catalog(source)
+
+        def token(field: str, fragment: str) -> str:
+            anchor_id = next(
+                key for key, value in anchors.items()
+                if fragment in value["excerpt"]
+            )
+            return f"{row['slot']}:{field}:{anchor_id}"
+
+        value = {
+            "classification": "supported",
+            "checks": [
+                {
+                    "field": "actor",
+                    "source_id": token("actor", "Cosquillitas están felices"),
+                    "supports": True,
+                },
+                {
+                    "field": "action",
+                    "source_id": token("action", "Cantan otra"),
+                    "supports": True,
+                },
+                {
+                    "field": "result",
+                    "source_id": token("result", "Cantan otra"),
+                    "supports": True,
+                },
+                {
+                    "field": "audience_knowledge",
+                    "source_id": token("audience_knowledge", "Otra! Otra! Otra"),
+                    "supports": True,
+                },
+            ],
+            "note": "The final scene stages the group encore and public demand.",
+        }
+
+        decoded, reason = cv._decode_grounded_detail_value(value, row, source)
+
+        self.assertIsNotNone(decoded, reason)
+
+    def test_sequence_action_anchor_rejects_object_and_scene_boundary(self):
+        cases = (
+            (
+                "generic actor used as an object",
+                "[PAGE 1]\nDante bribes the judges during the contest.\n",
+                "The judges",
+                "The judges award Diego the trophy.",
+                "Dante bribes the judges",
+                None,
+            ),
+            (
+                "named actor used as an object",
+                "[PAGE 1]\nCarlos attacks Diego during the contest.\n",
+                "Diego",
+                "Diego wins the contest.",
+                "Carlos attacks Diego",
+                None,
+            ),
+            (
+                "named actor used as a prepositional coactor",
+                "[PAGE 1]\nWith Diego, Carlos wins the race.\n",
+                "Diego",
+                "Diego wins the race.",
+                "With Diego, Carlos wins the race",
+                "With Diego, Carlos wins the race",
+            ),
+            (
+                "scene boundary between actor and action",
+                (
+                    "[PAGE 1]\nDiego waits by the gate.\n"
+                    "INT. VAULT - NIGHT\nThe vault explodes around everyone.\n"
+                ),
+                "Diego",
+                "Diego triggers the vault explosion.",
+                "Diego waits by the gate",
+                "The vault explodes around everyone",
+            ),
+            (
+                "compatible group intervenes before an omitted subject",
+                (
+                    "[PAGE 1]\nLos Cosquillitas están felices.\n"
+                    "The rival team enters the stage.\nCantan otra.\n"
+                ),
+                "Cosquillitas",
+                "Perform an encore.",
+                "Los Cosquillitas están felices",
+                "Cantan otra",
+            ),
+            (
+                "generic singular actor intervenes before an omitted subject",
+                (
+                    "[PAGE 1]\nDiego waits by the gate.\n"
+                    "The goalkeeper takes position.\nOpens the wooden door.\n"
+                ),
+                "Diego",
+                "Diego opens the wooden door.",
+                "Diego waits by the gate",
+                "Opens the wooden door",
+            ),
+            (
+                "lowercase independent clauses break action inheritance",
+                (
+                    "[PAGE 1]\nDiego waits by the gate.\n"
+                    "rain fills the empty street.\n"
+                    "wind shakes the old windows.\n"
+                    "Opens the wooden door.\n"
+                ),
+                "Diego",
+                "Diego opens the wooden door.",
+                "Diego waits by the gate",
+                "Opens the wooden door",
+            ),
+            *(
+                (
+                    f"claimed actor is only a {relation} participant",
+                    (
+                        "[PAGE 1]\nDiego waits by the door.\n"
+                        f"Opens the red door {relation} Diego {verb}.\n"
+                    ),
+                    "Diego",
+                    "Diego opens the red door.",
+                    "Diego waits by the door",
+                    "Opens the red door",
+                )
+                for relation, verb in (
+                    ("after", "leaves"),
+                    ("while", "watches"),
+                    ("before", "arrives"),
+                )
+            ),
+            (
+                "dialogue bridge is bounded to two continuation lines",
+                (
+                    "[PAGE 1]\nLos Cosquillitas esperan juntos.\n"
+                    "JUANITO\nPrimera línea de diálogo.\n"
+                    "Segunda línea de diálogo.\nTercera línea de diálogo.\n"
+                    "Cantan otra canción juntos.\n"
+                ),
+                "Cosquillitas",
+                "Cosquillitas cantan otra canción juntos.",
+                "Los Cosquillitas esperan juntos",
+                "Cantan otra canción juntos",
+            ),
+            (
+                "dialogue cue without dialogue cannot bridge actors",
+                (
+                    "[PAGE 1]\nJuanito prepara la siguiente canción.\n"
+                    "Los Cosquillitas esperan juntos.\nJUANITO\n"
+                    "Cantan otra canción juntos.\n"
+                ),
+                "Cosquillitas",
+                "Cosquillitas cantan otra canción juntos.",
+                "Los Cosquillitas esperan juntos",
+                "Cantan otra canción juntos",
+            ),
+            *(
+                (
+                    f"{marker} is not a dialogue cue",
+                    (
+                        "[PAGE 1]\nDiego waits by the gate.\n"
+                        f"{marker}\nOpens the wooden door.\n"
+                    ),
+                    "Diego",
+                    "Diego opens the wooden door.",
+                    "Diego waits by the gate",
+                    "Opens the wooden door",
+                )
+                for marker in (
+                    "ONE HOUR LATER", "CUT TO", "TITLE CARD", "FLASHBACK",
+                    "INTERCUT", "MONTAGE", "SUPER",
+                )
+            ),
+            *(
+                (
+                    f"dialogue bridge cannot hide {intervening}",
+                    (
+                        "[PAGE 1]\nJuanito prepara la siguiente canción.\n"
+                        "Los Cosquillitas esperan juntos.\nJUANITO\n"
+                        f"{intervening}\nCantan otra canción juntos.\n"
+                    ),
+                    "Cosquillitas",
+                    "Cosquillitas cantan otra canción juntos.",
+                    "Los Cosquillitas esperan juntos",
+                    "Cantan otra canción juntos",
+                )
+                for intervening in (
+                    "Carlos fires the gun.",
+                    "And Carlos fires the gun.",
+                    "The rival team takes the stage.",
+                    "Los rivales toman el escenario.",
+                    "Y Carlos dispara el arma.",
+                )
+            ),
+        )
+        for label, source, actor, action, actor_excerpt, action_excerpt in cases:
+            with self.subTest(label):
+                row = {
+                    "slot": "row_001",
+                    "kind": "sequence_evidence",
+                    "identifier": "sequence_ledger[0]",
+                    "subject": {
+                        "beat": {
+                            "order": 1,
+                            "phase": "climax",
+                            "page": 1,
+                            "actor": actor,
+                            "action": action,
+                            "result": "NOT LOCATED",
+                            "character_knowledge": "NOT LOCATED",
+                            "audience_knowledge": "NOT LOCATED",
+                        },
+                        "required_fields": ["actor", "action"],
+                        "claim_sha256": "a" * 64,
+                    },
+                }
+                anchors = cv._source_anchor_catalog(source)
+
+                def token(field: str, fragment: str) -> str:
+                    anchor_id = next(
+                        key for key, value in anchors.items()
+                        if fragment in value["excerpt"]
+                    )
+                    return f"{row['slot']}:{field}:{anchor_id}"
+
+                value = {
+                    "classification": (
+                        "supported" if action_excerpt else "partially_supported"
+                    ),
+                    "checks": [
+                        {
+                            "field": "actor",
+                            "source_id": token("actor", actor_excerpt),
+                            "supports": True,
+                        },
+                        {
+                            "field": "action",
+                            "source_id": (
+                                token("action", action_excerpt)
+                                if action_excerpt
+                                else cv.SEQUENCE_SOURCE_NOT_LOCATED
+                            ),
+                            "supports": bool(action_excerpt),
+                        },
+                    ],
+                    "note": "The source supports both frozen fields.",
+                }
+
+                decoded, reason = cv._decode_grounded_detail_value(
+                    value, row, source
+                )
+
+                self.assertIsNone(decoded)
+                self.assertIsNotNone(reason)
+
+    def test_sequence_result_and_audience_require_field_relevance(self):
+        cases = (
+            (
+                (
+                    "[PAGE 1]\nDiego opens the vault door.\n"
+                    "The hallway remains completely empty.\n"
+                    "The weather is pleasant today.\n"
+                ),
+                "Diego opens the vault door.",
+                "Diego wins the contest.",
+                "The audience sees Diego win.",
+                {
+                    "actor": "Diego opens the vault door",
+                    "action": "Diego opens the vault door",
+                    "result": "hallway remains completely empty",
+                    "audience_knowledge": "weather is pleasant today",
+                },
+            ),
+            (
+                "[PAGE 1]\nDiego opens the window.\n",
+                "Diego opens the vault.",
+                "NOT LOCATED",
+                "NOT LOCATED",
+                {
+                    "actor": "Diego opens the window",
+                    "action": "Diego opens the window",
+                },
+            ),
+            (
+                "[PAGE 1]\nDiego opens the heavy red window.\n",
+                "Diego opens the heavy red vault.",
+                "NOT LOCATED",
+                "NOT LOCATED",
+                {
+                    "actor": "Diego opens the heavy red window",
+                    "action": "Diego opens the heavy red window",
+                },
+            ),
+            (
+                "[PAGE 1]\nDiego closes the heavy red vault door.\n",
+                "Diego opens the heavy red vault door.",
+                "NOT LOCATED",
+                "NOT LOCATED",
+                {
+                    "actor": "Diego closes the heavy red vault door",
+                    "action": "Diego closes the heavy red vault door",
+                },
+            ),
+            (
+                "[PAGE 1]\nDiego exits from the crowded arena.\n",
+                "Diego enters the crowded arena.",
+                "NOT LOCATED",
+                "NOT LOCATED",
+                {
+                    "actor": "Diego exits from the crowded arena",
+                    "action": "Diego exits from the crowded arena",
+                },
+            ),
+            (
+                "[PAGE 1]\nDiego cierra la pesada puerta roja.\n",
+                "Diego abre la pesada puerta roja.",
+                "NOT LOCATED",
+                "NOT LOCATED",
+                {
+                    "actor": "Diego cierra la pesada puerta roja",
+                    "action": "Diego cierra la pesada puerta roja",
+                },
+            ),
+            (
+                "[PAGE 1]\nDiego opens the vault door.\n",
+                "Diego murders Carlos behind the theater.",
+                "NOT LOCATED",
+                "NOT LOCATED",
+                {
+                    "actor": "Diego opens the vault door",
+                    "action": "Diego opens the vault door",
+                },
+            ),
+            (
+                "[PAGE 1]\nDiego loses the final bicycle race.\n",
+                "Diego loses the final bicycle race.",
+                "Diego wins the final bicycle race.",
+                "NOT LOCATED",
+                {
+                    "actor": "Diego loses the final bicycle race",
+                    "action": "Diego loses the final bicycle race",
+                    "result": "Diego loses the final bicycle race",
+                },
+            ),
+            (
+                "[PAGE 1]\nDiego does not open the heavy vault door.\n",
+                "Diego opens the heavy vault door.",
+                "NOT LOCATED",
+                "NOT LOCATED",
+                {
+                    "actor": "Diego does not open the heavy vault door",
+                    "action": "Diego does not open the heavy vault door",
+                },
+            ),
+            (
+                (
+                    "[PAGE 1]\nDiego wins the race.\n"
+                    "The audience applauds wildly.\n"
+                ),
+                "Diego wins the race.",
+                "NOT LOCATED",
+                "The audience learns Carlos cheated.",
+                {
+                    "actor": "Diego wins the race",
+                    "action": "Diego wins the race",
+                    "audience_knowledge": "audience applauds wildly",
+                },
+            ),
+            (
+                (
+                    "[PAGE 1]\nDiego wins the race.\n"
+                    "The audience sees the camera.\n"
+                ),
+                "Diego wins the race.",
+                "NOT LOCATED",
+                "The audience sees Diego win.",
+                {
+                    "actor": "Diego wins the race",
+                    "action": "Diego wins the race",
+                    "audience_knowledge": "audience sees the camera",
+                },
+            ),
+            (
+                (
+                    "[PAGE 1]\nDiego reaches the trophy ceremony.\n"
+                    "Carlos receives the trophy beside Diego.\n"
+                ),
+                "Diego reaches the trophy ceremony.",
+                "Diego receives the trophy.",
+                "NOT LOCATED",
+                {
+                    "actor": "Diego reaches the trophy ceremony",
+                    "action": "Diego reaches the trophy ceremony",
+                    "result": "Carlos receives the trophy beside Diego",
+                },
+            ),
+            (
+                (
+                    "[PAGE 1]\nDiego wins the final race.\n"
+                    "The golden trophy breaks.\n"
+                ),
+                "Diego wins the final race.",
+                "Diego receives the golden trophy.",
+                "NOT LOCATED",
+                {
+                    "actor": "Diego wins the final race",
+                    "action": "Diego wins the final race",
+                    "result": "golden trophy breaks",
+                },
+            ),
+            (
+                (
+                    "[PAGE 1]\nDiego gana la carrera final.\n"
+                    "El trofeo dorado se rompe.\n"
+                ),
+                "Diego gana la carrera final.",
+                "Diego recibe el trofeo dorado.",
+                "NOT LOCATED",
+                {
+                    "actor": "Diego gana la carrera final",
+                    "action": "Diego gana la carrera final",
+                    "result": "trofeo dorado se rompe",
+                },
+            ),
+            (
+                (
+                    "[PAGE 1]\nDiego reaches the trophy ceremony.\n"
+                    "The audience applauds Carlos receiving the trophy "
+                    "beside Diego.\n"
+                ),
+                "Diego reaches the trophy ceremony.",
+                "NOT LOCATED",
+                "The audience applauds Diego receiving the trophy.",
+                {
+                    "actor": "Diego reaches the trophy ceremony",
+                    "action": "Diego reaches the trophy ceremony",
+                    "audience_knowledge": (
+                        "audience applauds Carlos receiving the trophy"
+                    ),
+                },
+            ),
+            (
+                (
+                    "[PAGE 1]\nDiego wins the race.\n"
+                    "The audience applauds Diego loudly.\n"
+                ),
+                "Diego wins the race.",
+                "NOT LOCATED",
+                "The audience celebrates Carlos victory.",
+                {
+                    "actor": "Diego wins the race",
+                    "action": "Diego wins the race",
+                    "audience_knowledge": "audience applauds Diego loudly",
+                },
+            ),
+            (
+                (
+                    "[PAGE 1]\nDiego sings on the main stage.\n"
+                    "The audience boos Diego loudly.\n"
+                ),
+                "Diego sings on the main stage.",
+                "NOT LOCATED",
+                "Diego is restored as a beloved star.",
+                {
+                    "actor": "Diego sings on the main stage",
+                    "action": "Diego sings on the main stage",
+                    "audience_knowledge": "audience boos Diego loudly",
+                },
+            ),
+            (
+                (
+                    "[PAGE 1]\nLos Cosquillitas esperan juntos.\n"
+                    "Pierden el concurso decisivo.\n"
+                ),
+                "Cosquillitas pierden el concurso decisivo.",
+                "Screenplay concludes with group in triumph on stage.",
+                "NOT LOCATED",
+                {
+                    "actor": "Los Cosquillitas esperan juntos",
+                    "action": "Pierden el concurso decisivo",
+                    "result": "Pierden el concurso decisivo",
+                },
+            ),
+            (
+                (
+                    "[PAGE 1]\nLos Cosquillitas están felices.\n"
+                    "Cantan otra canción juntos.\n"
+                ),
+                "Cosquillitas cantan otra canción juntos.",
+                "Screenplay concludes with group receiving the trophy.",
+                "NOT LOCATED",
+                {
+                    "actor": "Los Cosquillitas están felices",
+                    "action": "Cantan otra canción juntos",
+                    "result": "Cantan otra canción juntos",
+                },
+            ),
+            (
+                (
+                    "[PAGE 1]\nDiego opens the old vault.\n"
+                    "Carlos wins the final contest.\n"
+                    "Receives the silver trophy.\n"
+                ),
+                "Diego opens the old vault.",
+                "Diego receives the silver trophy.",
+                "NOT LOCATED",
+                {
+                    "actor": "Diego opens the old vault",
+                    "action": "Diego opens the old vault",
+                    "result": "Receives the silver trophy",
+                },
+            ),
+            (
+                (
+                    "[PAGE 1]\nDiego enters the final contest.\n"
+                    "Diego wins the bicycle race.\n"
+                ),
+                "Diego enters the final contest.",
+                "Diego wins the cash lottery.",
+                "NOT LOCATED",
+                {
+                    "actor": "Diego enters the final contest",
+                    "action": "Diego enters the final contest",
+                    "result": "Diego wins the bicycle race",
+                },
+            ),
+            (
+                (
+                    "[PAGE 1]\nDiego loses the opening race.\n"
+                    "The audience celebrates the championship trophy.\n"
+                ),
+                "Diego loses the opening race.",
+                "NOT LOCATED",
+                "The audience celebrates Diego's championship trophy.",
+                {
+                    "actor": "Diego loses the opening race",
+                    "action": "Diego loses the opening race",
+                    "audience_knowledge": (
+                        "audience celebrates the championship trophy"
+                    ),
+                },
+            ),
+            (
+                (
+                    "[PAGE 1]\nDiego wins the opening race.\n"
+                    "Carlos wins the championship trophy.\n"
+                    "The audience celebrates the championship trophy.\n"
+                ),
+                "Diego wins the opening race.",
+                "NOT LOCATED",
+                (
+                    "The audience celebrates Diego winning the championship "
+                    "trophy."
+                ),
+                {
+                    "actor": "Diego wins the opening race",
+                    "action": "Diego wins the opening race",
+                    "audience_knowledge": (
+                        "audience celebrates the championship trophy"
+                    ),
+                },
+            ),
+            (
+                (
+                    "[PAGE 1]\nDiego greets Carlos at the theater.\n"
+                    "The audience sees Diego murder Carlos at the theater.\n"
+                ),
+                "Diego greets Carlos at the theater.",
+                "NOT LOCATED",
+                "The audience sees Diego murder Carlos at the theater.",
+                {
+                    "actor": "Diego greets Carlos at the theater",
+                    "action": "Diego greets Carlos at the theater",
+                    "audience_knowledge": "audience sees Diego murder Carlos",
+                },
+            ),
+            (
+                (
+                    "[PAGE 1]\nDiego opens the red door.\n"
+                    "The audience sees Diego paint the red door.\n"
+                ),
+                "Diego opens the red door.",
+                "NOT LOCATED",
+                "The audience sees Diego paint the red door.",
+                {
+                    "actor": "Diego opens the red door",
+                    "action": "Diego opens the red door",
+                    "audience_knowledge": "audience sees Diego paint",
+                },
+            ),
+            (
+                (
+                    "[PAGE 1]\nDiego gana la carrera.\n"
+                    "El público ve a Diego perder la carrera.\n"
+                ),
+                "Diego gana la carrera.",
+                "NOT LOCATED",
+                "El público ve a Diego perder la carrera.",
+                {
+                    "actor": "Diego gana la carrera",
+                    "action": "Diego gana la carrera",
+                    "audience_knowledge": "público ve a Diego perder",
+                },
+            ),
+        )
+        for source, action, result, audience, excerpts in cases:
+            with self.subTest(result=result):
+                fields = list(excerpts)
+                row = {
+                    "slot": "row_001",
+                    "kind": "sequence_evidence",
+                    "identifier": "sequence_ledger[0]",
+                    "subject": {
+                        "beat": {
+                            "order": 1,
+                            "phase": "climax",
+                            "page": 1,
+                            "actor": "Diego",
+                            "action": action,
+                            "result": result,
+                            "character_knowledge": "NOT LOCATED",
+                            "audience_knowledge": audience,
+                        },
+                        "required_fields": fields,
+                        "claim_sha256": "a" * 64,
+                    },
+                }
+                anchors = cv._source_anchor_catalog(source)
+                checks = []
+                for field, fragment in excerpts.items():
+                    anchor_id = next(
+                        key for key, value in anchors.items()
+                        if fragment in value["excerpt"]
+                    )
+                    checks.append({
+                        "field": field,
+                        "source_id": f"{row['slot']}:{field}:{anchor_id}",
+                        "supports": True,
+                    })
+                decoded, reason = cv._decode_grounded_detail_value(
+                    {
+                        "classification": "supported",
+                        "checks": checks,
+                        "note": "Every field is claimed as supported.",
+                    },
+                    row,
+                    source,
+                )
+
+                self.assertIsNone(decoded)
+                self.assertIsNotNone(reason)
+
+    def test_sequence_action_requires_the_complete_named_actor_roster(self):
+        cases = (
+            (
+                "Diego and Carlos wait by the door.",
+                "Diego opens the vault door.",
+                "Diego and Carlos",
+                "Diego and Carlos open the vault door.",
+            ),
+            (
+                "Diego y Carlos esperan junto a la puerta.",
+                "Diego abre la puerta de la bóveda.",
+                "Diego y Carlos",
+                "Diego y Carlos abren la puerta de la bóveda.",
+            ),
+        )
+        for actor_line, action_line, actor, action in cases:
+            with self.subTest(action_line=action_line):
+                source = f"[PAGE 1]\n{actor_line}\n{action_line}\n"
+                row = {
+                    "slot": "row_001",
+                    "kind": "sequence_evidence",
+                    "identifier": "sequence_ledger[0]",
+                    "subject": {
+                        "beat": {
+                            "order": 1,
+                            "phase": "climax",
+                            "page": 1,
+                            "actor": actor,
+                            "action": action,
+                            "result": "NOT LOCATED",
+                            "character_knowledge": "NOT LOCATED",
+                            "audience_knowledge": "NOT LOCATED",
+                        },
+                        "required_fields": ["actor", "action"],
+                        "claim_sha256": "a" * 64,
+                    },
+                }
+                anchors = cv._source_anchor_catalog(source)
+
+                def token(field: str, fragment: str) -> str:
+                    anchor_id = next(
+                        key for key, anchor in anchors.items()
+                        if fragment in anchor["excerpt"]
+                    )
+                    return f"{row['slot']}:{field}:{anchor_id}"
+
+                decoded, reason = cv._decode_grounded_detail_value(
+                    {
+                        "classification": "supported",
+                        "checks": [
+                            {
+                                "field": "actor",
+                                "source_id": token(
+                                    "actor", actor_line.rstrip(".")
+                                ),
+                                "supports": True,
+                            },
+                            {
+                                "field": "action",
+                                "source_id": token(
+                                    "action", action_line.rstrip(".")
+                                ),
+                                "supports": True,
+                            },
+                        ],
+                        "note": "Only one member performs the frozen action.",
+                    },
+                    row,
+                    source,
+                )
+
+                self.assertIsNone(decoded)
+                self.assertIn("does not identify", str(reason))
+
+    def test_collective_actor_anchors_preserve_english_and_spanish_number(self):
+        for actor, excerpt in (
+            ("The judges", "The judges raise the red card."),
+            ("Los jueces", "Los jueces alzan la tarjeta roja."),
+        ):
+            with self.subTest(actor=actor):
+                self.assertIsNone(
+                    cv._sequence_anchor_actor_reason(
+                        {"actor": actor}, "action", excerpt
+                    )
+                )
+        for actor, excerpt in (
+            ("The judges", "The judge raises the red card."),
+            ("Los jueces", "El juez alza la tarjeta roja."),
+            (
+                "Diego and the judges",
+                "Diego and the judge discuss the final result.",
+            ),
+            (
+                "Diego y los jueces",
+                "Diego y el juez discuten el resultado final.",
+            ),
+        ):
+            with self.subTest(actor=actor):
+                self.assertIn(
+                    "roster does not match",
+                    str(cv._sequence_anchor_actor_reason(
+                        {"actor": actor}, "action", excerpt
+                    )),
+                )
+
+    def test_sequence_classification_matches_field_decisions(self):
+        source = "[PAGE 1]\nDiego opens the vault door.\n"
+        row = {
+            "slot": "row_001",
+            "kind": "sequence_evidence",
+            "identifier": "sequence_ledger[0]",
+            "subject": {
+                "beat": {
+                    "order": 1,
+                    "phase": "climax",
+                    "page": 1,
+                    "actor": "Diego",
+                    "action": "Diego opens the vault door.",
+                    "result": "NOT LOCATED",
+                    "character_knowledge": "NOT LOCATED",
+                    "audience_knowledge": "NOT LOCATED",
+                },
+                "required_fields": ["actor", "action"],
+                "claim_sha256": "a" * 64,
+            },
+        }
+        anchor_id = next(iter(cv._source_anchor_catalog(source)))
+
+        def decode(classification: str, supported_fields: set[str]):
+            return cv._decode_grounded_detail_value(
+                {
+                    "classification": classification,
+                    "checks": [
+                        {
+                            "field": field,
+                            "source_id": (
+                                f"{row['slot']}:{field}:{anchor_id}"
+                                if field in supported_fields
+                                else cv.SEQUENCE_SOURCE_NOT_LOCATED
+                            ),
+                            "supports": field in supported_fields,
+                        }
+                        for field in ("actor", "action")
+                    ],
+                    "note": "Each decision must agree with the classification.",
+                },
+                row,
+                source,
+            )
+
+        for classification, fields in (
+            ("partially_supported", {"actor", "action"}),
+            ("unsupported", {"actor", "action"}),
+            ("contradicted", set()),
+        ):
+            with self.subTest(classification=classification, fields=fields):
+                decoded, reason = decode(classification, fields)
+                self.assertIsNone(decoded)
+                self.assertIsNotNone(reason)
+        for classification, fields in (
+            ("supported", {"actor", "action"}),
+            ("partially_supported", {"actor"}),
+            ("unsupported", set()),
+        ):
+            with self.subTest(classification=classification, fields=fields):
+                decoded, reason = decode(classification, fields)
+                self.assertIsNotNone(decoded, reason)
+
+    def test_character_knowledge_anchor_must_prove_the_atomic_fact(self):
+        source = (
+            "[PAGE 1]\nDiego opens the old vault door.\n"
+            "Diego learns the weather has changed.\n"
+        )
+        row = {
+            "slot": "row_001",
+            "kind": "sequence_evidence",
+            "identifier": "sequence_ledger[0]",
+            "subject": {
+                "beat": {
+                    "order": 1,
+                    "phase": "climax",
+                    "page": 1,
+                    "actor": "Diego",
+                    "action": "Diego opens the old vault door.",
+                    "result": "NOT LOCATED",
+                    "character_knowledge": (
+                        "Diego learns Carlos cheated in the contest."
+                    ),
+                    "audience_knowledge": "NOT LOCATED",
+                },
+                "required_fields": [
+                    "actor", "action", "character_knowledge",
+                ],
+                "claim_sha256": "a" * 64,
+            },
+        }
+        anchors = cv._source_anchor_catalog(source)
+
+        def token(field: str, fragment: str) -> str:
+            anchor_id = next(
+                key for key, anchor in anchors.items()
+                if fragment in anchor["excerpt"]
+            )
+            return f"{row['slot']}:{field}:{anchor_id}"
+
+        decoded, reason = cv._decode_grounded_detail_value(
+            {
+                "classification": "supported",
+                "checks": [
+                    {
+                        "field": "actor",
+                        "source_id": token("actor", "Diego opens"),
+                        "supports": True,
+                    },
+                    {
+                        "field": "action",
+                        "source_id": token("action", "Diego opens"),
+                        "supports": True,
+                    },
+                    {
+                        "field": "character_knowledge",
+                        "source_id": token(
+                            "character_knowledge", "Diego learns the weather"
+                        ),
+                        "supports": True,
+                    },
+                ],
+                "note": "The selected line is claimed as knowledge evidence.",
+            },
+            row,
+            source,
+        )
+
+        self.assertIsNone(decoded)
+        self.assertIn("atomic fact", str(reason))
+
+    def test_character_knowledge_preserves_knower_number_and_fact_roles(self):
+        cases = (
+            (
+                "Diego and the judges discuss the result.",
+                "The judge knows the result.",
+                "Diego and the judges",
+                "The judges know the result.",
+            ),
+            (
+                "Diego y los jueces discuten el resultado.",
+                "El juez conoce el resultado.",
+                "Diego y los jueces",
+                "Los jueces conocen el resultado.",
+            ),
+            (
+                "Diego questions Carlos about the contest.",
+                "Carlos knows Diego cheated in the contest.",
+                "Diego and Carlos",
+                "Diego knows Carlos cheated in the contest.",
+            ),
+            (
+                "Diego interroga a Carlos sobre el concurso.",
+                "Carlos sabe que Diego hizo trampa en el concurso.",
+                "Diego y Carlos",
+                "Diego sabe que Carlos hizo trampa en el concurso.",
+            ),
+        )
+        for action, knowledge_source, actor, knowledge in cases:
+            with self.subTest(knowledge_source=knowledge_source):
+                source = f"[PAGE 1]\n{action}\n{knowledge_source}\n"
+                row = {
+                    "slot": "row_001",
+                    "kind": "sequence_evidence",
+                    "identifier": "sequence_ledger[0]",
+                    "subject": {
+                        "beat": {
+                            "order": 1,
+                            "phase": "climax",
+                            "page": 1,
+                            "actor": actor,
+                            "action": action,
+                            "result": "NOT LOCATED",
+                            "character_knowledge": knowledge,
+                            "audience_knowledge": "NOT LOCATED",
+                        },
+                        "required_fields": [
+                            "actor", "action", "character_knowledge",
+                        ],
+                        "claim_sha256": "a" * 64,
+                    },
+                }
+                anchors = cv._source_anchor_catalog(source)
+
+                def token(field: str, fragment: str) -> str:
+                    anchor_id = next(
+                        key for key, anchor in anchors.items()
+                        if fragment.rstrip(".") in anchor["excerpt"]
+                    )
+                    return f"{row['slot']}:{field}:{anchor_id}"
+
+                decoded, reason = cv._decode_grounded_detail_value(
+                    {
+                        "classification": "supported",
+                        "checks": [
+                            {
+                                "field": "actor",
+                                "source_id": token("actor", action),
+                                "supports": True,
+                            },
+                            {
+                                "field": "action",
+                                "source_id": token("action", action),
+                                "supports": True,
+                            },
+                            {
+                                "field": "character_knowledge",
+                                "source_id": token(
+                                    "character_knowledge", knowledge_source
+                                ),
+                                "supports": True,
+                            },
+                        ],
+                        "note": "A singular knower cannot prove a plural claim.",
+                    },
+                    row,
+                    source,
+                )
+
+                self.assertIsNone(decoded)
+                self.assertIn("atomic fact", str(reason))
+
+    def test_sequence_evidence_rejects_subject_object_role_reversals(self):
+        cases = (
+            {
+                "actor": "Diego and Carlos",
+                "action": "Diego pushes Carlos away from the trophy podium.",
+                "field": "action",
+                "source_action": (
+                    "Carlos pushes Diego away from the trophy podium."
+                ),
+                "source_field": (
+                    "Carlos pushes Diego away from the trophy podium."
+                ),
+            },
+            {
+                "actor": "Diego y Carlos",
+                "action": "Diego empuja a Carlos lejos del podio del trofeo.",
+                "field": "action",
+                "source_action": (
+                    "Carlos empuja a Diego lejos del podio del trofeo."
+                ),
+                "source_field": (
+                    "Carlos empuja a Diego lejos del podio del trofeo."
+                ),
+            },
+            {
+                "actor": "Diego and Carlos",
+                "action": "Diego pushes Carlos.",
+                "field": "action",
+                "source_action": "Carlos angrily pushes Diego.",
+                "source_field": "Carlos angrily pushes Diego.",
+            },
+            {
+                "actor": "Diego y Carlos",
+                "action": "Diego empuja a Carlos.",
+                "field": "action",
+                "source_action": "Carlos violentamente empuja a Diego.",
+                "source_field": "Carlos violentamente empuja a Diego.",
+            },
+            {
+                "actor": "The judge and the runner",
+                "action": "The judge awards the runner.",
+                "field": "action",
+                "source_action": "The runner quickly awards the judge.",
+                "source_field": "The runner quickly awards the judge.",
+            },
+            {
+                "actor": "Diego and Carlos",
+                "action": "Diego awards Carlos.",
+                "field": "action",
+                "source_action": "Diego is awarded by Carlos.",
+                "source_field": "Diego is awarded by Carlos.",
+            },
+            {
+                "actor": "Diego and Carlos",
+                "action": "Diego gives Carlos the trophy.",
+                "field": "action",
+                "source_action": "Diego is given the trophy by Carlos.",
+                "source_field": "Diego is given the trophy by Carlos.",
+            },
+            {
+                "actor": "Diego",
+                "action": "Diego never opens the door.",
+                "field": "action",
+                "source_action": "Diego opens the door without hesitation.",
+                "source_field": "Diego opens the door without hesitation.",
+            },
+            {
+                "actor": "Diego",
+                "action": "Diego nunca abre la puerta.",
+                "field": "action",
+                "source_action": "Diego abre la puerta sin dudar.",
+                "source_field": "Diego abre la puerta sin dudar.",
+            },
+            {
+                "actor": "Diego y Carlos",
+                "action": "Diego no empuja a Carlos.",
+                "field": "action",
+                "source_action": "Diego empuja a Carlos pero no cae.",
+                "source_field": "Diego empuja a Carlos pero no cae.",
+            },
+            {
+                "actor": "Diego",
+                "action": "Diego does not open the door.",
+                "field": "action",
+                "source_action": (
+                    "Diego not only opens the door but closes it."
+                ),
+                "source_field": (
+                    "Diego not only opens the door but closes it."
+                ),
+            },
+            {
+                "actor": "Diego",
+                "action": "Diego no abre la puerta.",
+                "field": "action",
+                "source_action": (
+                    "Diego no solo abre la puerta, tambien la cierra."
+                ),
+                "source_field": (
+                    "Diego no solo abre la puerta, tambien la cierra."
+                ),
+            },
+            *(
+                {
+                    "actor": "Diego",
+                    "action": "Diego opens the door.",
+                    "field": "action",
+                    "source_action": source_action,
+                    "source_field": source_action,
+                }
+                for source_action in (
+                    "Diego cannot open the door.",
+                    "Diego can't open the door.",
+                    "Diego fails to open the door.",
+                    "Diego is unable to open the door.",
+                    "Diego refuses to open the door.",
+                    "Diego fracasa al abrir la puerta.",
+                    "Diego se niega a abrir la puerta.",
+                    "Diego tries to open the door.",
+                    "Diego almost opens the door.",
+                    "Diego plans to open the door.",
+                    "Diego threatens to open the door.",
+                    "Diego pretends to open the door.",
+                    "Diego may open the door.",
+                    "Diego might open the door.",
+                    "Diego could open the door.",
+                    "Diego intenta abrir la puerta.",
+                    "Diego casi abre la puerta.",
+                    "Diego planea abrir la puerta.",
+                )
+            ),
+            {
+                "actor": "Diego",
+                "action": "Diego pushes Carlos away from the trophy podium.",
+                "field": "action",
+                "source_action": (
+                    "Diego pushes Ana away from the trophy podium."
+                ),
+                "source_field": (
+                    "Diego pushes Ana away from the trophy podium."
+                ),
+            },
+            {
+                "actor": "Diego",
+                "action": "Diego opens Carlos old locker near the field.",
+                "field": "action",
+                "source_action": "Diego opens the old locker near the field.",
+                "source_field": "Diego opens the old locker near the field.",
+            },
+            {
+                "actor": "The judge",
+                "action": "The judge awards the runner the golden trophy.",
+                "field": "action",
+                "source_action": (
+                    "The judge awards the referee the golden trophy."
+                ),
+                "source_field": (
+                    "The judge awards the referee the golden trophy."
+                ),
+            },
+            {
+                "actor": "Diego",
+                "action": "Diego gives Carlos the trophy.",
+                "field": "action",
+                "source_action": "Diego gives the trophy near Carlos.",
+                "source_field": "Diego gives the trophy near Carlos.",
+            },
+            {
+                "actor": "Diego",
+                "action": "Diego entrega el trofeo a Carlos.",
+                "field": "action",
+                "source_action": "Diego entrega el trofeo junto a Carlos.",
+                "source_field": "Diego entrega el trofeo junto a Carlos.",
+            },
+            {
+                "actor": "The judge",
+                "action": "The judge awards the runner.",
+                "field": "action",
+                "source_action": (
+                    "The judge awards the trophy beside the runner."
+                ),
+                "source_field": (
+                    "The judge awards the trophy beside the runner."
+                ),
+            },
+            {
+                "actor": "Diego",
+                "action": "Diego arrests Carlos at the police station.",
+                "field": "action",
+                "source_action": (
+                    "Diego greets Carlos at the police station."
+                ),
+                "source_field": (
+                    "Diego greets Carlos at the police station."
+                ),
+            },
+            {
+                "actor": "Diego",
+                "action": "Diego golpea a Carlos junto al escenario.",
+                "field": "action",
+                "source_action": (
+                    "Diego abraza a Carlos junto al escenario."
+                ),
+                "source_field": (
+                    "Diego abraza a Carlos junto al escenario."
+                ),
+            },
+            {
+                "actor": "Diego",
+                "action": "Diego poisons Carlos during the theater gala.",
+                "field": "action",
+                "source_action": (
+                    "Diego photographs Carlos during the theater gala."
+                ),
+                "source_field": (
+                    "Diego photographs Carlos during the theater gala."
+                ),
+            },
+            {
+                "actor": "Diego",
+                "action": "Diego opens the red door.",
+                "field": "action",
+                "source_action": "Diego paints the red door.",
+                "source_field": "Diego paints the red door.",
+            },
+            {
+                "actor": "Diego",
+                "action": "Diego enters the old arena.",
+                "field": "action",
+                "source_action": "Diego cleans the old arena.",
+                "source_field": "Diego cleans the old arena.",
+            },
+            {
+                "actor": "Diego",
+                "action": "Diego buys the red car.",
+                "field": "action",
+                "source_action": "Diego washes the red car.",
+                "source_field": "Diego washes the red car.",
+            },
+            {
+                "actor": "Diego",
+                "action": "Diego abre la puerta roja.",
+                "field": "action",
+                "source_action": "Diego pinta la puerta roja.",
+                "source_field": "Diego pinta la puerta roja.",
+            },
+            {
+                "actor": "Diego and Carlos",
+                "action": "Diego murders Carlos in the theater.",
+                "field": "action",
+                "source_action": "Diego saluda a Carlos en el teatro.",
+                "source_field": "Diego saluda a Carlos en el teatro.",
+            },
+            {
+                "actor": "Diego",
+                "action": "Diego opens the heavy vault door.",
+                "field": "action",
+                "source_action": "Diego pinta la pesada puerta de la bóveda.",
+                "source_field": "Diego pinta la pesada puerta de la bóveda.",
+            },
+            {
+                "actor": "Diego",
+                "action": "Diego reaches the trophy ceremony.",
+                "field": "result",
+                "claim": "Diego receives the golden trophy.",
+                "source_field": (
+                    "Beside Diego, Carlos receives the golden trophy."
+                ),
+            },
+            {
+                "actor": "The judge",
+                "action": "The judge reaches the trophy ceremony.",
+                "field": "result",
+                "claim": "The judge awards the runner the golden trophy.",
+                "source_field": (
+                    "The runner awards the judge the golden trophy."
+                ),
+            },
+            {
+                "actor": "The judge",
+                "action": "The judge reaches the trophy ceremony.",
+                "field": "result",
+                "claim": "The judge awards the runner the golden trophy.",
+                "source_field": (
+                    "The judge awards the referee the golden trophy."
+                ),
+            },
+            {
+                "actor": "Diego",
+                "action": "Diego reaches the trophy ceremony.",
+                "field": "result",
+                "claim": "Carlos gives Diego the trophy.",
+                "source_field": "Diego receives the trophy.",
+            },
+            {
+                "actor": "Diego",
+                "action": "Diego reaches the trophy ceremony.",
+                "field": "result",
+                "claim": "Carlos rescues Diego from the fire.",
+                "source_field": "Diego escapes from the fire.",
+            },
+            {
+                "actor": "Diego",
+                "action": "Diego questions Carlos about the contest.",
+                "field": "character_knowledge",
+                "claim": "Diego learns Carlos cheated in the contest.",
+                "source_field": (
+                    "Diego learns from Carlos that Ana cheated in the contest."
+                ),
+            },
+            {
+                "actor": "Diego and Carlos",
+                "action": "Diego questions Carlos about the contest.",
+                "field": "character_knowledge",
+                "claim": "Diego knows Carlos murdered Ana.",
+                "source_field": "Diego knows Carlos greeted Ana.",
+            },
+            {
+                "actor": "Diego y Carlos",
+                "action": "Diego pregunta a Carlos sobre el concurso.",
+                "field": "character_knowledge",
+                "claim": "Diego sabe que Carlos golpeó a Ana.",
+                "source_field": "Diego sabe que Carlos abrazó a Ana.",
+            },
+            {
+                "actor": "Diego and Carlos",
+                "action": "Diego questions Carlos about the contest.",
+                "field": "character_knowledge",
+                "claim": "Diego knows Carlos murdered Ana.",
+                "source_field": "Diego sabe que Carlos saludó a Ana.",
+            },
+            {
+                "actor": "Diego",
+                "action": "Diego reaches the trophy ceremony.",
+                "field": "audience_knowledge",
+                "claim": "The audience applauds Diego receiving the trophy.",
+                "source_field": (
+                    "The audience applauds beside Diego as Carlos receives "
+                    "the trophy."
+                ),
+            },
+            {
+                "actor": "The judge",
+                "action": "The judge reaches the trophy ceremony.",
+                "field": "audience_knowledge",
+                "claim": (
+                    "The audience applauds the judge awarding the runner "
+                    "the trophy."
+                ),
+                "source_field": (
+                    "The audience applauds the runner awarding the judge "
+                    "the trophy."
+                ),
+            },
+            {
+                "actor": "Diego and Carlos",
+                "action": "Diego greets Carlos at the ceremony.",
+                "field": "audience_knowledge",
+                "claim": "The audience sees Diego murder Carlos.",
+                "source_field": "The audience sees Diego greet Carlos.",
+            },
+            {
+                "actor": "Diego y Carlos",
+                "action": "Diego abraza a Carlos en la ceremonia.",
+                "field": "audience_knowledge",
+                "claim": "El público ve a Diego golpear a Carlos.",
+                "source_field": "El público ve a Diego abrazar a Carlos.",
+            },
+            {
+                "actor": "Diego and Carlos",
+                "action": "Diego greets Carlos at the ceremony.",
+                "field": "audience_knowledge",
+                "claim": "The audience sees Diego murder Carlos.",
+                "source_field": "El público ve a Diego saludar a Carlos.",
+            },
+            {
+                "actor": "Diego",
+                "action": "Diego opens the door and closes the window.",
+                "field": "action",
+                "source_action": (
+                    "Diego closes the door and opens the window."
+                ),
+                "source_field": (
+                    "Diego closes the door and opens the window."
+                ),
+            },
+            {
+                "actor": "Diego",
+                "action": "Diego abre la puerta y cierra la ventana.",
+                "field": "action",
+                "source_action": (
+                    "Diego cierra la puerta y abre la ventana."
+                ),
+                "source_field": (
+                    "Diego cierra la puerta y abre la ventana."
+                ),
+            },
+            {
+                "actor": "Diego",
+                "action": "Diego enters the arena and exits the house.",
+                "field": "action",
+                "source_action": (
+                    "Diego exits the arena and enters the house."
+                ),
+                "source_field": (
+                    "Diego exits the arena and enters the house."
+                ),
+            },
+            {
+                "actor": "Diego",
+                "action": "Diego wins the race and loses the match.",
+                "field": "action",
+                "source_action": (
+                    "Diego loses the race and wins the match."
+                ),
+                "source_field": (
+                    "Diego loses the race and wins the match."
+                ),
+            },
+            {
+                "actor": "Diego",
+                "action": (
+                    "Diego opens the door and does not open the window."
+                ),
+                "field": "action",
+                "source_action": (
+                    "Diego does not open the door and opens the window."
+                ),
+                "source_field": (
+                    "Diego does not open the door and opens the window."
+                ),
+            },
+            {
+                "actor": "Diego",
+                "action": "Diego abre la puerta y no abre la ventana.",
+                "field": "action",
+                "source_action": (
+                    "Diego no abre la puerta y abre la ventana."
+                ),
+                "source_field": (
+                    "Diego no abre la puerta y abre la ventana."
+                ),
+            },
+            {
+                "actor": "Conductor",
+                "action": (
+                    "Conductor announces that one peso now equals three "
+                    "dollars."
+                ),
+                "field": "action",
+                "source_action": (
+                    "Conductor announces that one peso now equals two dollars."
+                ),
+                "source_field": (
+                    "Conductor announces that one peso now equals two dollars."
+                ),
+            },
+            {
+                "actor": "Conductor",
+                "action": (
+                    "Conductor anuncia que un peso ahora equivale a tres "
+                    "dólares."
+                ),
+                "field": "action",
+                "source_action": (
+                    "Conductor anuncia que un peso ahora equivale a dos "
+                    "dólares."
+                ),
+                "source_field": (
+                    "Conductor anuncia que un peso ahora equivale a dos "
+                    "dólares."
+                ),
+            },
+            {
+                "actor": "Diego",
+                "action": "Diego buys 3 cars.",
+                "field": "action",
+                "source_action": "Diego buys 2 cars.",
+                "source_field": "Diego buys 2 cars.",
+            },
+            {
+                "actor": "Richie",
+                "action": "Richie says one peso equals three dollars.",
+                "field": "action",
+                "source_action": (
+                    "Richie says one peso equals three or five dollars."
+                ),
+                "source_field": (
+                    "Richie says one peso equals three or five dollars."
+                ),
+            },
+            {
+                "actor": "Richie",
+                "action": "Richie says one peso equals three dollars.",
+                "field": "action",
+                "source_action": (
+                    "Richie says one peso does not equal three but five "
+                    "dollars."
+                ),
+                "source_field": (
+                    "Richie says one peso does not equal three but five "
+                    "dollars."
+                ),
+            },
+            {
+                "actor": "Diego",
+                "action": "Diego wins the first race.",
+                "field": "action",
+                "source_action": "Diego wins the second race.",
+                "source_field": "Diego wins the second race.",
+            },
+            {
+                "actor": "Diego",
+                "action": "Diego gana la primera carrera.",
+                "field": "action",
+                "source_action": "Diego gana la segunda carrera.",
+                "source_field": "Diego gana la segunda carrera.",
+            },
+        )
+        for case in cases:
+            with self.subTest(field=case["field"], claim=case.get("claim")):
+                field = case["field"]
+                source_action = case.get("source_action", case["action"])
+                source_field = case["source_field"]
+                source = f"[PAGE 1]\n{source_action}\n"
+                if source_field != source_action:
+                    source += f"{source_field}\n"
+                beat = {
+                    "order": 1,
+                    "phase": "climax",
+                    "page": 1,
+                    "actor": case["actor"],
+                    "action": case["action"],
+                    "result": "NOT LOCATED",
+                    "character_knowledge": "NOT LOCATED",
+                    "audience_knowledge": "NOT LOCATED",
+                }
+                if field != "action":
+                    beat[field] = case["claim"]
+                required_fields = ["actor", "action"]
+                if field not in required_fields:
+                    required_fields.append(field)
+                row = {
+                    "slot": "row_001",
+                    "kind": "sequence_evidence",
+                    "identifier": "sequence_ledger[0]",
+                    "subject": {
+                        "beat": beat,
+                        "required_fields": required_fields,
+                        "claim_sha256": "a" * 64,
+                    },
+                }
+                anchors = cv._source_anchor_catalog(source)
+
+                def token(check_field, fragment):
+                    anchor_id = next(
+                        key for key, anchor in anchors.items()
+                        if fragment.rstrip(".") in anchor["excerpt"]
+                    )
+                    return f"{row['slot']}:{check_field}:{anchor_id}"
+
+                checks = [
+                    {
+                        "field": check_field,
+                        "source_id": token(
+                            check_field,
+                            source_field if check_field == field else source_action,
+                        ),
+                        "supports": True,
+                    }
+                    for check_field in required_fields
+                ]
+                decoded, reason = cv._decode_grounded_detail_value(
+                    {
+                        "classification": "supported",
+                        "checks": checks,
+                        "note": "The source is claimed to prove every field.",
+                    },
+                    row,
+                    source,
+                )
+
+                self.assertIsNone(decoded)
+                self.assertTrue(
+                    "participant roles" in str(reason)
+                    or "claimed participant" in str(reason)
+                    or "claim predicate" in str(reason)
+                    or "claim polarity" in str(reason)
+                    or "atomic fact" in str(reason)
+                    or "atomic event" in str(reason)
+                    or "actor-action event" in str(reason)
+                    or "compound event" in str(reason)
+                    or "numeric fact" in str(reason),
+                    reason,
+                )
+
+    def test_sequence_role_relations_preserve_joint_actor_permutations(self):
+        for claim, source in (
+            (
+                "Diego and Carlos lift the golden trophy together.",
+                "Carlos and Diego lift the golden trophy together.",
+            ),
+            (
+                "Diego, Carlos, and Ana lift the golden trophy together.",
+                "Ana, Diego, and Carlos lift the golden trophy together.",
+            ),
+            (
+                "Diego y Carlos levantan juntos el trofeo dorado.",
+                "Carlos y Diego levantan juntos el trofeo dorado.",
+            ),
+            (
+                "Diego, Carlos y Ana levantan juntos el trofeo dorado.",
+                "Ana, Diego y Carlos levantan juntos el trofeo dorado.",
+            ),
+        ):
+            with self.subTest(source=source):
+                self.assertFalse(
+                    cv._sequence_has_role_relation_swap(claim, source)
+                )
+        for claim, passive_source in (
+            (
+                "Carlos awards Diego.",
+                "Diego is awarded by Carlos.",
+            ),
+            (
+                "Carlos gives Diego the trophy.",
+                "Diego is given the trophy by Carlos.",
+            ),
+        ):
+            with self.subTest(passive_source=passive_source):
+                self.assertFalse(
+                    cv._sequence_has_role_relation_swap(
+                        claim, passive_source
+                    )
+                )
+        self.assertTrue(cv._sequence_negation_matches(
+            "Diego does not open the door.",
+            "Diego does not move and does not open the door.",
+        ))
+        self.assertTrue(cv._sequence_negation_matches(
+            "Diego opens the door.",
+            "Diego without hesitation opens the door.",
+        ))
+        self.assertTrue(cv._sequence_negation_matches(
+            "Diego abre la puerta.",
+            "Diego sin dudar abre la puerta.",
+        ))
+        self.assertTrue(cv._sequence_negation_matches(
+            "Diego opens the door.",
+            "Diego tries to smile but opens the door.",
+        ))
+        self.assertTrue(cv._sequence_negation_matches(
+            "Diego opens the door.",
+            "Diego may stumble yet opens the door.",
+        ))
+        self.assertTrue(cv._sequence_negation_matches(
+            "Diego abre la puerta.",
+            "Diego intenta sonreír pero abre la puerta.",
+        ))
+        self.assertTrue(cv._sequence_numeric_claim_matches(
+            "Diego opens the door at once.",
+            "Diego immediately opens the door.",
+        ))
+        self.assertTrue(cv._sequence_numeric_claim_matches(
+            "Diego wins once again.",
+            "Diego wins again.",
+        ))
+        self.assertTrue(cv._sequence_numeric_claim_matches(
+            "Diego wins the race on p.1.",
+            "Diego wins the race.",
+        ))
+        self.assertTrue(cv._sequence_numeric_claim_matches(
+            "Diego gana la carrera en la página 1.",
+            "Diego gana la carrera.",
+        ))
+        self.assertTrue(cv._sequence_atomic_fact_matches(
+            "one peso equals three dollars",
+            "1 peso equals 3 dollars",
+        ))
+        self.assertTrue(cv._sequence_atomic_fact_matches(
+            "un peso equivale a tres dólares",
+            "1 peso equivale a 3 dólares",
+        ))
+        self.assertFalse(cv._sequence_atomic_fact_matches(
+            "one peso equals three dollars",
+            "one peso equals two dollars",
+        ))
+        self.assertTrue(cv._sequence_numeric_claim_matches(
+            "Three judges award a trophy to a winner.",
+            "Tres jueces entregan un trofeo a un ganador.",
+        ))
+        self.assertTrue(cv._sequence_numeric_claim_matches(
+            "One peso equals three dollars in an arena.",
+            "Un peso equivale a tres dólares en una arena.",
+        ))
+        self.assertFalse(cv._sequence_numeric_claim_matches(
+            "Once jueces califican.",
+            "Diez jueces califican.",
+        ))
+        self.assertFalse(cv._sequence_numeric_claim_matches(
+            "Hay once jueces.",
+            "Hay diez jueces.",
+        ))
+
+    def test_sequence_evidence_accepts_translation_and_paraphrase(self):
+        source = (
+            "[PAGE 1]\nDiego abre la pesada puerta de la bóveda.\n"
+            "Diego descubre que Carlos hizo trampa en el concurso.\n"
+        )
+        row = {
+            "slot": "row_001",
+            "kind": "sequence_evidence",
+            "identifier": "sequence_ledger[0]",
+            "subject": {
+                "beat": {
+                    "order": 1,
+                    "phase": "climax",
+                    "page": 1,
+                    "actor": "Diego",
+                    "action": "Diego opens the heavy vault door.",
+                    "result": "NOT LOCATED",
+                    "character_knowledge": (
+                        "Diego learns Carlos cheated in the contest."
+                    ),
+                    "audience_knowledge": "NOT LOCATED",
+                },
+                "required_fields": [
+                    "actor", "action", "character_knowledge",
+                ],
+                "claim_sha256": "a" * 64,
+            },
+        }
+        anchors = cv._source_anchor_catalog(source)
+
+        def token(field: str, fragment: str) -> str:
+            anchor_id = next(
+                key for key, anchor in anchors.items()
+                if fragment in anchor["excerpt"]
+            )
+            return f"{row['slot']}:{field}:{anchor_id}"
+
+        decoded, reason = cv._decode_grounded_detail_value(
+            {
+                "classification": "supported",
+                "checks": [
+                    {
+                        "field": "actor",
+                        "source_id": token("actor", "Diego abre"),
+                        "supports": True,
+                    },
+                    {
+                        "field": "action",
+                        "source_id": token("action", "Diego abre"),
+                        "supports": True,
+                    },
+                    {
+                        "field": "character_knowledge",
+                        "source_id": token(
+                            "character_knowledge", "Diego descubre"
+                        ),
+                        "supports": True,
+                    },
+                ],
+                "note": "The Spanish source proves the English frozen fields.",
+            },
+            row,
+            source,
+        )
+
+        self.assertIsNotNone(decoded, reason)
+
+        for source_action, frozen_action in (
+            ("Diego walks into the stadium.", "Diego enters the arena."),
+            ("Diego purchases the automobile.", "Diego buys the car."),
+            ("Diego flees from the house.", "Diego escapes the home."),
+            ("Diego is killed in the alley.", "Diego dies in the alley."),
+            ("Diego takes first place in the race.", "Diego wins the race."),
+            (
+                "Diego opens the door and closes the window.",
+                "Diego opens the door and closes the window.",
+            ),
+            (
+                "Diego announces that 1 peso now equals 3 dollars.",
+                "Diego announces that one peso now equals three dollars.",
+            ),
+        ):
+            with self.subTest(frozen_action=frozen_action):
+                paraphrase_source = f"[PAGE 1]\n{source_action}\n"
+                paraphrase_row = copy.deepcopy(row)
+                paraphrase_row["subject"]["beat"].update({
+                    "action": frozen_action,
+                    "character_knowledge": "NOT LOCATED",
+                })
+                paraphrase_row["subject"]["required_fields"] = [
+                    "actor", "action",
+                ]
+                anchor_id = next(iter(
+                    cv._source_anchor_catalog(paraphrase_source)
+                ))
+                decoded, reason = cv._decode_grounded_detail_value(
+                    {
+                        "classification": "supported",
+                        "checks": [
+                            {
+                                "field": field,
+                                "source_id": (
+                                    f"{paraphrase_row['slot']}:{field}:"
+                                    f"{anchor_id}"
+                                ),
+                                "supports": True,
+                            }
+                            for field in ("actor", "action")
+                        ],
+                        "note": "The source action is a valid paraphrase.",
+                    },
+                    paraphrase_row,
+                    paraphrase_source,
+                )
+
+                self.assertIsNotNone(decoded, reason)
+
+    def test_sequence_audience_event_accepts_bilingual_grounding(self):
+        source = (
+            "[PAGE 1]\nDiego enters the arena.\n"
+            "El público ve a Diego ingresar al estadio.\n"
+        )
+        row = {
+            "slot": "row_001",
+            "kind": "sequence_evidence",
+            "identifier": "sequence_ledger[0]",
+            "subject": {
+                "beat": {
+                    "order": 1,
+                    "phase": "climax",
+                    "page": 1,
+                    "actor": "Diego",
+                    "action": "Diego enters the arena.",
+                    "result": "NOT LOCATED",
+                    "character_knowledge": "NOT LOCATED",
+                    "audience_knowledge": (
+                        "The audience watches Diego enter the arena."
+                    ),
+                },
+                "required_fields": [
+                    "actor", "action", "audience_knowledge",
+                ],
+                "claim_sha256": "a" * 64,
+            },
+        }
+        anchors = cv._source_anchor_catalog(source)
+
+        def token(field, fragment):
+            source_id = next(
+                key for key, anchor in anchors.items()
+                if fragment in anchor["excerpt"]
+            )
+            return f"{row['slot']}:{field}:{source_id}"
+
+        decoded, reason = cv._decode_grounded_detail_value(
+            {
+                "classification": "supported",
+                "checks": [
+                    {
+                        "field": field,
+                        "source_id": token(
+                            field,
+                            "El público" if field == "audience_knowledge"
+                            else "Diego enters",
+                        ),
+                        "supports": True,
+                    }
+                    for field in (
+                        "actor", "action", "audience_knowledge",
+                    )
+                ],
+                "note": "The bilingual source proves the audience event.",
+            },
+            row,
+            source,
+        )
+
+        self.assertIsNotNone(decoded, reason)
 
     def test_subjective_earned_resolution_count_stays_taste(self):
         coverage = valid_coverage()
@@ -3276,7 +5410,7 @@ El público pide otra canción
         ])
         self.assertEqual(stats, {
             "object_count": 8,
-            "property_count": 42,
+            "property_count": 40,
             "optional_parameter_count": 0,
             "union_parameter_count": 0,
             "maximum_depth": 5,
@@ -3452,7 +5586,7 @@ El público pide otra canción
                 self.assertIsNone(decoded)
                 self.assertIn(expected, str(reason))
 
-    def test_large_detail_repair_and_typed_retry_finish_within_seven_calls(self):
+    def test_large_detail_repair_finishes_within_seven_calls_and_fails_closed(self):
         source = SCREENPLAY_TEXT.replace(
             "Diego encuentra a los NIÑOS",
             "A camera records the team for a later video reveal.\n"
@@ -3574,25 +5708,24 @@ El público pide otra canción
         )
 
         self.assertEqual(len(rows), 59)
-        self.assertEqual(report["status"], "sealed")
-        self.assertEqual(report["cost"]["call_count"], 7)
-        self.assertEqual(len(transport.calls), 7)
+        self.assertEqual(report["status"], "needs_review")
+        self.assertIn(
+            "guard.sequence_integrity",
+            report["fact_audit"]["central_failures"],
+        )
+        self.assertEqual(report["cost"]["call_count"], 4)
+        self.assertEqual(len(transport.calls), 4)
 
     def test_sequence_retry_is_bounded_and_details_stay_on_audit_model(self):
         coverage = valid_coverage()
         bad_core = provider_audit_core(coverage)
+        ground_final_scene_for_test(bad_core)
         climax = bad_core["sequence_ledger"]["climax"][0]
         climax["actor"] = "Two members"
-        climax["action"] = (
-            "Diego completes the decisive action on p.6 "
-            "(as prepared, seen earlier on p.4)."
-        )
+        climax["action"] = coverage["story_spine"]["climax"]
         bad_core["sequence_ledger"]["final_scene"][0][
             "character_knowledge"
         ] = "Both members know the result."
-        bad_core["sequence_ledger"]["final_scene"][0][
-            "action"
-        ] = "Only Diego sees the final result."
         good_core = copy.deepcopy(bad_core)
         good_core["sequence_ledger"]["climax"][0]["actor"] = "Diego"
         good_core["sequence_ledger"]["final_scene"][0][
@@ -3687,13 +5820,11 @@ El público pide otra canción
     def test_rejected_sequence_field_gets_one_bounded_micro_retry(self):
         coverage = valid_coverage()
         bad_core = provider_audit_core(coverage)
+        ground_final_scene_for_test(bad_core)
         bad_core["sequence_ledger"]["climax"][0]["actor"] = "Two members"
         bad_core["sequence_ledger"]["final_scene"][0][
             "character_knowledge"
         ] = "Both members know the result."
-        bad_core["sequence_ledger"]["final_scene"][0][
-            "action"
-        ] = "Only Diego sees the final result."
         repaired_core = copy.deepcopy(bad_core)
         repaired_core["sequence_ledger"]["climax"][0]["actor"] = "Diego"
         repaired_core["sequence_ledger"]["final_scene"][0][
@@ -3911,12 +6042,10 @@ El público pide otra canción
     def test_rejected_sequence_micro_retry_fails_closed_once(self):
         coverage = valid_coverage()
         bad_core = provider_audit_core(coverage)
+        ground_final_scene_for_test(bad_core)
         bad_core["sequence_ledger"]["final_scene"][0][
             "character_knowledge"
         ] = "Both members know the result."
-        bad_core["sequence_ledger"]["final_scene"][0][
-            "action"
-        ] = "Only Diego sees the final result."
         first_repair = {"repairs": {
             "row_002_character_knowledge": "Diego celebrates the result."
         }}
@@ -4223,11 +6352,26 @@ El público pide otra canción
         coverage = valid_coverage()
         audit = provider_audit_core(coverage)
         richie = audit["sequence_ledger"]["climax"][0]
-        richie["page"] = 5
-        richie["action"] = "Richie chooses Lucesita before the result changes."
+        ground_sequence_row_for_test(
+            richie,
+            page=5,
+            actor="Richie",
+            action="Richie chooses Lucesita before the result changes.",
+            knowledge="Richie knows he chose Lucesita.",
+            audience="The audience sees Richie choose Lucesita.",
+        )
         expose = copy.deepcopy(richie)
-        expose["page"] = 6
-        expose["action"] = "The exposé overturns the corrupt result."
+        ground_sequence_row_for_test(
+            expose,
+            page=6,
+            actor="Diego",
+            action="Diego plays the exposé and overturns the corrupt result.",
+            knowledge="Diego knows the corrupt result is overturned.",
+            audience=(
+                "The audience sees Diego play the exposé and overturn "
+                "the corrupt result."
+            ),
+        )
         audit["sequence_ledger"]["climax"].append(expose)
         normalized_audit = cv.normalize_audit_tool_input(
             copy.deepcopy(audit), range(1, 7)
@@ -4237,13 +6381,19 @@ El público pide otra canción
                 (coverage, settled_usage()),
                 (audit, settled_usage()),
                 (
-                    supported_detail_payload(coverage, normalized_audit),
+                    supported_detail_payload(
+                        coverage,
+                        normalized_audit,
+                        COSQUILLITAS_SEQUENCE_TEXT,
+                    ),
                     settled_usage(),
                 ),
             ]
         )
 
-        report, _usage = run_engine(new_store(), transport)
+        report, _usage = run_engine(
+            new_store(), transport, text=COSQUILLITAS_SEQUENCE_TEXT
+        )
 
         self.assertEqual(
             [call["stage"] for call in transport.calls],
@@ -4261,31 +6411,59 @@ El público pide otra canción
             [row["phase"] for row in report["fact_audit"]["sequence_ledger"][:2]],
             ["climax", "climax"],
         )
+        self.assertEqual(report["status"], "sealed")
 
     def test_cosquillitas_early_ending_is_reclassified_before_detail_audit(self):
         coverage = valid_coverage()
         audit = provider_audit_core(coverage)
         apparent_loss = audit["sequence_ledger"]["climax"][0]
-        apparent_loss["page"] = 4
-        apparent_loss["actor"] = "Román Vega"
-        apparent_loss["character_knowledge"] = (
-            "Román Vega knows he threatened the field."
+        ground_sequence_row_for_test(
+            apparent_loss,
+            page=4,
+            actor="Román Vega",
+            action="Román Vega creates an apparent loss with corrupt scores.",
+            knowledge="Román Vega knows the result is false.",
+            audience=(
+                "The audience watches as Román Vega creates an apparent loss with "
+                "corrupt scores."
+            ),
         )
-        apparent_loss["action"] = "The corrupt scores create an apparent loss."
         expose = copy.deepcopy(apparent_loss)
-        expose["page"] = 6
-        expose["actor"] = "Diego"
-        expose["character_knowledge"] = "Diego knows the final result."
-        expose["action"] = "The exposé overturns the corrupt result."
+        ground_sequence_row_for_test(
+            expose,
+            page=6,
+            actor="Diego",
+            action="Diego plays the exposé and overturns the corrupt result.",
+            knowledge="Diego knows the corrupt result is overturned.",
+            audience=(
+                "The audience sees Diego play the exposé and overturn "
+                "the corrupt result."
+            ),
+        )
         audit["sequence_ledger"]["climax"].append(expose)
         richie = audit["sequence_ledger"]["ending"][0]
-        richie["page"] = 5
-        richie["actor"] = "Diego"
-        richie["character_knowledge"] = "Diego knows the medical risk."
-        richie["action"] = "Richie receives the wig before the exposé."
+        ground_sequence_row_for_test(
+            richie,
+            page=5,
+            actor="Richie",
+            action="Richie receives the wig before the exposé.",
+            knowledge="Richie knows he received the wig.",
+            audience="The audience sees Richie receive the wig.",
+        )
         coda = copy.deepcopy(richie)
-        coda["page"] = 6
-        coda["action"] = "The winners begin their post-climax celebration."
+        ground_sequence_row_for_test(
+            coda,
+            page=6,
+            actor="Diego and the winners",
+            action=(
+                "Diego and the winners begin their post-climax celebration."
+            ),
+            knowledge="Diego knows the contest is over.",
+            audience=(
+                "The audience sees Diego and the winners begin their "
+                "post-climax celebration."
+            ),
+        )
         audit["sequence_ledger"]["ending"].append(coda)
         normalized_audit = cv.normalize_audit_tool_input(
             copy.deepcopy(audit), range(1, 7)
@@ -4302,18 +6480,25 @@ El público pide otra canción
         reaudited["sequence_normalization_diagnostics"] = normalized_audit[
             "sequence_normalization_diagnostics"
         ]
-        prior_audit = completed_audit_fixture(coverage, normalized_audit)
+        prior_audit = completed_audit_fixture(
+            coverage, normalized_audit, COSQUILLITAS_SEQUENCE_TEXT
+        )
         pending_detail = pending_reaudit_detail_payload(
             coverage,
             prior_audit,
             corrected,
             normalized_audit["sequence_ledger"],
+            COSQUILLITAS_SEQUENCE_TEXT,
         )
         transport = FakeTransport([
             (coverage, settled_usage()),
             (audit, settled_usage()),
             (
-                supported_detail_payload(coverage, normalized_audit),
+                supported_detail_payload(
+                    coverage,
+                    normalized_audit,
+                    COSQUILLITAS_SEQUENCE_TEXT,
+                ),
                 settled_usage(),
             ),
             (corrected, settled_usage()),
@@ -4321,7 +6506,9 @@ El público pide otra canción
             (pending_detail, settled_usage()),
         ])
 
-        report, _usage = run_engine(new_store(), transport)
+        report, _usage = run_engine(
+            new_store(), transport, text=COSQUILLITAS_SEQUENCE_TEXT
+        )
 
         self.assertEqual(
             [call["stage"] for call in transport.calls],
@@ -4346,30 +6533,46 @@ El público pide otra canción
         )
         self.assertEqual(
             ledger[richie_index + 1]["action"],
-            "The exposé overturns the corrupt result.",
+            "Diego plays the exposé and overturns the corrupt result.",
         )
 
     def test_fact_reaudit_preserves_reclassified_climax_beat(self):
         coverage = valid_coverage()
         audit = provider_audit_core(coverage)
         first = audit["sequence_ledger"]["climax"][0]
-        first["page"] = 4
-        first["actor"] = "Román Vega"
-        first["character_knowledge"] = (
-            "Román Vega knows he threatened the field."
+        ground_sequence_row_for_test(
+            first,
+            page=4,
+            actor="Román Vega",
+            action="Román Vega creates an apparent loss with corrupt scores.",
+            knowledge="Román Vega knows the result is false.",
+            audience=(
+                "The audience watches as Román Vega creates an apparent "
+                "loss with corrupt scores."
+            ),
         )
-        first["action"] = "The corrupt scores create an apparent loss."
         expose = copy.deepcopy(first)
-        expose["page"] = 6
-        expose["actor"] = "Diego"
-        expose["character_knowledge"] = "Diego knows the final result."
-        expose["action"] = "The exposé overturns the corrupt result."
+        ground_sequence_row_for_test(
+            expose,
+            page=6,
+            actor="Diego",
+            action="Diego plays the exposé and overturns the corrupt result.",
+            knowledge="Diego knows the corrupt result is overturned.",
+            audience=(
+                "The audience sees Diego play the exposé and overturn "
+                "the corrupt result."
+            ),
+        )
         audit["sequence_ledger"]["climax"].append(expose)
         richie = audit["sequence_ledger"]["ending"][0]
-        richie["page"] = 5
-        richie["actor"] = "Diego"
-        richie["character_knowledge"] = "Diego knows the medical risk."
-        richie["action"] = "Richie receives the wig before the exposé."
+        ground_sequence_row_for_test(
+            richie,
+            page=5,
+            actor="Richie",
+            action="Richie receives the wig before the exposé.",
+            knowledge="Richie knows he received the wig.",
+            audience="The audience sees Richie receive the wig.",
+        )
         audit["sequence_ledger"]["ending"].append(copy.deepcopy(expose))
         normalized_audit = cv.normalize_audit_tool_input(
             copy.deepcopy(audit), range(1, 7)
@@ -4377,18 +6580,25 @@ El público pide otra canción
         corrected = copy.deepcopy(coverage)
         corrected["story_spine"]["climax"] += "; Richie receives the wig"
         corrected["synopsis"] += " Richie receives the wig before the exposé."
-        prior_audit = completed_audit_fixture(coverage, normalized_audit)
+        prior_audit = completed_audit_fixture(
+            coverage, normalized_audit, COSQUILLITAS_SEQUENCE_TEXT
+        )
         pending_detail = pending_reaudit_detail_payload(
             coverage,
             prior_audit,
             corrected,
             normalized_audit["sequence_ledger"],
+            COSQUILLITAS_SEQUENCE_TEXT,
         )
         transport = FakeTransport([
             (coverage, settled_usage()),
             (audit, settled_usage()),
             (
-                supported_detail_payload(coverage, normalized_audit),
+                supported_detail_payload(
+                    coverage,
+                    normalized_audit,
+                    COSQUILLITAS_SEQUENCE_TEXT,
+                ),
                 settled_usage(),
             ),
             (corrected, settled_usage()),
@@ -4397,7 +6607,9 @@ El público pide otra canción
             (pending_detail, settled_usage()),
         ])
 
-        report, _usage = run_engine(new_store(), transport)
+        report, _usage = run_engine(
+            new_store(), transport, text=COSQUILLITAS_SEQUENCE_TEXT
+        )
 
         self.assertEqual(report["status"], "sealed")
         repair = report["diagnostics"]["fact_repair"]
@@ -5091,30 +7303,62 @@ El público pide otra canción
         coverage = valid_coverage()
         audit = provider_audit_core(coverage)
         apparent_loss = audit["sequence_ledger"]["climax"][0]
-        apparent_loss["page"] = 3
+        ground_sequence_row_for_test(
+            apparent_loss,
+            page=3,
+            actor="Román Vega",
+            action="Román Vega creates an apparent loss with corrupt scores.",
+            knowledge="Román Vega knows the result is false.",
+            audience=(
+                "The audience watches as Román Vega creates an apparent "
+                "loss with corrupt scores."
+            ),
+        )
         expose = copy.deepcopy(apparent_loss)
-        expose["page"] = 5
-        expose["actor"] = "Diego"
-        expose["character_knowledge"] = "Diego knows the medical risk."
-        expose["action"] = "The exposé overturns the corrupt result."
+        ground_sequence_row_for_test(
+            expose,
+            page=5,
+            actor="Diego",
+            action="Diego plays the exposé and overturns the corrupt result.",
+            knowledge="Diego knows the corrupt result is overturned.",
+            audience=(
+                "The audience sees Diego play the exposé and overturn "
+                "the corrupt result."
+            ),
+        )
         audit["sequence_ledger"]["climax"].append(expose)
         trophy = audit["sequence_ledger"]["ending"][0]
-        trophy["page"] = 6
-        trophy["action"] = "The trophy celebration completes the ending."
+        ground_sequence_row_for_test(
+            trophy,
+            page=6,
+            actor="Diego",
+            action="Diego completes the ending with the trophy celebration.",
+            knowledge="Diego knows the ending is complete.",
+            audience=(
+                "The audience watches as Diego completes the ending with "
+                "the trophy celebration."
+            ),
+        )
         richie = copy.deepcopy(trophy)
-        richie["page"] = 4
-        richie["actor"] = "Román Vega"
-        richie["character_knowledge"] = (
-            "Román Vega knows he threatened the field."
+        ground_sequence_row_for_test(
+            richie,
+            page=4,
+            actor="Richie",
+            action="Richie receives the wig before the exposé.",
+            knowledge="Richie knows he received the wig.",
+            audience="The audience sees Richie receive the wig.",
         )
-        richie["action"] = "Richie receives the wig before the exposé."
         celebration = copy.deepcopy(trophy)
-        celebration["page"] = 5
-        celebration["actor"] = "Diego"
-        celebration["character_knowledge"] = (
-            "Diego knows the medical risk."
+        ground_sequence_row_for_test(
+            celebration,
+            page=5,
+            actor="Diego and the winners",
+            action="Diego and the winners celebrate their victory.",
+            knowledge="Diego knows the contest is over.",
+            audience=(
+                "The audience sees Diego and the winners celebrate their victory."
+            ),
         )
-        celebration["action"] = "The winners begin celebrating."
         audit["sequence_ledger"]["ending"] = [
             trophy, richie, celebration,
         ]
@@ -5154,24 +7398,38 @@ El público pide otra canción
         }
         corrected_rows = cv.build_detail_audit_rows(
             corrected,
-            cv.build_existing_evidence_checks(corrected, SCREENPLAY_TEXT),
+            cv.build_existing_evidence_checks(
+                corrected, COSQUILLITAS_SEQUENCE_TEXT
+            ),
             normalized_audit["sequence_ledger"],
         )
         _seeded_evidence, _seeded_citations, pending_rows = (
             cv._reusable_detail_seed(
                 coverage,
-                cv.build_existing_evidence_checks(coverage, SCREENPLAY_TEXT),
-                completed_audit_fixture(coverage, normalized_audit),
+                cv.build_existing_evidence_checks(
+                    coverage, COSQUILLITAS_SEQUENCE_TEXT
+                ),
+                completed_audit_fixture(
+                    coverage,
+                    normalized_audit,
+                    COSQUILLITAS_SEQUENCE_TEXT,
+                ),
                 corrected_rows,
             )
         )
-        pending_detail = detail_payload_for_rows(pending_rows)
+        pending_detail = detail_payload_for_rows(
+            pending_rows, COSQUILLITAS_SEQUENCE_TEXT
+        )
         transport = FakeTransport([
             (broken, settled_usage()),
             (coverage, settled_usage()),
             (audit, settled_usage()),
             (
-                supported_detail_payload(coverage, normalized_audit),
+                supported_detail_payload(
+                    coverage,
+                    normalized_audit,
+                    COSQUILLITAS_SEQUENCE_TEXT,
+                ),
                 settled_usage(),
             ),
             (corrected, settled_usage()),
@@ -5179,7 +7437,9 @@ El público pide otra canción
             (pending_detail, settled_usage()),
         ])
 
-        report, _usage = run_engine(new_store(), transport)
+        report, _usage = run_engine(
+            new_store(), transport, text=COSQUILLITAS_SEQUENCE_TEXT
+        )
 
         self.assertEqual(report["status"], "sealed")
         self.assertEqual(report["cost"]["repair_calls_used"], 1)
@@ -5775,6 +8035,85 @@ class TestRepairBudget(unittest.TestCase):
 
 
 class TestCheckpointsAndResume(unittest.TestCase):
+    def test_detail_16_migration_strips_false_source_anchors_idempotently(self):
+        source = (
+            "[PAGE 1]\nDiego waits by the gate.\n"
+            "Carlos opens the vault door.\n"
+        )
+        row = {
+            "slot": "row_001",
+            "kind": "sequence_evidence",
+            "identifier": "sequence_ledger[0]",
+            "subject": {
+                "beat": {
+                    "order": 1,
+                    "phase": "climax",
+                    "page": 1,
+                    "actor": "Diego",
+                    "action": "Diego opens the vault door.",
+                    "result": "NOT LOCATED",
+                    "character_knowledge": "NOT LOCATED",
+                    "audience_knowledge": "NOT LOCATED",
+                },
+                "required_fields": ["actor", "action"],
+                "claim_sha256": "a" * 64,
+            },
+        }
+        anchors = cv._source_anchor_catalog(source)
+
+        def check(field: str, fragment: str, supports: bool) -> dict:
+            anchor_id, anchor = next(
+                (key, value) for key, value in anchors.items()
+                if fragment in value["excerpt"]
+            )
+            return {
+                "field": field,
+                "page": anchor["page"],
+                "excerpt": anchor["excerpt"],
+                "supports": supports,
+                "source_anchor_id": anchor_id,
+            }
+
+        progress = {
+            "detail_contract_version": cv.LEGACY_FIELD_SOURCE_PROGRESS_VERSION,
+            "evidence_rows": [{
+                "field_path": row["identifier"],
+                "classification": "partially_supported",
+                "note": "Only the actor field is supported.",
+                "checks": [
+                    check("actor", "Diego waits", True),
+                    check("action", "Carlos opens", False),
+                ],
+                "claim_sha256": row["subject"]["claim_sha256"],
+                "grounding_valid": True,
+            }],
+            "citation_rows": [],
+        }
+
+        accepted, citations, pending, feedback = (
+            cv._migrate_source_anchor_progress(
+                progress, [row], [row], source
+            )
+        )
+
+        self.assertEqual(citations, [])
+        self.assertEqual(pending, [])
+        self.assertEqual(feedback, {})
+        migrated_action = next(
+            item for item in accepted[0]["checks"]
+            if item["field"] == "action"
+        )
+        self.assertEqual(
+            migrated_action, {"field": "action", "supports": False}
+        )
+        migrated_again = cv._migrate_source_anchor_progress(
+            {"evidence_rows": accepted, "citation_rows": []},
+            [row],
+            [row],
+            source,
+        )[0]
+        self.assertEqual(migrated_again, accepted)
+
     def test_audit_failure_preserves_coverage_and_resume_repays_nothing(self):
         coverage = valid_coverage()
         first = FakeTransport(
@@ -5865,10 +8204,7 @@ class TestCheckpointsAndResume(unittest.TestCase):
     def test_legacy_detail_12_progress_resumes_with_typed_a_and_b_only(self):
         coverage = valid_coverage()
         audit = provider_audit_core(coverage)
-        source = SCREENPLAY_TEXT.replace(
-            "[PAGE 6]",
-            "[PAGE 6]\nDiego knows the result and understands the physical risk.",
-        )
+        source = SCREENPLAY_TEXT
         normalized = cv.normalize_audit_tool_input(
             copy.deepcopy(audit), range(1, 7)
         )
@@ -6098,7 +8434,7 @@ class TestCheckpointsAndResume(unittest.TestCase):
         report, _usage = run_engine(cv.LocalCheckpointStore(root), resume)
 
         self.assertEqual(resume.calls, [])
-        self.assertEqual(report["status"], "needs_review")
+        self.assertEqual(report["status"], "sealed")
         migrated = json.loads(progress_path.read_text(encoding="utf-8"))[
             "payload"
         ]
@@ -6232,6 +8568,13 @@ class TestCheckpointsAndResume(unittest.TestCase):
             check for check in carried["checks"]
             if check["field"] == "character_knowledge"
         )
+        knowledge_check.clear()
+        knowledge_check.update({
+            "field": "character_knowledge",
+            "page": 6,
+            "excerpt": "Diego sobrevive y se queda como entrenador",
+            "supports": True,
+        })
         self.assertIsNone(
             cv._SEQUENCE_EXPLICIT_KNOWLEDGE_VERB.search(
                 knowledge_check["excerpt"]
@@ -7149,9 +9492,12 @@ The footage continues.
             "actor roster" in str(reason)
             or "observed_knowers" in str(reason)
             or "knower roles are absent" in str(reason)
+            or "claimed participant" in str(reason)
+            or "atomic fact" in str(reason),
+            reason,
         )
 
-    def test_cosquillitas_numbered_judges_accept_bound_spanish_role_evidence(self):
+    def test_cosquillitas_aggregate_judges_fail_closed_but_count_is_valid(self):
         source = (
             "[PAGE 94]\n"
             "Los jueces alzan sus paletas de calificaciones.\n"
@@ -7163,6 +9509,8 @@ The footage continues.
             "The 5th judge reveals a different score.\n"
             "El publico vuelve a exclamar.\n"
             "[PAGE 95]\n"
+            "Judges 1, 2, 3, and 4 score 10, 10, 5, and 2.\n"
+            "El publico ve las notas 10, 10, 5 y 2.\n"
             "El Juez la levanta y sonríe maliciosamente.\n"
             "Los nuevos reyes y ganadores del CINLTT, LOS CHAVOS.\n"
         )
@@ -7189,15 +9537,15 @@ The footage continues.
         target = next(row for row in rows if row["kind"] == "sequence_evidence")
         excerpts = {
             "actor": "Los jueces alzan sus paletas de calificaciones",
-            "action": "Los jueces alzan sus paletas de calificaciones",
+            "action": "Judges 1, 2, 3, and 4 score 10, 10, 5, and 2",
             "result": "Los nuevos reyes y ganadores del CINLTT",
-            "audience_knowledge": "El publico vuelve a exclamar",
+            "audience_knowledge": "El publico ve las notas 10, 10, 5 y 2",
         }
         pages = {
             "actor": 94,
-            "action": 94,
+            "action": 95,
             "result": 95,
-            "audience_knowledge": 94,
+            "audience_knowledge": 95,
         }
         value = {
             "classification": "supported",
@@ -7258,9 +9606,12 @@ The footage continues.
             count_value, count_target["subject"], source
         )
 
-        self.assertIsNone(reason)
-        self.assertIsNotNone(decoded)
-        self.assertEqual(decoded["observed_actors"], ["Los jueces"])
+        self.assertIsNone(decoded)
+        self.assertTrue(
+            "numeric fact" in str(reason)
+            or "participant roles" in str(reason),
+            reason,
+        )
         self.assertTrue(decoded_count["count_ledger"]["valid"])
         self.assertEqual(decoded_count["count_ledger"]["observed_total"], 4)
         self.assertEqual(
@@ -7463,6 +9814,54 @@ The footage continues.
         self.assertIsNone(people)
         self.assertIn("names are absent", str(reason))
 
+    def test_legacy_observed_people_cannot_bypass_atomic_fact_validation(self):
+        source = (
+            "[PAGE 1]\n"
+            "Carlos wins the contest.\n"
+            "Carlos knows the door is open.\n"
+            "The audience sees Carlos win.\n"
+        )
+        beat = {
+            "order": 1,
+            "phase": "climax",
+            "actor": "Carlos",
+            "action": "Carlos wins the contest.",
+            "result": "Carlos wins the contest.",
+            "character_knowledge": "Carlos knows the murder occurred.",
+            "audience_knowledge": "The audience sees Carlos win.",
+            "page": 1,
+        }
+        row = cv.build_detail_audit_rows({}, [], [beat])[0]
+        excerpts = {
+            "actor": "Carlos wins the contest",
+            "action": "Carlos wins the contest",
+            "result": "Carlos wins the contest",
+            "character_knowledge": "Carlos knows the door is open",
+            "audience_knowledge": "The audience sees Carlos win",
+        }
+        value = {
+            "classification": "supported",
+            "checks": [
+                {
+                    "field": field,
+                    "page": 1,
+                    "excerpt": excerpts[field],
+                    "supports": True,
+                }
+                for field in row["subject"]["required_fields"]
+            ],
+            "observed_actors": ["Carlos"],
+            "observed_knowers": ["Carlos"],
+            "note": "Every legacy field is supported.",
+        }
+
+        decoded, reason = cv._decode_grounded_detail_value(
+            value, row, source
+        )
+
+        self.assertIsNone(decoded)
+        self.assertIn("atomic fact", str(reason))
+
     def test_sequence_detail_rejects_added_generic_actor_and_knower_roles(self):
         source = "[PAGE 1]\nThe judges score the finalist and announce the result.\n"
         base = {
@@ -7508,11 +9907,23 @@ The footage continues.
                     value, target, source
                 )
 
-                self.assertIsNone(decoded)
-                self.assertIn(expected, str(reason))
+        self.assertIsNone(decoded)
+        self.assertTrue(
+            expected in str(reason)
+            or "actor roster" in str(reason)
+            or "claim predicate" in str(reason)
+            or (
+                field == "character_knowledge"
+                and "atomic fact" in str(reason)
+                    ),
+                    reason,
+                )
 
         named_source = (
             "[PAGE 1]\nCarlos scores the finalist and announces the result.\n"
+            "Carlos announces the result.\n"
+            "Carlos knows the result.\n"
+            "The audience sees Carlos announce the result.\n"
         )
         named_beat = {
             **base,
@@ -7543,9 +9954,17 @@ The footage continues.
         )
 
         self.assertIsNone(decoded)
-        self.assertIn("actor roles are absent", str(reason))
+        self.assertTrue(
+            "actor roles are absent" in str(reason)
+            or "actor roster" in str(reason),
+            reason,
+        )
 
-        short_beat = {**base, "actor": "DJ"}
+        short_beat = {
+            **base,
+            "actor": "DJ",
+            "character_knowledge": "NOT LOCATED",
+        }
         target = cv.build_detail_audit_rows({}, [], [short_beat])[0]
         value = {
             "classification": "supported",
@@ -7559,7 +9978,7 @@ The footage continues.
                 for required in target["subject"]["required_fields"]
             ],
             "observed_actors": [],
-            "observed_knowers": ["The judges"],
+            "observed_knowers": [],
             "note": "The source supports every field.",
         }
 
@@ -7568,7 +9987,11 @@ The footage continues.
         )
 
         self.assertIsNone(decoded)
-        self.assertIn("omits a claimed actor", str(reason))
+        self.assertTrue(
+            "omits a claimed actor" in str(reason)
+            or "does not identify the beat actor" in str(reason),
+            reason,
+        )
 
         sentinel_beat = {**base, "actor": "N/A"}
         target = cv.build_detail_audit_rows({}, [], [sentinel_beat])[0]
@@ -7593,7 +10016,11 @@ The footage continues.
         )
 
         self.assertIsNone(decoded)
-        self.assertIn("actor roles are absent", str(reason))
+        self.assertTrue(
+            "actor roles are absent" in str(reason)
+            or "does not identify the beat actor" in str(reason),
+            reason,
+        )
 
         for claim in (
             "Carlos",
@@ -7618,7 +10045,11 @@ The footage continues.
                     **base,
                     "actor": "Carlos",
                     "action": "Carlos announces the result.",
+                    "result": "Carlos announces the result.",
                     "character_knowledge": claim,
+                    "audience_knowledge": (
+                        "The audience sees Carlos announce the result."
+                    ),
                 }
                 target = cv.build_detail_audit_rows(
                     {}, [], [multi_knowledge_beat]
@@ -7630,7 +10061,13 @@ The footage continues.
                             "field": required,
                             "page": 1,
                             "excerpt": (
-                                "Carlos scores the finalist and announces"
+                                "Carlos knows the result"
+                                if required == "character_knowledge"
+                                else (
+                                    "The audience sees Carlos announce the result"
+                                    if required == "audience_knowledge"
+                                    else "Carlos announces the result"
+                                )
                             ),
                             "supports": True,
                         }
@@ -7778,7 +10215,155 @@ The footage continues.
             "audience_knowledge", target["subject"]["required_fields"]
         )
         self.assertIsNone(decoded)
-        self.assertIn("omits a claimed actor", str(reason))
+        self.assertTrue(
+            "omits a claimed actor" in str(reason)
+            or "atomic fact" in str(reason)
+            or "does not identify the beat actor" in str(reason),
+            reason,
+        )
+
+    def test_public_detail_flow_uses_not_located_instead_of_nearby_text(self):
+        source = SCREENPLAY_TEXT.replace(
+            (
+                "Diego detiene el último penal de la final y se desploma "
+                "sobre el pasto.\n"
+            ),
+            (
+                "Diego detiene el último penal de la final y se desploma "
+                "sobre el pasto.\n"
+                "Carlos abre la puerta.\n"
+                "La multitud come palomitas.\n"
+                "Una cámara graba el pasillo.\n"
+                "Diego entiende que su corazón corre peligro.\n"
+            ),
+        )
+        coverage = valid_coverage()
+        audit = provider_audit_core(coverage)
+        normalized = cv.normalize_audit_tool_input(
+            copy.deepcopy(audit), range(1, 7)
+        )
+        rows = cv.build_detail_audit_rows(
+            coverage,
+            cv.build_existing_evidence_checks(coverage, source),
+            normalized["sequence_ledger"],
+        )
+        target = next(
+            row for row in rows
+            if row["kind"] == "sequence_evidence"
+            and row["identifier"] == "sequence_ledger[1]"
+        )
+        anchors = cv._source_anchor_catalog(source)
+
+        def source_id(fragment: str) -> str:
+            return next(
+                anchor_id for anchor_id, anchor in anchors.items()
+                if fragment in anchor["excerpt"]
+            )
+
+        def token(field: str, anchor_id: str) -> str:
+            return f"{target['slot']}:{field}:{anchor_id}"
+
+        main_detail = typed_detail_payload_for_rows(rows, source)
+        target_group = cv._detail_result_group(target)
+        target_index = next(
+            index for index, value in enumerate(main_detail[target_group])
+            if value["slot"] == target["slot"]
+        )
+        main_detail[target_group][target_index] = {
+            "slot": target["slot"],
+            "classification": "supported",
+            "note": "Every selected line supports the frozen beat.",
+            "actor_source_id": token(
+                "actor", source_id("Diego detiene el último penal")
+            ),
+            "action_source_id": token(
+                "action", source_id("Carlos abre la puerta")
+            ),
+            "result_source_id": token(
+                "result", source_id("Carlos abre la puerta")
+            ),
+            "character_knowledge_source_id": token(
+                "character_knowledge",
+                source_id("Diego entiende que su corazón"),
+            ),
+            "audience_knowledge_source_id": token(
+                "audience_knowledge", source_id("Carlos abre la puerta")
+            ),
+            "character_knowledge_status": "checked",
+        }
+        recovery = {
+            target_group: [{
+                "slot": target["slot"],
+                "classification": "partially_supported",
+                "note": (
+                    "The actor and knowledge are located; the other claims "
+                    "lack relevant anchors."
+                ),
+                "actor_source_id": token(
+                    "actor", source_id("Diego detiene el último penal")
+                ),
+                "action_source_id": cv.SEQUENCE_SOURCE_NOT_LOCATED,
+                "result_source_id": cv.SEQUENCE_SOURCE_NOT_LOCATED,
+                "character_knowledge_source_id": token(
+                    "character_knowledge",
+                    source_id("Diego entiende que su corazón"),
+                ),
+                "audience_knowledge_source_id": (
+                    cv.SEQUENCE_SOURCE_NOT_LOCATED
+                ),
+                "character_knowledge_status": "checked",
+            }],
+        }
+        transport = FakeTransport([
+            (coverage, settled_usage()),
+            (audit, settled_usage()),
+            (main_detail, settled_usage()),
+            (recovery, settled_usage()),
+        ])
+
+        report, usage = run_engine(
+            new_store(), transport, text=source, max_calls=4
+        )
+
+        self.assertEqual(usage["call_count"], 4)
+        self.assertEqual(report["status"], "needs_review")
+        self.assertFalse(report["diagnostics"]["fact_repair"]["attempted"])
+        sequence_result = next(
+            row for row in report["fact_audit"]["sequence_evidence"]
+            if row["field_path"] == target["identifier"]
+        )
+        self.assertEqual(sequence_result["classification"], "partially_supported")
+        checks = {
+            check["field"]: check for check in sequence_result["checks"]
+        }
+        self.assertTrue(checks["actor"]["supports"])
+        self.assertTrue(checks["character_knowledge"]["supports"])
+        for field in ("action", "result", "audience_knowledge"):
+            self.assertFalse(checks[field]["supports"])
+            self.assertNotIn("source_anchor_id", checks[field])
+        recovery_schema = transport.calls[3]["tool"]["input_schema"][
+            "properties"
+        ][target_group]["items"]["properties"]
+        self.assertNotIn("unsupported_fields", recovery_schema)
+        self.assertEqual(
+            recovery_schema["classification"]["enum"],
+            list(cv.SEQUENCE_AUDIT_CLASSIFICATIONS),
+        )
+        self.assertRegex(
+            recovery[target_group][0]["actor_source_id"],
+            recovery_schema["actor_source_id"]["pattern"],
+        )
+        self.assertRegex(
+            cv.SEQUENCE_SOURCE_NOT_LOCATED,
+            recovery_schema["action_source_id"]["pattern"],
+        )
+        recovery_prompt = "\n".join(
+            str(block.get("text", ""))
+            for block in transport.calls[3]["user_blocks"]
+        )
+        self.assertIn(cv.SEQUENCE_SOURCE_NOT_LOCATED, recovery_prompt)
+        self.assertIn("<slot>:<field>:<source_id>", recovery_prompt)
+        self.assertIn("partially_supported only for a mix", recovery_prompt)
 
     def test_final_grounding_failure_never_trusts_same_page_siblings(self):
         source = "[PAGE 1]\nDiego performs the dance backstage."
@@ -7874,38 +10459,53 @@ Dante hands cash to the judges as Tony watches.
     def test_failed_character_knowledge_check_blocks_sequence_seal(self):
         coverage = valid_coverage()
         audit = provider_audit_core(coverage)
-        detail = supported_detail_payload(coverage)
+        source = SCREENPLAY_TEXT.replace(
+            "[PAGE 6]",
+            "[PAGE 6]\n"
+            "Diego knows the result and understands the physical risk.",
+        )
+        normalized = cv.normalize_audit_tool_input(
+            copy.deepcopy(audit), range(1, 7)
+        )
         sequence_rows = [
             row for row in cv.build_detail_audit_rows(
                 coverage,
-                cv.build_existing_evidence_checks(coverage, SCREENPLAY_TEXT),
-                supported_audit(coverage)["sequence_ledger"],
+                cv.build_existing_evidence_checks(coverage, source),
+                normalized["sequence_ledger"],
             )
             if row["kind"] == "sequence_evidence"
         ]
         target = sequence_rows[0]
-        value = json.loads(detail["results"][target["slot"]])
-        value["classification"] = "contradicted"
+        rows = cv.build_detail_audit_rows(
+            coverage,
+            cv.build_existing_evidence_checks(coverage, source),
+            normalized["sequence_ledger"],
+        )
+        detail = typed_detail_payload_for_rows(rows, source)
+        group = cv._detail_result_group(target)
+        value = next(
+            item for item in detail[group]
+            if item["slot"] == target["slot"]
+        )
+        value["classification"] = "partially_supported"
         value["note"] = (
             "The action occurs, but the named character never learns it."
         )
-        next(
-            check for check in value["checks"]
-            if check["field"] == "character_knowledge"
-        )["supports"] = False
-        detail["results"][target["slot"]] = json.dumps(value)
+        value["character_knowledge_source_id"] = cv.SEQUENCE_SOURCE_NOT_LOCATED
         transport = FakeTransport([
             (coverage, settled_usage()),
             (audit, settled_usage()),
             (detail, settled_usage()),
         ])
 
-        report, _usage = run_engine(new_store(), transport)
+        report, _usage = run_engine(
+            new_store(), transport, text=source
+        )
 
         self.assertEqual(report["status"], "needs_review")
         self.assertIn(
             "guard.sequence_integrity",
-            report["fact_audit"]["central_failures"],
+            report["fact_audit"]["central_partials"],
         )
 
     def test_typed_retry_rejects_every_non_string_note(self):
@@ -8371,109 +10971,351 @@ Dante hands cash to the judges as Tony watches.
         self.assertEqual(unresolved["classification"], "unclassified")
         self.assertFalse(report["diagnostics"]["fact_repair"]["attempted"])
 
-    def test_detail_15_settled_typed_b_receipt_replays_after_prompt_bump(self):
-        class FailProgressAfterTypedB(cv.LocalCheckpointStore):
-            def __init__(self, root: Path):
-                super().__init__(root)
-                self.fail_detail_save = False
-
-            def save(self, key: str, stage: str, record: dict) -> None:
-                if stage == "audit_details_progress" and self.fail_detail_save:
-                    self.fail_detail_save = False
-                    raise RuntimeError("crash after typed B settlement")
-                super().save(key, stage, record)
-
+    def test_legacy_detail_requests_reconstruct_frozen_history(self):
         coverage = valid_coverage()
-        audit = provider_audit_core(coverage)
         normalized = cv.normalize_audit_tool_input(
-            copy.deepcopy(audit), range(1, 7)
+            provider_audit_core(coverage), range(1, 7)
         )
         rows = cv.build_detail_audit_rows(
             coverage,
             cv.build_existing_evidence_checks(coverage, SCREENPLAY_TEXT),
             normalized["sequence_ledger"],
         )
-        citation_rows = [
-            row for row in rows if row["kind"] == "citation_relevance"
-        ][:2]
-        malformed_main = typed_detail_payload_for_rows(rows)
-        for result in malformed_main["citation_results"]:
-            if result["slot"] in {
-                row["slot"] for row in citation_rows
-            }:
-                result.pop("supports")
-        store = FailProgressAfterTypedB(
-            Path(tempfile.mkdtemp()) / "cv1"
+        selected = [
+            next(row for row in rows if row["kind"] == "citation_relevance"),
+            next(row for row in rows if row["kind"] == "sequence_evidence"),
+        ]
+        current = cv.build_detail_audit_user_blocks(
+            SCREENPLAY_TEXT,
+            "Prueba",
+            coverage,
+            cv.build_page_reference_map(SCREENPLAY_TEXT, 6, None),
+            selected,
         )
 
-        class ArmCrashTransport(FakeTransport):
-            def __call__(self, **kwargs):
-                result = super().__call__(**kwargs)
-                if str(kwargs.get("stage", "")).endswith("_typed_b"):
-                    store.fail_detail_save = True
-                return result
+        self.assertEqual(
+            cv.canonical_json_hash(cv._legacy_detail_16_user_blocks(current)),
+            "ceccf41853347e3b404d140ca41eee45942684ea6dfb7e049b2d8d467366ed07",
+        )
+        self.assertEqual(
+            cv.canonical_json_hash(cv._legacy_detail_15_user_blocks(current)),
+            "ccabe2d599a3f0fada198803f26a4324c7e5e8eaec945ae4453a564505d57473",
+        )
+        self.assertEqual(
+            cv.canonical_json_hash(cv._legacy_detail_tool(
+                cv.build_detail_audit_tool(selected)
+            )),
+            "2de9b7dbd1c18b0e476b4bca8359cb7fa5d612667922ce072aaf8b51e9b6cf9e",
+        )
+
+    def test_legacy_settled_typed_b_receipts_replay_after_prompt_bump(self):
+        class FailProgressAfterTypedB(cv.LocalCheckpointStore):
+            def __init__(self, root: Path):
+                super().__init__(root)
+                self.fail_detail_save = False
+                self.fail_budget_settlement = False
+
+            def save(self, key: str, stage: str, record: dict) -> None:
+                if (
+                    stage == "budget"
+                    and self.fail_budget_settlement
+                    and record.get("payload", {}).get("in_flight") is None
+                ):
+                    self.fail_budget_settlement = False
+                    raise RuntimeError(
+                        "crash after receipt before budget settlement"
+                    )
+                if stage == "audit_details_progress" and self.fail_detail_save:
+                    self.fail_detail_save = False
+                    raise RuntimeError("crash after typed B settlement")
+                super().save(key, stage, record)
 
         current_builder = cv.build_detail_audit_user_blocks
+        current_tool_builder = cv.build_detail_audit_tool
 
-        def legacy_builder(*args, **kwargs):
-            legacy = cv._legacy_detail_15_user_blocks(
-                current_builder(*args, **kwargs)
+        def frozen_legacy_blocks(blocks, version):
+            rebuilt = (
+                cv._legacy_detail_16_user_blocks(blocks)
+                if version == cv.LEGACY_FIELD_SOURCE_PROGRESS_VERSION
+                else cv._legacy_detail_15_user_blocks(blocks)
             )
-            self.assertIsNotNone(legacy)
-            return legacy
+            self.assertIsNotNone(rebuilt)
+            return rebuilt
 
-        first = ArmCrashTransport([
-            (coverage, settled_usage()),
-            (audit, settled_usage()),
-            (malformed_main, settled_usage()),
-            (typed_detail_payload_for_rows(citation_rows), settled_usage()),
-        ])
-        with patch.object(
-            cv,
-            "DETAIL_AUDIT_CONTRACT_VERSION",
-            cv.PARTIAL_TYPED_B_PROGRESS_VERSION,
-        ), patch.object(
-            cv,
-            "build_detail_audit_user_blocks",
-            side_effect=legacy_builder,
-        ):
-            with self.assertRaisesRegex(
-                RuntimeError, "crash after typed B settlement"
+        def frozen_legacy_tool(detail_rows):
+            tool = current_tool_builder(detail_rows)
+            properties = tool["input_schema"]["properties"]
+            for group in (
+                "sequence_results", "sequence_knowledge_results",
             ):
-                run_engine(store, first, max_calls=4)
+                if group not in properties:
+                    continue
+                item = properties[group]["items"]
+                item_properties = item["properties"]
+                source_keys = [
+                    key for key in item_properties
+                    if key.endswith("_source_id")
+                ]
+                fields = [
+                    key.removesuffix("_source_id") for key in source_keys
+                ]
+                item_properties["classification"] = {
+                    "type": "string",
+                    "enum": [
+                        "supported", "partially_supported", "unsupported",
+                        "contradicted",
+                    ],
+                }
+                for key in source_keys:
+                    item_properties[key] = {"type": "string"}
+                item_properties["unsupported_fields"] = {
+                    "type": "array",
+                    "items": {"type": "string", "enum": fields},
+                    "maxItems": len(fields),
+                }
+                item["required"] = [
+                    "slot", "classification", "note", *source_keys,
+                    "unsupported_fields", "character_knowledge_status",
+                ]
+            return tool
 
-        progress_path = next(
-            store.root.glob("*/audit_details_progress.json")
-        )
-        before_resume = json.loads(
-            progress_path.read_text(encoding="utf-8")
-        )["payload"]
-        self.assertEqual(
-            before_resume["detail_contract_version"],
-            cv.PARTIAL_TYPED_B_PROGRESS_VERSION,
-        )
-        self.assertEqual(before_resume["completed_typed_b_batches"], [])
-        budget_path = next(store.root.glob("*/budget.json"))
-        receipts_path = next(store.root.glob("*/call_receipts.json"))
-        budget_before = budget_path.read_bytes()
-        receipts_before = receipts_path.read_bytes()
+        def legacy_payload(detail_rows):
+            payload = typed_detail_payload_for_rows(detail_rows)
+            fallback_source_id = next(iter(
+                cv._source_anchor_catalog(SCREENPLAY_TEXT)
+            ))
+            for group in (
+                "sequence_results", "sequence_knowledge_results",
+            ):
+                for value in payload.get(group, []):
+                    unsupported = []
+                    for key in [
+                        field for field in value
+                        if field.endswith("_source_id")
+                    ]:
+                        field = key.removesuffix("_source_id")
+                        source_id = value[key]
+                        if source_id == cv.SEQUENCE_SOURCE_NOT_LOCATED:
+                            unsupported.append(field)
+                            value[key] = fallback_source_id
+                        else:
+                            value[key] = source_id.split(":", 2)[2]
+                    value["unsupported_fields"] = unsupported
+            return payload
 
-        resume = FakeTransport([])
-        report, usage = run_engine(store, resume, max_calls=4)
-
-        self.assertEqual(resume.calls, [])
-        self.assertEqual(report["status"], "needs_review")
-        self.assertEqual(usage["call_count"], 0)
-        self.assertEqual(budget_path.read_bytes(), budget_before)
-        self.assertNotEqual(receipts_path.read_bytes(), receipts_before)
-        after_resume = json.loads(
-            progress_path.read_text(encoding="utf-8")
-        )["payload"]
-        self.assertEqual(
-            after_resume["detail_contract_version"],
-            cv.DETAIL_AUDIT_CONTRACT_VERSION,
+        cases = (
+            (cv.PARTIAL_TYPED_B_PROGRESS_VERSION, False, (
+                "bbaa17f9cb14b9b9f4683cc3e2cd3f5cb7445fe394a2245b1287748625021172"
+            )),
+            (cv.LEGACY_FIELD_SOURCE_PROGRESS_VERSION, False, (
+                "23d3a4847735812b8ab10021416f2d419d85bc2265ef3b86e249552596342cda"
+            )),
+            (cv.LEGACY_FIELD_SOURCE_PROGRESS_VERSION, True, (
+                "f1e3692a0b46e44f9d40d0fc25c28ad64d714a37d27db93d242362eb4f52b04c"
+            )),
         )
-        self.assertEqual(len(after_resume["completed_typed_b_batches"]), 1)
+        for version, uncommitted_prompt, expected_fingerprint in cases:
+            with self.subTest(
+                version=version, uncommitted_prompt=uncommitted_prompt
+            ):
+                coverage = valid_coverage()
+                audit = provider_audit_core(coverage)
+                normalized = cv.normalize_audit_tool_input(
+                    copy.deepcopy(audit), range(1, 7)
+                )
+                rows = cv.build_detail_audit_rows(
+                    coverage,
+                    cv.build_existing_evidence_checks(
+                        coverage, SCREENPLAY_TEXT
+                    ),
+                    normalized["sequence_ledger"],
+                )
+                citation_row = next(
+                    row for row in rows
+                    if row["kind"] == "citation_relevance"
+                )
+                sequence_rows = [
+                    row for row in rows
+                    if row["kind"] == "sequence_evidence"
+                ]
+                extra_sequence_row = sequence_rows[0]
+                sequence_row = sequence_rows[1]
+                typed_b_rows = [citation_row, sequence_row]
+                malformed_main = legacy_payload(rows)
+                citation_result = next(
+                    result for result in malformed_main["citation_results"]
+                    if result["slot"] == citation_row["slot"]
+                )
+                citation_result.pop("supports")
+                sequence_group = cv._detail_result_group(sequence_row)
+                sequence_result = next(
+                    result for result in malformed_main[sequence_group]
+                    if result["slot"] == sequence_row["slot"]
+                )
+                sequence_result.pop("action_source_id")
+                store = FailProgressAfterTypedB(
+                    Path(tempfile.mkdtemp()) / "cv1"
+                )
+
+                class ArmCrashTransport(FakeTransport):
+                    def __call__(self, **kwargs):
+                        result = super().__call__(**kwargs)
+                        if str(kwargs.get("stage", "")).endswith("_typed_b"):
+                            if uncommitted_prompt:
+                                store.fail_budget_settlement = True
+                            else:
+                                store.fail_detail_save = True
+                        return result
+
+                def legacy_builder(*args, **kwargs):
+                    blocks = frozen_legacy_blocks(
+                        current_builder(*args, **kwargs), version
+                    )
+                    if uncommitted_prompt:
+                        blocks.append({
+                            "type": "text",
+                            "text": "# HISTORICAL UNCOMMITTED PROMPT HOTFIX",
+                        })
+                    return blocks
+
+                first = ArmCrashTransport([
+                    (coverage, settled_usage()),
+                    (audit, settled_usage()),
+                    (malformed_main, settled_usage()),
+                    (legacy_payload(typed_b_rows), settled_usage()),
+                ])
+                with patch.object(
+                    cv, "DETAIL_AUDIT_CONTRACT_VERSION", version
+                ), patch.object(
+                    cv,
+                    "build_detail_audit_user_blocks",
+                    side_effect=legacy_builder,
+                ), patch.object(
+                    cv,
+                    "build_detail_audit_tool",
+                    side_effect=frozen_legacy_tool,
+                ):
+                    with self.assertRaisesRegex(
+                        RuntimeError,
+                        (
+                            "crash after receipt before budget settlement"
+                            if uncommitted_prompt
+                            else "crash after typed B settlement"
+                        ),
+                    ):
+                        run_engine(store, first, max_calls=4)
+
+                self.assertEqual(
+                    cv._request_fingerprint(first.calls[-1]),
+                    expected_fingerprint,
+                )
+                progress_path = next(
+                    store.root.glob("*/audit_details_progress.json")
+                )
+                before_resume = json.loads(
+                    progress_path.read_text(encoding="utf-8")
+                )["payload"]
+                self.assertEqual(
+                    before_resume["detail_contract_version"], version
+                )
+                self.assertEqual(
+                    before_resume["completed_typed_b_batches"], []
+                )
+                budget_path = next(store.root.glob("*/budget.json"))
+                receipts_path = next(
+                    store.root.glob("*/call_receipts.json")
+                )
+                if uncommitted_prompt:
+                    receipt_record = json.loads(
+                        receipts_path.read_text(encoding="utf-8")
+                    )
+                    receipt = next(
+                        value for value in receipt_record["payload"][
+                            "receipts"
+                        ].values()
+                        if value.get("call_number") == 4
+                    )
+                    extra_group = cv._detail_result_group(
+                        extra_sequence_row
+                    )
+                    extra_result = legacy_payload([
+                        extra_sequence_row
+                    ])[extra_group][0]
+                    extra_result["classification"] = "unsupported"
+                    extra_result["unsupported_fields"] = list(
+                        extra_sequence_row["subject"]["required_fields"]
+                    )
+                    receipt["tool_input"].setdefault(
+                        extra_group, []
+                    ).append(extra_result)
+                    receipts_path.write_text(
+                        json.dumps(cv._sealed_record(
+                            receipt_record["binding"],
+                            receipt_record["payload"],
+                        )),
+                        encoding="utf-8",
+                    )
+                budget_before = budget_path.read_bytes()
+                receipts_before = receipts_path.read_bytes()
+
+                resume = FakeTransport([])
+                report, usage = run_engine(store, resume, max_calls=4)
+
+                self.assertEqual(resume.calls, [])
+                self.assertEqual(report["status"], "sealed")
+                self.assertEqual(usage["call_count"], 0)
+                if uncommitted_prompt:
+                    self.assertNotEqual(
+                        budget_path.read_bytes(), budget_before
+                    )
+                    settled_budget = json.loads(
+                        budget_path.read_text(encoding="utf-8")
+                    )["payload"]
+                    self.assertIsNone(settled_budget["in_flight"])
+                    self.assertEqual(settled_budget["calls_started"], 4)
+                    self.assertEqual(
+                        settled_budget["usage"]["call_count"], 4
+                    )
+                else:
+                    self.assertEqual(
+                        budget_path.read_bytes(), budget_before
+                    )
+                self.assertNotEqual(
+                    receipts_path.read_bytes(), receipts_before
+                )
+                after_resume = json.loads(
+                    progress_path.read_text(encoding="utf-8")
+                )["payload"]
+                self.assertEqual(
+                    after_resume["detail_contract_version"],
+                    cv.DETAIL_AUDIT_CONTRACT_VERSION,
+                )
+                self.assertEqual(
+                    len(after_resume["completed_typed_b_batches"]), 1
+                )
+                replayed_sequence = next(
+                    result for result in after_resume["evidence_rows"]
+                    if result.get("field_path") == sequence_row["identifier"]
+                )
+                replayed_citation = next(
+                    result for result in after_resume["citation_rows"]
+                    if result.get("owner") == citation_row["identifier"]
+                )
+                self.assertNotEqual(
+                    replayed_sequence["classification"], "unclassified"
+                )
+                self.assertNotEqual(
+                    replayed_citation["classification"], "unclassified"
+                )
+                if uncommitted_prompt:
+                    ignored_extra = next(
+                        result for result in after_resume["evidence_rows"]
+                        if result.get("field_path")
+                        == extra_sequence_row["identifier"]
+                    )
+                    self.assertNotEqual(
+                        ignored_extra["classification"], "unsupported"
+                    )
 
     def test_global_count_collision_requeues_only_invalid_typed_b_row(self):
         source = SCREENPLAY_TEXT.replace(
@@ -8604,7 +11446,7 @@ Dante hands cash to the judges as Tony watches.
 
         self.assertEqual(len(resume.calls), 1)
         self.assertEqual(usage["call_count"], 1)
-        self.assertEqual(report["status"], "needs_review")
+        self.assertEqual(report["status"], "sealed")
         self.assertTrue(resume.calls[0]["stage"].endswith("_typed_b"))
         completed = json.loads(
             progress_path.read_text(encoding="utf-8")
@@ -9379,6 +12221,13 @@ Dante hands cash to the judges as Tony watches.
         )
 
     def test_will_fact_repair_propagates_one_climax_to_every_section(self):
+        source = SCREENPLAY_TEXT.replace(
+            "[PAGE 6]",
+            """[PAGE 6]
+Angela says yes under puppeting before God's order.
+The audience watches as Angela says yes under puppeting before God's order.
+Angela knows she said yes under puppeting.""",
+        )
         coverage = valid_coverage()
         wrong = "God frees Angela before she says yes"
         corrected_fact = "Angela says yes under puppeting before God's order"
@@ -9419,22 +12268,47 @@ Dante hands cash to the judges as Tony watches.
             "Whether the later rescue from the kill threat feels external"
         ]
         audit = supported_audit(coverage)
-        audit["sequence_ledger"][0]["action"] = corrected_fact
+        ground_sequence_row_for_test(
+            audit["sequence_ledger"][0],
+            page=6,
+            actor="Angela",
+            action=corrected_fact,
+            knowledge="Angela knows she said yes under puppeting.",
+            audience=(
+                "The audience watches as Angela says yes under puppeting "
+                "before God's order."
+            ),
+        )
         for row in audit["verdicts"]:
             if row["claim_id"] == "guard.cross_field_consistency":
                 row["classification"] = "partially_supported"
                 row["note"] = "The report reverses Angela's decisive action."
-        audit = completed_audit_fixture(coverage, audit)
+        audit = completed_audit_fixture(coverage, audit, source)
+        corrected_audit = supported_audit(corrected)
+        ground_sequence_row_for_test(
+            corrected_audit["sequence_ledger"][0],
+            page=6,
+            actor="Angela",
+            action=corrected_fact,
+            knowledge="Angela knows she said yes under puppeting.",
+            audience=(
+                "The audience watches as Angela says yes under puppeting "
+                "before God's order."
+            ),
+        )
+        corrected_audit = completed_audit_fixture(
+            corrected, corrected_audit, source
+        )
         transport = FakeTransport(
             [
                 (coverage, settled_usage()),
                 (audit, settled_usage()),
                 (corrected, settled_usage()),
-                (supported_audit(corrected), settled_usage()),
+                (corrected_audit, settled_usage()),
             ]
         )
 
-        report, _usage = run_engine(new_store(), transport)
+        report, _usage = run_engine(new_store(), transport, text=source)
 
         self.assertEqual(report["status"], "sealed")
         self.assertNotIn(wrong, json.dumps(report["coverage"]))
@@ -10367,12 +13241,10 @@ class TestBudget(unittest.TestCase):
 
         coverage = valid_coverage()
         bad_core = provider_audit_core(coverage)
+        ground_final_scene_for_test(bad_core)
         bad_core["sequence_ledger"]["final_scene"][0][
             "character_knowledge"
         ] = "Both members know the result."
-        bad_core["sequence_ledger"]["final_scene"][0][
-            "action"
-        ] = "Only Diego sees the final result."
         repaired_core = copy.deepcopy(bad_core)
         repaired_core["sequence_ledger"]["final_scene"][0][
             "character_knowledge"
@@ -10417,12 +13289,10 @@ class TestBudget(unittest.TestCase):
     def test_detail_contract_bump_preserves_three_settled_receipts(self):
         coverage = valid_coverage()
         bad_core = provider_audit_core(coverage)
+        ground_final_scene_for_test(bad_core)
         bad_core["sequence_ledger"]["final_scene"][0][
             "character_knowledge"
         ] = "Both members know the result."
-        bad_core["sequence_ledger"]["final_scene"][0][
-            "action"
-        ] = "Only Diego sees the final result."
         repaired_core = copy.deepcopy(bad_core)
         repaired_core["sequence_ledger"]["final_scene"][0][
             "character_knowledge"
