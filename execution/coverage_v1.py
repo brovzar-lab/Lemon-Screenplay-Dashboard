@@ -11973,6 +11973,21 @@ def run_coverage_v1(
                 for row in rows
                 if str(row["slot"]) in set(grounded_retry_plan)
             ]
+        resolved_detail_identifiers = {
+            str(row.get(identifier_field, ""))
+            for detail_rows, identifier_field in (
+                (evidence_rows, "field_path"),
+                (citation_rows, "owner"),
+            )
+            for row in detail_rows
+            if isinstance(row, dict)
+            and row.get("classification") != "unclassified"
+        } - set(invalid_counts)
+        typed_b_plan = [
+            slot for slot in typed_b_plan
+            if str(rows_by_slot.get(slot, {}).get("identifier", ""))
+            not in resolved_detail_identifiers
+        ]
         if (
             len(typed_a_plan) > MAX_DETAIL_AUDIT_ROWS
             or len(typed_b_plan) > MAX_DETAIL_AUDIT_ROWS

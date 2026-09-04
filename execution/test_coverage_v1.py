@@ -11226,6 +11226,69 @@ Dante hands cash to the judges as Tony watches.
             rescued,
         )
 
+    def test_completed_typed_b_plan_does_not_mask_unclassified_sibling(self):
+        coverage = valid_coverage()
+        audit = provider_audit_core(coverage)
+        normalized = cv.normalize_audit_tool_input(
+            copy.deepcopy(audit), range(1, 7)
+        )
+        rows = cv.build_detail_audit_rows(
+            coverage,
+            cv.build_existing_evidence_checks(coverage, SCREENPLAY_TEXT),
+            normalized["sequence_ledger"],
+        )
+        citation_rows = [
+            row for row in rows if row["kind"] == "citation_relevance"
+        ][:2]
+        malformed_main = typed_detail_payload_for_rows(rows)
+        for result in malformed_main["citation_results"]:
+            if result["slot"] in {
+                row["slot"] for row in citation_rows
+            }:
+                result.pop("supports")
+        partial_final = typed_detail_payload_for_rows(citation_rows)
+        partial_final["citation_results"][1].pop("supports")
+        store = new_store()
+
+        first_report, _usage = run_engine(
+            store,
+            FakeTransport([
+                (coverage, settled_usage()),
+                (audit, settled_usage()),
+                (malformed_main, settled_usage()),
+                (partial_final, settled_usage()),
+            ]),
+            max_calls=4,
+        )
+
+        self.assertEqual(first_report["status"], "needs_review")
+        progress_path = next(
+            store.root.glob("*/audit_details_progress.json")
+        )
+        progress = json.loads(progress_path.read_text(encoding="utf-8"))[
+            "payload"
+        ]
+        self.assertEqual(
+            progress["typed_b_plan"], [citation_rows[0]["slot"]]
+        )
+
+        resume = FakeTransport([(
+            typed_detail_payload_for_rows([citation_rows[1]]),
+            settled_usage(),
+        )])
+        report, usage = run_engine(store, resume, max_calls=5)
+
+        self.assertEqual(usage["call_count"], 1)
+        self.assertEqual(len(resume.calls), 1)
+        retry_schema = resume.calls[0]["tool"]["input_schema"][
+            "properties"
+        ]["citation_results"]
+        self.assertEqual(
+            retry_schema["items"]["properties"]["slot"]["enum"],
+            [citation_rows[1]["slot"]],
+        )
+        self.assertEqual(report["status"], "sealed")
+
     def test_partial_typed_b_resume_at_call_cap_preserves_valid_rows(self):
         class FailAuditSaveOnce(cv.LocalCheckpointStore):
             fail_audit_save = False
