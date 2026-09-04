@@ -6095,15 +6095,10 @@ class TestCheckpointsAndResume(unittest.TestCase):
         )
 
         resume = FakeTransport([RuntimeError("stop after detail migration")])
-        with self.assertRaisesRegex(RuntimeError, "stop after detail migration"):
-            run_engine(cv.LocalCheckpointStore(root), resume)
+        report, _usage = run_engine(cv.LocalCheckpointStore(root), resume)
 
-        self.assertEqual(len(resume.calls), 1)
-        self.assertFalse(
-            resume.calls[0]["stage"].startswith(
-                "coverage_v1.fact_audit_details"
-            )
-        )
+        self.assertEqual(resume.calls, [])
+        self.assertEqual(report["status"], "needs_review")
         migrated = json.loads(progress_path.read_text(encoding="utf-8"))[
             "payload"
         ]
@@ -7785,6 +7780,51 @@ The footage continues.
         self.assertIsNone(decoded)
         self.assertIn("omits a claimed actor", str(reason))
 
+    def test_final_grounding_failure_never_trusts_same_page_siblings(self):
+        source = "[PAGE 1]\nDiego performs the dance backstage."
+        beat = {
+            "order": 1,
+            "phase": "climax",
+            "actor": "Diego",
+            "action": "Diego wins the contest.",
+            "result": "The judges award Diego the trophy.",
+            "character_knowledge": "NOT LOCATED",
+            "audience_knowledge": "The audience sees Diego win.",
+            "page": 1,
+        }
+        row = next(
+            row for row in cv.build_detail_audit_rows({}, [], [beat])
+            if row["kind"] == "sequence_evidence"
+        )
+        rejected = {
+            "classification": "supported",
+            "checks": [
+                {
+                    "field": field,
+                    "page": 1,
+                    "excerpt": "Diego performs the dance backstage",
+                    "supports": True,
+                }
+                for field in row["subject"]["required_fields"]
+            ],
+            "note": "Every field is supported.",
+        }
+
+        unresolved = cv._unclassified_detail_result(
+            row, rejected, "result evidence is unrelated", source
+        )
+
+        self.assertEqual(unresolved["classification"], "unclassified")
+        self.assertEqual(
+            [check["field"] for check in unresolved["accepted_checks"]],
+            ["actor"],
+        )
+        self.assertEqual(
+            unresolved["unresolved_fields"],
+            ["action", "result", "audience_knowledge"],
+        )
+        self.assertFalse(unresolved["grounding_valid"])
+
     def test_named_sequence_actor_roster_must_exist_on_beat_page(self):
         source = """\
 [PAGE 1]
@@ -8152,7 +8192,126 @@ Dante hands cash to the judges as Tony watches.
             rescued,
         )
 
-    def test_detail_15_partial_typed_b_migrates_without_transport_or_ledger_write(self):
+    def test_partial_typed_b_resume_at_call_cap_preserves_valid_rows(self):
+        coverage = valid_coverage()
+        audit = provider_audit_core(coverage)
+        next(
+            row for row in audit["verdicts"]
+            if row["claim_id"] == "spine.turn_0"
+        )["classification"] = "partially_supported"
+        normalized = cv.normalize_audit_tool_input(
+            copy.deepcopy(audit), range(1, 7)
+        )
+        rows = cv.build_detail_audit_rows(
+            coverage,
+            cv.build_existing_evidence_checks(coverage, SCREENPLAY_TEXT),
+            normalized["sequence_ledger"],
+        )
+        citation_rows = [
+            row for row in rows if row["kind"] == "citation_relevance"
+        ][:2]
+        malformed_main = typed_detail_payload_for_rows(rows)
+        for result in malformed_main["citation_results"]:
+            if result["slot"] in {
+                row["slot"] for row in citation_rows
+            }:
+                result.pop("supports")
+        partial_final = typed_detail_payload_for_rows(citation_rows)
+        partial_final["citation_results"][1].pop("supports")
+        store = new_store()
+
+        with self.assertRaisesRegex(
+            cv.CoverageContractError, "recovery B returned a malformed result"
+        ):
+            run_engine(
+                store,
+                FakeTransport([
+                    (coverage, settled_usage()),
+                    (audit, settled_usage()),
+                    (malformed_main, settled_usage()),
+                    (partial_final, settled_usage()),
+                ]),
+                max_calls=5,
+            )
+
+        progress_path = next(
+            store.root.glob("*/audit_details_progress.json")
+        )
+        record = json.loads(progress_path.read_text(encoding="utf-8"))
+        payload = record["payload"]
+        payload["detail_contract_version"] = (
+            cv.PARTIAL_TYPED_B_PROGRESS_VERSION
+        )
+        payload["typed_b_plan"] = [
+            row["slot"] for row in citation_rows
+        ]
+        payload["grounded_retry_plan"] = list(payload["typed_b_plan"])
+        payload["completed_typed_b_batches"] = [
+            cv.canonical_json_hash(citation_rows)
+        ]
+        payload["grounded_retry_feedback"][citation_rows[0]["slot"]] = {
+            "reason": "stale feedback for an accepted row",
+        }
+        preserved = next(
+            row for row in payload["citation_rows"]
+            if row["owner"] == citation_rows[0]["identifier"]
+        )
+        progress_path.write_text(
+            json.dumps(cv._sealed_record(record["binding"], payload)),
+            encoding="utf-8",
+        )
+        budget_path = next(store.root.glob("*/budget.json"))
+        receipts_path = next(store.root.glob("*/call_receipts.json"))
+        budget_before = budget_path.read_bytes()
+        receipts_before = receipts_path.read_bytes()
+
+        resume = FakeTransport([])
+        report, usage = run_engine(store, resume, max_calls=4)
+
+        self.assertEqual(resume.calls, [])
+        self.assertEqual(usage["call_count"], 0)
+        self.assertEqual(report["status"], "needs_review")
+        self.assertFalse(report["diagnostics"]["fact_repair"]["attempted"])
+        self.assertIn(
+            "spine.turn_0", report["fact_audit"]["central_partials"]
+        )
+        self.assertEqual(budget_path.read_bytes(), budget_before)
+        self.assertNotEqual(receipts_path.read_bytes(), receipts_before)
+        report_citations = {
+            row["owner"]: row
+            for row in report["fact_audit"]["citation_relevance"]
+        }
+        self.assertEqual(
+            report_citations[citation_rows[0]["identifier"]], preserved
+        )
+        unresolved = report_citations[citation_rows[1]["identifier"]]
+        self.assertEqual(unresolved["classification"], "unclassified")
+        self.assertEqual(unresolved["grounding_status"], "unresolved")
+        self.assertFalse(unresolved["grounding_valid"])
+        migrated = json.loads(
+            progress_path.read_text(encoding="utf-8")
+        )["payload"]
+        self.assertEqual(
+            migrated["detail_contract_version"],
+            cv.DETAIL_AUDIT_CONTRACT_VERSION,
+        )
+        self.assertEqual(migrated["typed_b_plan"], [])
+        self.assertEqual(len(migrated["completed_typed_b_batches"]), 1)
+        self.assertNotIn(
+            citation_rows[0]["slot"],
+            migrated["grounded_retry_plan"],
+        )
+        self.assertNotIn(
+            citation_rows[0]["slot"],
+            migrated["grounded_retry_feedback"],
+        )
+        self.assertIn(
+            citation_rows[1]["slot"],
+            migrated["grounded_retry_feedback"],
+        )
+        self.assertTrue(list(store.root.glob("*/audit.json")))
+
+    def test_partial_typed_b_resume_at_dollar_cap_uses_no_transport(self):
         coverage = valid_coverage()
         audit = provider_audit_core(coverage)
         normalized = cv.normalize_audit_tool_input(
@@ -8187,69 +8346,30 @@ Dante hands cash to the judges as Tony watches.
                     (malformed_main, settled_usage()),
                     (partial_final, settled_usage()),
                 ]),
-                max_calls=4,
+                max_calls=5,
             )
 
-        progress_path = next(
-            store.root.glob("*/audit_details_progress.json")
-        )
-        record = json.loads(progress_path.read_text(encoding="utf-8"))
-        payload = record["payload"]
-        payload["detail_contract_version"] = (
-            cv.PARTIAL_TYPED_B_PROGRESS_VERSION
-        )
-        payload["typed_b_plan"] = [
-            row["slot"] for row in citation_rows
-        ]
-        payload["grounded_retry_plan"] = list(payload["typed_b_plan"])
-        payload["completed_typed_b_batches"] = [
-            cv.canonical_json_hash(citation_rows)
-        ]
-        payload["grounded_retry_feedback"][citation_rows[0]["slot"]] = {
-            "reason": "stale feedback for an accepted row",
-        }
-        progress_path.write_text(
-            json.dumps(cv._sealed_record(record["binding"], payload)),
-            encoding="utf-8",
-        )
-        budget_path = next(store.root.glob("*/budget.json"))
-        receipts_path = next(store.root.glob("*/call_receipts.json"))
-        budget_before = budget_path.read_bytes()
-        receipts_before = receipts_path.read_bytes()
-
         resume = FakeTransport([])
-        with self.assertRaisesRegex(
-            cv.CoverageBudgetExceededError, "call cap reached: 4 of 4"
+        with patch.object(
+            cv, "_request_cost_ceiling_microusd", return_value=2_000
         ):
-            run_engine(store, resume, max_calls=4)
+            report, usage = run_engine(
+                store,
+                resume,
+                max_calls=5,
+                max_cost_usd=0.241,
+            )
 
         self.assertEqual(resume.calls, [])
-        self.assertEqual(budget_path.read_bytes(), budget_before)
-        self.assertEqual(receipts_path.read_bytes(), receipts_before)
-        migrated = json.loads(
-            progress_path.read_text(encoding="utf-8")
-        )["payload"]
-        self.assertEqual(
-            migrated["detail_contract_version"],
-            cv.DETAIL_AUDIT_CONTRACT_VERSION,
+        self.assertEqual(usage["call_count"], 0)
+        self.assertEqual(report["status"], "needs_review")
+        self.assertEqual(report["cost"]["call_count"], 4)
+        unresolved = next(
+            row for row in report["fact_audit"]["citation_relevance"]
+            if row["owner"] == citation_rows[1]["identifier"]
         )
-        self.assertEqual(
-            migrated["typed_b_plan"], [citation_rows[1]["slot"]]
-        )
-        self.assertEqual(migrated["completed_typed_b_batches"], [])
-        self.assertNotIn(
-            citation_rows[0]["slot"],
-            migrated["grounded_retry_plan"],
-        )
-        self.assertNotIn(
-            citation_rows[0]["slot"],
-            migrated["grounded_retry_feedback"],
-        )
-        self.assertIn(
-            citation_rows[1]["slot"],
-            migrated["grounded_retry_feedback"],
-        )
-        self.assertFalse(list(store.root.glob("*/audit.json")))
+        self.assertEqual(unresolved["classification"], "unclassified")
+        self.assertFalse(report["diagnostics"]["fact_repair"]["attempted"])
 
     def test_detail_15_settled_typed_b_receipt_replays_after_prompt_bump(self):
         class FailProgressAfterTypedB(cv.LocalCheckpointStore):
@@ -8339,14 +8459,13 @@ Dante hands cash to the judges as Tony watches.
         receipts_before = receipts_path.read_bytes()
 
         resume = FakeTransport([])
-        with self.assertRaisesRegex(
-            cv.CoverageBudgetExceededError, "call cap reached: 4 of 4"
-        ):
-            run_engine(store, resume, max_calls=4)
+        report, usage = run_engine(store, resume, max_calls=4)
 
         self.assertEqual(resume.calls, [])
+        self.assertEqual(report["status"], "needs_review")
+        self.assertEqual(usage["call_count"], 0)
         self.assertEqual(budget_path.read_bytes(), budget_before)
-        self.assertEqual(receipts_path.read_bytes(), receipts_before)
+        self.assertNotEqual(receipts_path.read_bytes(), receipts_before)
         after_resume = json.loads(
             progress_path.read_text(encoding="utf-8")
         )["payload"]
@@ -8481,16 +8600,12 @@ Dante hands cash to the judges as Tony watches.
             (corrected, settled_usage()),
             RuntimeError("stop after count retry"),
         ])
-        with self.assertRaisesRegex(RuntimeError, "stop after count retry"):
-            run_engine(store, resume, text=source)
+        report, usage = run_engine(store, resume, text=source)
 
-        self.assertEqual(len(resume.calls), 2)
+        self.assertEqual(len(resume.calls), 1)
+        self.assertEqual(usage["call_count"], 1)
+        self.assertEqual(report["status"], "needs_review")
         self.assertTrue(resume.calls[0]["stage"].endswith("_typed_b"))
-        self.assertFalse(
-            resume.calls[1]["stage"].startswith(
-                "coverage_v1.fact_audit_details"
-            )
-        )
         completed = json.loads(
             progress_path.read_text(encoding="utf-8")
         )["payload"]
@@ -8524,18 +8639,24 @@ Dante hands cash to the judges as Tony watches.
         wrong_group["sequence_results"] = [copy.deepcopy(raw_candidate)]
         store = new_store()
 
-        with self.assertRaisesRegex(
-            cv.CoverageContractError, "recovery B returned a malformed result"
-        ):
-            run_engine(
-                store,
-                FakeTransport([
-                    (coverage, settled_usage()),
-                    (audit, settled_usage()),
-                    (malformed_main, settled_usage()),
-                    (wrong_group, settled_usage()),
-                ]),
-            )
+        transport = FakeTransport([
+            (coverage, settled_usage()),
+            (audit, settled_usage()),
+            (malformed_main, settled_usage()),
+            (wrong_group, settled_usage()),
+        ])
+        report, usage = run_engine(store, transport, max_calls=4)
+
+        self.assertEqual(report["status"], "needs_review")
+        self.assertEqual(usage["call_count"], 4)
+        self.assertFalse(report["diagnostics"]["fact_repair"]["attempted"])
+        unresolved = next(
+            row for row in report["fact_audit"]["sequence_evidence"]
+            if row["field_path"] == target["identifier"]
+        )
+        self.assertEqual(unresolved["classification"], "unclassified")
+        self.assertEqual(unresolved["grounding_status"], "unresolved")
+        self.assertFalse(unresolved["grounding_valid"])
 
         progress_path = next(
             store.root.glob("*/audit_details_progress.json")
@@ -8603,20 +8724,29 @@ Dante hands cash to the judges as Tony watches.
                     "instances": instances,
                 }]}
                 store = new_store()
-                with self.assertRaisesRegex(
-                    cv.CoverageContractError,
-                    "recovery B returned a malformed result",
-                ):
-                    run_engine(
-                        store,
-                        FakeTransport([
-                            (coverage, settled_usage()),
-                            (audit, settled_usage()),
-                            (malformed_main, settled_usage()),
-                            (copy.deepcopy(final), settled_usage()),
-                            (final, settled_usage()),
-                        ]),
-                    )
+                transport = FakeTransport([
+                    (coverage, settled_usage()),
+                    (audit, settled_usage()),
+                    (malformed_main, settled_usage()),
+                    (copy.deepcopy(final), settled_usage()),
+                    (final, settled_usage()),
+                ])
+                report, usage = run_engine(store, transport, max_calls=5)
+                self.assertEqual(report["status"], "needs_review")
+                self.assertEqual(usage["call_count"], 5)
+                self.assertFalse(
+                    report["diagnostics"]["fact_repair"]["attempted"]
+                )
+                unresolved = next(
+                    row
+                    for row in report["fact_audit"][
+                        "existing_evidence_verdicts"
+                    ]
+                    if row["field_path"] == target["identifier"]
+                )
+                self.assertEqual(
+                    unresolved["classification"], "unclassified"
+                )
                 progress_path = next(
                     store.root.glob("*/audit_details_progress.json")
                 )
@@ -9188,6 +9318,16 @@ Dante hands cash to the judges as Tony watches.
         self.assertTrue(report["human_review_recommended"])
         self.assertIn("spine.ending", report["fact_audit"]["central_failures"])
         self.assertEqual(cv.trust_labels(report)["story_spine"], "UNRESOLVED")
+
+    def test_sequence_guard_partial_never_triggers_whole_report_repair(self):
+        by_claim = {
+            "guard.sequence_integrity": {
+                "claim_id": "guard.sequence_integrity",
+                "classification": "partially_supported",
+            }
+        }
+
+        self.assertEqual(cv._fact_repair_targets(by_claim, {}, []), [])
 
     def test_will_reversed_climax_order_cannot_seal(self):
         coverage = valid_coverage()

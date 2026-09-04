@@ -124,6 +124,7 @@ AUDIT_CLASSIFICATIONS = (
     "unsupported",
     "contradicted",
 )
+AUDIT_RESULT_CLASSIFICATIONS = (*AUDIT_CLASSIFICATIONS, "unclassified")
 FOCUSED_EVIDENCE_STATUSES = (
     "established",
     "inferable",
@@ -195,6 +196,10 @@ class CoverageContractError(CoverageV1Error):
 
 class CoverageBudgetExceededError(CoverageV1Error):
     """The local per-screenplay dollar cap was reached."""
+
+
+class CoverageCallCapacityExhaustedError(CoverageBudgetExceededError):
+    """A new call cannot fit within the configured call or dollar cap."""
 
 
 class CoverageUnresolvedSpendError(CoverageBudgetExceededError):
@@ -2763,6 +2768,86 @@ def _decode_grounded_detail_value(
         normalized_result["observed_actors"] = observed_actors
         normalized_result["observed_knowers"] = observed_knowers
     return normalized_result, None
+
+
+def _unclassified_detail_result(
+    row: Dict[str, Any],
+    rejected: Any,
+    reason: Optional[str],
+    source_text: str,
+) -> Dict[str, Any]:
+    """Preserve a failed final detail attempt without inventing a verdict."""
+    subject = row.get("subject")
+    identifier = str(row.get("identifier", ""))
+    result: Dict[str, Any] = {
+        (
+            "owner"
+            if row.get("kind") == "citation_relevance"
+            else "field_path"
+        ): identifier,
+        "classification": "unclassified",
+        "note": (
+            "GROUNDING_UNRESOLVED: "
+            + (str(reason).strip() or "final detail evidence was invalid")
+        ),
+        "grounding_status": "unresolved",
+        "grounding_valid": False,
+        "row_identity": _detail_row_identity(row),
+        "provider_candidate_sha256": canonical_json_hash(rejected),
+    }
+    if not isinstance(subject, dict):
+        return result
+    claim_sha256 = subject.get("claim_sha256")
+    if isinstance(claim_sha256, str):
+        result["claim_sha256"] = claim_sha256
+    if row.get("kind") != "sequence_evidence":
+        return result
+
+    required_fields = subject.get("required_fields")
+    fields = (
+        list(required_fields) if isinstance(required_fields, list) else []
+    )
+    accepted_checks: List[Dict[str, Any]] = []
+    pending_fields = list(fields)
+    candidate = rejected
+    if isinstance(rejected, str):
+        try:
+            candidate = json.loads(rejected)
+        except (TypeError, ValueError):
+            candidate = None
+    checks = candidate.get("checks") if isinstance(candidate, dict) else None
+    if isinstance(checks, list):
+        by_field = {
+            str(check.get("field")): check
+            for check in checks
+            if isinstance(check, dict)
+        }
+        # Only actor and character-knowledge checks have deterministic semantic
+        # validators. Same-page action prose alone is not proof of relevance.
+        for field in ("actor", "character_knowledge"):
+            check = by_field.get(field)
+            if field not in fields or not isinstance(check, dict):
+                continue
+            if check.get("supports") is not True:
+                continue
+            single_row = copy.deepcopy(row)
+            single_subject = copy.deepcopy(subject)
+            single_subject["required_fields"] = [field]
+            single_row["subject"] = single_subject
+            single_value = {
+                "classification": "supported",
+                "checks": [copy.deepcopy(check)],
+                "note": "Field checked against its engine-bound source.",
+            }
+            decoded, _decode_reason = _decode_grounded_detail_value(
+                single_value, single_row, source_text
+            )
+            if decoded is not None:
+                accepted_checks.append(decoded["checks"][0])
+                pending_fields.remove(field)
+    result["accepted_checks"] = accepted_checks
+    result["unresolved_fields"] = pending_fields
+    return result
 
 
 def _malformed_text_detail_rows(
@@ -6969,7 +7054,7 @@ def validate_audit_payload(
         seen.append(claim_id)
         if claim_id not in expected:
             problems.append(f"verdicts[{i}] names unknown claim {claim_id!r}")
-        if verdict.get("classification") not in AUDIT_CLASSIFICATIONS:
+        if verdict.get("classification") not in AUDIT_RESULT_CLASSIFICATIONS:
             problems.append(f"verdicts[{i}].classification invalid")
     missing = [claim_id for claim_id in expected if claim_id not in seen]
     if missing:
@@ -7000,7 +7085,7 @@ def validate_audit_payload(
                 problems.append(
                     f"{field}[{index}] names unknown {id_field} {row_id!r}"
                 )
-            if row.get("classification") not in AUDIT_CLASSIFICATIONS:
+            if row.get("classification") not in AUDIT_RESULT_CLASSIFICATIONS:
                 problems.append(f"{field}[{index}].classification invalid")
         missing_ids = [item for item in expected_ids if item not in row_ids]
         if missing_ids:
@@ -7151,7 +7236,16 @@ def validate_audit_payload(
         id_field = "owner" if field == "citation_relevance" else "field_path"
         for index, row in enumerate(rows):
             subject = subjects.get(str(row.get(id_field, "")), {})
-            if row.get("grounding_valid") is not True:
+            unresolved = row.get("classification") == "unclassified"
+            if unresolved:
+                if not (
+                    row.get("grounding_valid") is False
+                    and row.get("grounding_status") == "unresolved"
+                ):
+                    problems.append(
+                        f"{field}[{index}] unresolved grounding is invalid"
+                    )
+            elif row.get("grounding_valid") is not True:
                 problems.append(f"{field}[{index}] grounding is invalid")
             if row.get("claim_sha256") != subject.get("claim_sha256"):
                 problems.append(f"{field}[{index}] claim binding is invalid")
@@ -7989,9 +8083,10 @@ def _replace_audit_details(
     }
     rank = {
         "supported": 0,
-        "partially_supported": 1,
-        "unsupported": 2,
-        "contradicted": 3,
+        "unclassified": 1,
+        "partially_supported": 2,
+        "unsupported": 3,
+        "contradicted": 4,
     }
     for rows, guard_id, id_field in (
         (coverage_evidence_rows, "guard.existing_evidence", "field_path"),
@@ -8126,6 +8221,19 @@ def _fact_repair_targets(
     evidence_checks: Sequence[Dict[str, Any]],
 ) -> List[str]:
     """Return fact disputes that have evidence strong enough to rewrite once."""
+    if any(
+        isinstance(row, dict)
+        and row.get("classification") == "unclassified"
+        and row.get("grounding_status") == "unresolved"
+        and row.get("grounding_valid") is False
+        for field in (
+            "existing_evidence_verdicts",
+            "sequence_evidence",
+            "citation_relevance",
+        )
+        for row in audit_payload.get(field, [])
+    ):
+        return []
     evidence_trigger = {
         str(row.get("field_path", "")): row.get("trigger")
         for row in evidence_checks
@@ -8147,6 +8255,7 @@ def _fact_repair_targets(
         claim_id
         for claim_id, row in by_claim.items()
         if row.get("classification") == "partially_supported"
+        and claim_id != "guard.sequence_integrity"
     }
     evidence_classification = by_claim.get(
         "guard.existing_evidence", {}
@@ -8353,6 +8462,19 @@ class _CostGuard:
     def charged_microusd(self) -> int:
         return int(self.usage.get("actual_cost_microusd", 0) or 0)
 
+    def capacity_exhausted_for(self, reserved_microusd: int) -> bool:
+        """Whether a new request is impossible while settled usage is valid."""
+        return (
+            self.in_flight is None
+            and self.calls_started <= self.max_calls
+            and self.charged_microusd <= self.max_microusd
+            and (
+                self.calls_started == self.max_calls
+                or reserved_microusd
+                > self.max_microusd - self.charged_microusd
+            )
+        )
+
     def _persist(self) -> None:
         self.checkpoint_store.save(
             self.checkpoint_key,
@@ -8393,7 +8515,7 @@ class _CostGuard:
                 "refusing another call"
             )
         if self.calls_started >= self.max_calls:
-            raise CoverageBudgetExceededError(
+            raise CoverageCallCapacityExhaustedError(
                 f"Screenplay call cap reached: {self.calls_started} of "
                 f"{self.max_calls} calls"
             )
@@ -8406,7 +8528,7 @@ class _CostGuard:
             )
         remaining = self.max_microusd - self.charged_microusd
         if reserved_microusd > remaining:
-            raise CoverageBudgetExceededError(
+            raise CoverageCallCapacityExhaustedError(
                 f"Next request ceiling ${reserved_microusd / 1e6:.4f} "
                 f"exceeds the remaining screenplay cap "
                 f"${max(0, remaining) / 1e6:.4f}; refusing before dispatch"
@@ -9458,6 +9580,123 @@ def run_coverage_v1(
             )
             return merged
 
+        def preserve_unclassified(
+            failed_rows: Sequence[Dict[str, Any]],
+        ) -> None:
+            """Keep a failed final attempt explicit without guessing its result."""
+            nonlocal evidence_rows, citation_rows
+            unresolved_evidence: List[Dict[str, Any]] = []
+            unresolved_citations: List[Dict[str, Any]] = []
+            failed_slots = {str(row["slot"]) for row in failed_rows}
+            for row in failed_rows:
+                slot = str(row["slot"])
+                feedback_row = (
+                    grounded_retry_feedback.get(slot)
+                    or focused_retry_feedback.get(slot)
+                    or count_retry_feedback.get(slot)
+                    or text_retry_feedback.get(slot)
+                    or {}
+                )
+                unresolved = _unclassified_detail_result(
+                    row,
+                    feedback_row.get("rejected_candidate"),
+                    feedback_row.get("reason"),
+                    text,
+                )
+                if row.get("kind") == "citation_relevance":
+                    unresolved_citations.append(unresolved)
+                else:
+                    unresolved_evidence.append(unresolved)
+            evidence_rows = merge_rows(
+                evidence_rows, unresolved_evidence, "field_path"
+            )
+            citation_rows = merge_rows(
+                citation_rows, unresolved_citations, "owner"
+            )
+            for plan in (
+                text_retry_plan,
+                focused_retry_plan,
+                grounded_retry_plan,
+                typed_a_plan,
+                typed_b_plan,
+            ):
+                plan[:] = [slot for slot in plan if slot not in failed_slots]
+
+        def typed_b_call_kwargs(
+            detail_rows: Sequence[Dict[str, Any]],
+        ) -> Dict[str, Any]:
+            mixed_recovery = any(
+                row.get("kind") not in {
+                    "citation_relevance", "sequence_evidence",
+                }
+                for row in detail_rows
+            )
+            feedback = {}
+            for row in detail_rows:
+                slot = str(row["slot"])
+                feedback[slot] = (
+                    grounded_retry_feedback.get(slot)
+                    or focused_retry_feedback.get(slot)
+                    or count_retry_feedback.get(slot)
+                    or text_retry_feedback.get(slot)
+                    or {
+                        "reason": (
+                            "legacy detail result failed deterministic "
+                            "validation; re-audit this row"
+                        )
+                    }
+                )
+            retry_blocks = build_detail_audit_user_blocks(
+                _grounded_detail_source_packet(text, detail_rows),
+                title,
+                candidate_coverage,
+                page_reference_map,
+                detail_rows,
+            )
+            recovery_instruction = (
+                (
+                    "# TYPED DETAIL FINAL RECOVERY\n\nThe prior typed "
+                    "response was incomplete or failed deterministic "
+                    "validation. Re-audit every supplied row against "
+                    "the complete screenplay. Use every result array "
+                    "required by the tool and return every slot exactly "
+                    "once. Use the engine-bound citation decision and "
+                    "engine-bound source IDs exactly as instructed. "
+                    "This is the final recovery attempt."
+                )
+                if mixed_recovery
+                else (
+                    "# TYPED DETAIL RECOVERY B\n\nThe prior opaque "
+                    "results failed deterministic validation. Re-audit "
+                    "every supplied citation and sequence row against "
+                    "the authoritative bound pages. Use citation_results "
+                    "and the required sequence result arrays exactly as "
+                    "required by the tool. Use the engine-bound citation "
+                    "decision and engine-bound source IDs exactly as "
+                    "instructed. This is the only recovery attempt."
+                )
+            )
+            retry_blocks.append({
+                "type": "text",
+                "text": (
+                    recovery_instruction
+                    + "\n\nDETERMINISTIC FAILURES:\n"
+                    + json.dumps(feedback, ensure_ascii=False, indent=1)
+                ),
+            })
+            return {
+                "system_blocks": audit_system,
+                "user_blocks": retry_blocks,
+                "model_key": audit_model_effective,
+                "tool": build_detail_audit_tool(detail_rows),
+                "thinking_budget": AUDIT_THINKING_BUDGET,
+                "max_tokens": AUDIT_MAX_TOKENS,
+                "proxy_url": proxy_url,
+                "job_id": job_id,
+                "stage": stage + "_typed_b",
+                "pipeline_pass": "coverage_v1",
+            }
+
         typed_a_rows = [
             rows_by_slot[slot]
             for slot in typed_a_plan
@@ -9635,78 +9874,25 @@ def run_coverage_v1(
         if typed_b_rows:
             batch_sha256 = canonical_json_hash(typed_b_rows)
             if batch_sha256 not in completed_typed_b:
-                mixed_recovery = any(
-                    row.get("kind") not in {
-                        "citation_relevance", "sequence_evidence",
-                    }
-                    for row in typed_b_rows
-                )
-                feedback = {}
-                for row in typed_b_rows:
-                    slot = str(row["slot"])
-                    feedback[slot] = (
-                        grounded_retry_feedback.get(slot)
-                        or focused_retry_feedback.get(slot)
-                        or count_retry_feedback.get(slot)
-                        or text_retry_feedback.get(slot)
-                        or {
-                            "reason": (
-                                "legacy detail result failed deterministic "
-                                "validation; re-audit this row"
-                            )
-                        }
+                typed_b_kwargs = typed_b_call_kwargs(typed_b_rows)
+                try:
+                    typed_input, _text_out, usage = call(**typed_b_kwargs)
+                except CoverageCallCapacityExhaustedError:
+                    reservation = _request_cost_ceiling_microusd(
+                        typed_b_kwargs
                     )
-                retry_blocks = build_detail_audit_user_blocks(
-                    _grounded_detail_source_packet(text, typed_b_rows),
-                    title,
-                    candidate_coverage,
-                    page_reference_map,
-                    typed_b_rows,
-                )
-                recovery_instruction = (
-                    (
-                        "# TYPED DETAIL FINAL RECOVERY\n\nThe prior typed "
-                        "response was incomplete or failed deterministic "
-                        "validation. Re-audit every supplied row against "
-                        "the complete screenplay. Use every result array "
-                        "required by the tool and return every slot exactly "
-                        "once. Use the engine-bound citation decision and "
-                        "engine-bound source IDs exactly as instructed. "
-                        "This is the final recovery attempt."
+                    if not guard.capacity_exhausted_for(reservation):
+                        raise
+                    preserve_unclassified(typed_b_rows)
+                    completed_typed_b.add(batch_sha256)
+                    save_progress()
+                    return _complete_audit_details(
+                        candidate,
+                        candidate_coverage,
+                        candidate_evidence,
+                        stage,
+                        reusable_from,
                     )
-                    if mixed_recovery
-                    else (
-                        "# TYPED DETAIL RECOVERY B\n\nThe prior opaque "
-                        "results failed deterministic validation. Re-audit "
-                        "every supplied citation and sequence row against "
-                        "the authoritative bound pages. Use citation_results "
-                        "and the required sequence result arrays exactly as "
-                        "required by the "
-                        "tool. Use the engine-bound citation decision and "
-                        "engine-bound source IDs exactly as instructed. "
-                        "This is the only recovery attempt."
-                    )
-                )
-                retry_blocks.append({
-                    "type": "text",
-                    "text": (
-                        recovery_instruction
-                        + "\n\nDETERMINISTIC FAILURES:\n"
-                        + json.dumps(feedback, ensure_ascii=False, indent=1)
-                    ),
-                })
-                typed_input, _text_out, usage = call(
-                    system_blocks=audit_system,
-                    user_blocks=retry_blocks,
-                    model_key=audit_model_effective,
-                    tool=build_detail_audit_tool(typed_b_rows),
-                    thinking_budget=AUDIT_THINKING_BUDGET,
-                    max_tokens=AUDIT_MAX_TOKENS,
-                    proxy_url=proxy_url,
-                    job_id=job_id,
-                    stage=stage + "_typed_b",
-                    pipeline_pass="coverage_v1",
-                )
                 raw_typed_input = copy.deepcopy(typed_input)
                 typed_input = _expand_detail_audit_payload(
                     typed_input, typed_b_rows
@@ -9826,16 +10012,23 @@ def run_coverage_v1(
                             "rejected_candidate": raw_rejected,
                         }
                 if malformed:
-                    typed_b_plan = [
-                        str(row["slot"]) for row in typed_b_rows
-                        if str(row["slot"]) in malformed_slots
-                    ]
-                    completed_typed_b.discard(batch_sha256)
-                    save_progress()
-                    raise CoverageContractError(
-                        "Typed detail recovery B returned a malformed result for "
-                        + ", ".join(str(row["slot"]) for row in malformed)
+                    next_typed_b_kwargs = typed_b_call_kwargs(malformed)
+                    reservation = _request_cost_ceiling_microusd(
+                        next_typed_b_kwargs
                     )
+                    if not guard.capacity_exhausted_for(reservation):
+                        typed_b_plan = [
+                            str(row["slot"]) for row in typed_b_rows
+                            if str(row["slot"]) in malformed_slots
+                        ]
+                        completed_typed_b.discard(batch_sha256)
+                        save_progress()
+                        raise CoverageContractError(
+                            "Typed detail recovery B returned a malformed "
+                            "result for "
+                            + ", ".join(str(row["slot"]) for row in malformed)
+                        )
+                    preserve_unclassified(malformed)
                 typed_b_batch_to_complete = batch_sha256
 
         evidence_rows = _enforce_count_ledger_uniqueness(
