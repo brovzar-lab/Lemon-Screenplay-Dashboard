@@ -95,7 +95,18 @@ MAX_DETAIL_AUDIT_ROWS = 64
 MAX_DETAIL_DIRECT_SLOTS = 42
 MAX_SEQUENCE_FIELD_REPAIR_SLOTS = 40
 AUDIT_CORE_CONTRACT_VERSION = "coverage-v1.2-audit-core-1"
-DETAIL_AUDIT_CONTRACT_VERSION = "coverage-v1.2-detail-15"
+DETAIL_AUDIT_CONTRACT_VERSION = "coverage-v1.2-detail-16"
+PARTIAL_TYPED_B_PROGRESS_VERSION = "coverage-v1.2-detail-15"
+DETAIL_16_GROUNDED_GUIDANCE = (
+    "If no allowed beat-page source ID literally proves an actor or knower, "
+    "choose an engine-bound ID from an allowed beat page, put that field in "
+    "unsupported_fields, and never classify the row supported. Never use "
+    "nearby action by a different person to force support. "
+)
+DETAIL_16_COUNT_GUIDANCE = (
+    "If no source line literally names the counted entity or distinct role, "
+    "omit it; an empty instances array is safer than an unrelated anchor. "
+)
 LEGACY_AUDIT_CORE_VERSION = "coverage-v1.2-detail-12"
 LEGACY_DETAIL_PROGRESS_VERSION = "coverage-v1.2-detail-13"
 SOURCE_ANCHOR_MIGRATION_VERSION = "coverage-v1.2-detail-14"
@@ -6007,7 +6018,8 @@ def build_detail_audit_user_blocks(
                 "collective label into an inferred member roster. If a frozen "
                 "field is wrong, include it in unsupported_fields so the canonical "
                 "repair pass can correct it. "
-                "Dialogue proves only that its speaker said "
+                + DETAIL_16_GROUNDED_GUIDANCE
+                + "Dialogue proves only that its speaker said "
                 "something. If named characters did not witness or learn it, set "
                 "supports false and do not classify the row supported. "
                 "Treat `laugh-free`, `no jokes`, and `no attempted laughs` "
@@ -6044,7 +6056,9 @@ def build_detail_audit_user_blocks(
                 "states the exact total and the exact subject.count_entity, use "
                 "one instance with that literal multiplicity; otherwise use "
                 "separate multiplicity-1 anchors. Never duplicate or shift the "
-                "same quote. Enumerate "
+                "same quote. "
+                + DETAIL_16_COUNT_GUIDANCE
+                + "Enumerate "
                 "the whole relevant universe. The engine derives stable source "
                 "instance IDs and both totals from the verified instances. A "
                 "ratio is supported only "
@@ -8208,6 +8222,28 @@ def _request_fingerprint(kwargs: Dict[str, Any]) -> str:
     })
 
 
+def _legacy_detail_15_user_blocks(
+    blocks: Sequence[Dict[str, Any]],
+) -> Optional[List[Dict[str, Any]]]:
+    """Rebuild the prior prompt solely to replay an already-paid receipt."""
+    legacy = copy.deepcopy(list(blocks))
+    changed = False
+    for block in legacy:
+        block_text = block.get("text")
+        if not isinstance(block_text, str):
+            continue
+        prior = block_text
+        for addition in (
+            DETAIL_16_GROUNDED_GUIDANCE,
+            DETAIL_16_COUNT_GUIDANCE,
+        ):
+            block_text = block_text.replace(addition, "")
+        if block_text != prior:
+            block["text"] = block_text
+            changed = True
+    return legacy if changed else None
+
+
 def _request_cost_ceiling_microusd(kwargs: Dict[str, Any]) -> int:
     """Conservatively cap the exact request using its declared cache TTL."""
     routes, profiles, pricing = _coverage_cost_catalog()
@@ -8704,6 +8740,20 @@ def run_coverage_v1(
         replayed = guard.replay_call(fingerprint, stage)
         if replayed is not None:
             return replayed
+        if stage.startswith((
+            "coverage_v1.fact_audit_details",
+            "coverage_v1.fact_reaudit_details",
+        )):
+            legacy_blocks = _legacy_detail_15_user_blocks(
+                kwargs.get("user_blocks", [])
+            )
+            if legacy_blocks is not None:
+                legacy_kwargs = {**kwargs, "user_blocks": legacy_blocks}
+                replayed = guard.replay_call(
+                    _request_fingerprint(legacy_kwargs), stage
+                )
+                if replayed is not None:
+                    return replayed
         reservation = _request_cost_ceiling_microusd(kwargs)
         guard.begin_call(stage, fingerprint, reservation)
         try:
@@ -8947,6 +8997,7 @@ def run_coverage_v1(
             if (
                 progress_version not in {
                     DETAIL_AUDIT_CONTRACT_VERSION,
+                    PARTIAL_TYPED_B_PROGRESS_VERSION,
                     LEGACY_DETAIL_PROGRESS_VERSION,
                     SOURCE_ANCHOR_MIGRATION_VERSION,
                 }
@@ -8971,6 +9022,13 @@ def run_coverage_v1(
             progress is not None
             and progress.get("detail_contract_version")
             == SOURCE_ANCHOR_MIGRATION_VERSION
+        )
+        partial_typed_b_progress = bool(
+            progress is not None
+            and progress.get("detail_contract_version")
+            == PARTIAL_TYPED_B_PROGRESS_VERSION
+            and progress.get("completed_typed_b_batches")
+            and progress.get("typed_b_plan")
         )
         evidence_rows: List[Dict[str, Any]] = copy.deepcopy(
             (progress or {}).get("evidence_rows", seeded_evidence)
@@ -9073,6 +9131,67 @@ def run_coverage_v1(
             for row in migrated_pending:
                 slot = str(row["slot"])
                 feedback = migrated_feedback[slot]
+                subject = row.get("subject")
+                if row.get("kind") in {
+                    "citation_relevance", "sequence_evidence",
+                }:
+                    grounded_retry_feedback[slot] = feedback
+                elif (
+                    isinstance(subject, dict)
+                    and subject.get("trigger") == "counting_claim"
+                ):
+                    count_retry_feedback[slot] = feedback
+                elif (
+                    isinstance(subject, dict)
+                    and subject.get("focused_evidence")
+                ):
+                    focused_retry_feedback[slot] = feedback
+                else:
+                    text_retry_feedback[slot] = feedback
+            save_progress()
+
+        if partial_typed_b_progress:
+            prior_feedback = {}
+            for feedback_by_slot in (
+                text_retry_feedback,
+                focused_retry_feedback,
+                grounded_retry_feedback,
+                count_retry_feedback,
+            ):
+                prior_feedback.update(feedback_by_slot)
+            (
+                evidence_rows,
+                citation_rows,
+                migrated_pending,
+                migrated_feedback,
+            ) = _migrate_source_anchor_progress(
+                progress, all_rows, all_rows, text
+            )
+            pending_slots = {
+                str(row["slot"]) for row in migrated_pending
+            }
+            completed_typed_b.clear()
+            text_retry_plan = [
+                slot for slot in text_retry_plan if slot in pending_slots
+            ]
+            focused_retry_plan = [
+                slot for slot in focused_retry_plan if slot in pending_slots
+            ]
+            grounded_retry_plan = [
+                slot for slot in grounded_retry_plan if slot in pending_slots
+            ]
+            typed_b_plan = [
+                str(row["slot"]) for row in migrated_pending
+            ]
+            text_retry_feedback = {}
+            focused_retry_feedback = {}
+            grounded_retry_feedback = {}
+            count_retry_feedback = {}
+            for row in migrated_pending:
+                slot = str(row["slot"])
+                feedback = prior_feedback.get(
+                    slot, migrated_feedback[slot]
+                )
                 subject = row.get("subject")
                 if row.get("kind") in {
                     "citation_relevance", "sequence_evidence",
@@ -9512,6 +9631,7 @@ def run_coverage_v1(
             for slot in typed_b_plan
             if slot in rows_by_slot
         ]
+        typed_b_batch_to_complete: Optional[str] = None
         if typed_b_rows:
             batch_sha256 = canonical_json_hash(typed_b_rows)
             if batch_sha256 not in completed_typed_b:
@@ -9621,6 +9741,29 @@ def run_coverage_v1(
                     citation_rows = merge_rows(
                         citation_rows, retried_citations, "owner"
                     )
+                valid_slots = {
+                    str(row["slot"]) for row in valid_rows
+                }
+                for feedback_by_slot in (
+                    text_retry_feedback,
+                    focused_retry_feedback,
+                    grounded_retry_feedback,
+                    count_retry_feedback,
+                ):
+                    for slot in valid_slots:
+                        feedback_by_slot.pop(slot, None)
+                text_retry_plan = [
+                    slot for slot in text_retry_plan
+                    if slot not in valid_slots
+                ]
+                focused_retry_plan = [
+                    slot for slot in focused_retry_plan
+                    if slot not in valid_slots
+                ]
+                grounded_retry_plan = [
+                    slot for slot in grounded_retry_plan
+                    if slot not in valid_slots
+                ]
                 for row in malformed:
                     slot = str(row["slot"])
                     rejected = typed_input["results"].get(slot)
@@ -9682,13 +9825,18 @@ def run_coverage_v1(
                             "reason": transport_reason or reason,
                             "rejected_candidate": raw_rejected,
                         }
-                completed_typed_b.add(batch_sha256)
-                save_progress()
                 if malformed:
+                    typed_b_plan = [
+                        str(row["slot"]) for row in typed_b_rows
+                        if str(row["slot"]) in malformed_slots
+                    ]
+                    completed_typed_b.discard(batch_sha256)
+                    save_progress()
                     raise CoverageContractError(
                         "Typed detail recovery B returned a malformed result for "
                         + ", ".join(str(row["slot"]) for row in malformed)
                     )
+                typed_b_batch_to_complete = batch_sha256
 
         evidence_rows = _enforce_count_ledger_uniqueness(
             evidence_rows, all_rows, text
@@ -9724,6 +9872,18 @@ def run_coverage_v1(
                             if "rejected_candidate" in invalid else {}
                         ),
                     }
+            invalid_slots = {
+                slots_by_identifier.get(
+                    str(row.get("field_path", "")), ""
+                )
+                for row in invalid_after_recovery
+            } - {""}
+            typed_b_plan = [
+                str(row["slot"]) for row in all_rows
+                if str(row["slot"]) in invalid_slots
+            ]
+            if typed_b_batch_to_complete is not None:
+                completed_typed_b.discard(typed_b_batch_to_complete)
             save_progress()
             raise CoverageContractError(
                 "Typed detail recovery left invalid count ledgers: "
@@ -9732,6 +9892,9 @@ def run_coverage_v1(
                     for row in invalid_after_recovery
                 )
             )
+        if typed_b_batch_to_complete is not None:
+            completed_typed_b.add(typed_b_batch_to_complete)
+            save_progress()
         expected_evidence = {
             str(row["identifier"])
             for row in all_rows

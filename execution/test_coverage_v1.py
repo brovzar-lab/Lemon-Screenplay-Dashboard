@@ -2341,6 +2341,9 @@ Another video plays on another screen.
         ))
         self.assertIn("Never return a page or quote", detail_text)
         self.assertIn("exactly source_id, matches_claim", detail_text)
+        self.assertIn("put that field in unsupported_fields", detail_text)
+        self.assertIn("never classify the row supported", detail_text)
+        self.assertIn("empty instances array is safer", detail_text)
         self.assertIn("reveal provenance", detail_text)
         self.assertIn("capture/source", detail_text)
         self.assertIn("continuity_flags", detail_text)
@@ -8106,14 +8109,395 @@ Dante hands cash to the judges as Tony watches.
         }
         self.assertIn(citation_rows[0]["identifier"], rescued_owners)
         self.assertNotIn(citation_rows[1]["identifier"], rescued_owners)
+        self.assertEqual(
+            progress["typed_b_plan"], [citation_rows[1]["slot"]]
+        )
+        self.assertEqual(progress["completed_typed_b_batches"], [])
+        self.assertNotIn(
+            citation_rows[0]["slot"],
+            progress["grounded_retry_feedback"],
+        )
+        self.assertEqual(
+            progress["grounded_retry_feedback"][citation_rows[1]["slot"]][
+                "reason"
+            ],
+            "missing fields: supports",
+        )
+        rescued = next(
+            row for row in progress["citation_rows"]
+            if row["owner"] == citation_rows[0]["identifier"]
+        )
+
+        resume = FakeTransport([(
+            typed_detail_payload_for_rows([citation_rows[1]]),
+            settled_usage(),
+        )])
+        report, usage = run_engine(store, resume)
+
+        self.assertEqual(usage["call_count"], 1)
+        self.assertEqual(len(resume.calls), 1)
+        retry_schema = resume.calls[0]["tool"]["input_schema"][
+            "properties"
+        ]["citation_results"]
+        self.assertEqual(
+            retry_schema["items"]["properties"]["slot"]["enum"],
+            [citation_rows[1]["slot"]],
+        )
+        self.assertEqual(report["status"], "sealed")
+        self.assertEqual(
+            next(
+                row for row in report["fact_audit"]["citation_relevance"]
+                if row["owner"] == citation_rows[0]["identifier"]
+            ),
+            rescued,
+        )
+
+    def test_detail_15_partial_typed_b_migrates_without_transport_or_ledger_write(self):
+        coverage = valid_coverage()
+        audit = provider_audit_core(coverage)
+        normalized = cv.normalize_audit_tool_input(
+            copy.deepcopy(audit), range(1, 7)
+        )
+        rows = cv.build_detail_audit_rows(
+            coverage,
+            cv.build_existing_evidence_checks(coverage, SCREENPLAY_TEXT),
+            normalized["sequence_ledger"],
+        )
+        citation_rows = [
+            row for row in rows if row["kind"] == "citation_relevance"
+        ][:2]
+        malformed_main = typed_detail_payload_for_rows(rows)
+        for result in malformed_main["citation_results"]:
+            if result["slot"] in {
+                row["slot"] for row in citation_rows
+            }:
+                result.pop("supports")
+        partial_final = typed_detail_payload_for_rows(citation_rows)
+        partial_final["citation_results"][1].pop("supports")
+        store = new_store()
+
+        with self.assertRaisesRegex(
+            cv.CoverageContractError, "recovery B returned a malformed result"
+        ):
+            run_engine(
+                store,
+                FakeTransport([
+                    (coverage, settled_usage()),
+                    (audit, settled_usage()),
+                    (malformed_main, settled_usage()),
+                    (partial_final, settled_usage()),
+                ]),
+                max_calls=4,
+            )
+
+        progress_path = next(
+            store.root.glob("*/audit_details_progress.json")
+        )
+        record = json.loads(progress_path.read_text(encoding="utf-8"))
+        payload = record["payload"]
+        payload["detail_contract_version"] = (
+            cv.PARTIAL_TYPED_B_PROGRESS_VERSION
+        )
+        payload["typed_b_plan"] = [
+            row["slot"] for row in citation_rows
+        ]
+        payload["grounded_retry_plan"] = list(payload["typed_b_plan"])
+        payload["completed_typed_b_batches"] = [
+            cv.canonical_json_hash(citation_rows)
+        ]
+        payload["grounded_retry_feedback"][citation_rows[0]["slot"]] = {
+            "reason": "stale feedback for an accepted row",
+        }
+        progress_path.write_text(
+            json.dumps(cv._sealed_record(record["binding"], payload)),
+            encoding="utf-8",
+        )
+        budget_path = next(store.root.glob("*/budget.json"))
+        receipts_path = next(store.root.glob("*/call_receipts.json"))
+        budget_before = budget_path.read_bytes()
+        receipts_before = receipts_path.read_bytes()
 
         resume = FakeTransport([])
         with self.assertRaisesRegex(
-            cv.CoverageContractError,
-            "did not produce every canonical row",
+            cv.CoverageBudgetExceededError, "call cap reached: 4 of 4"
         ):
-            run_engine(store, resume)
+            run_engine(store, resume, max_calls=4)
+
         self.assertEqual(resume.calls, [])
+        self.assertEqual(budget_path.read_bytes(), budget_before)
+        self.assertEqual(receipts_path.read_bytes(), receipts_before)
+        migrated = json.loads(
+            progress_path.read_text(encoding="utf-8")
+        )["payload"]
+        self.assertEqual(
+            migrated["detail_contract_version"],
+            cv.DETAIL_AUDIT_CONTRACT_VERSION,
+        )
+        self.assertEqual(
+            migrated["typed_b_plan"], [citation_rows[1]["slot"]]
+        )
+        self.assertEqual(migrated["completed_typed_b_batches"], [])
+        self.assertNotIn(
+            citation_rows[0]["slot"],
+            migrated["grounded_retry_plan"],
+        )
+        self.assertNotIn(
+            citation_rows[0]["slot"],
+            migrated["grounded_retry_feedback"],
+        )
+        self.assertIn(
+            citation_rows[1]["slot"],
+            migrated["grounded_retry_feedback"],
+        )
+        self.assertFalse(list(store.root.glob("*/audit.json")))
+
+    def test_detail_15_settled_typed_b_receipt_replays_after_prompt_bump(self):
+        class FailProgressAfterTypedB(cv.LocalCheckpointStore):
+            def __init__(self, root: Path):
+                super().__init__(root)
+                self.fail_detail_save = False
+
+            def save(self, key: str, stage: str, record: dict) -> None:
+                if stage == "audit_details_progress" and self.fail_detail_save:
+                    self.fail_detail_save = False
+                    raise RuntimeError("crash after typed B settlement")
+                super().save(key, stage, record)
+
+        coverage = valid_coverage()
+        audit = provider_audit_core(coverage)
+        normalized = cv.normalize_audit_tool_input(
+            copy.deepcopy(audit), range(1, 7)
+        )
+        rows = cv.build_detail_audit_rows(
+            coverage,
+            cv.build_existing_evidence_checks(coverage, SCREENPLAY_TEXT),
+            normalized["sequence_ledger"],
+        )
+        citation_rows = [
+            row for row in rows if row["kind"] == "citation_relevance"
+        ][:2]
+        malformed_main = typed_detail_payload_for_rows(rows)
+        for result in malformed_main["citation_results"]:
+            if result["slot"] in {
+                row["slot"] for row in citation_rows
+            }:
+                result.pop("supports")
+        store = FailProgressAfterTypedB(
+            Path(tempfile.mkdtemp()) / "cv1"
+        )
+
+        class ArmCrashTransport(FakeTransport):
+            def __call__(self, **kwargs):
+                result = super().__call__(**kwargs)
+                if str(kwargs.get("stage", "")).endswith("_typed_b"):
+                    store.fail_detail_save = True
+                return result
+
+        current_builder = cv.build_detail_audit_user_blocks
+
+        def legacy_builder(*args, **kwargs):
+            legacy = cv._legacy_detail_15_user_blocks(
+                current_builder(*args, **kwargs)
+            )
+            self.assertIsNotNone(legacy)
+            return legacy
+
+        first = ArmCrashTransport([
+            (coverage, settled_usage()),
+            (audit, settled_usage()),
+            (malformed_main, settled_usage()),
+            (typed_detail_payload_for_rows(citation_rows), settled_usage()),
+        ])
+        with patch.object(
+            cv,
+            "DETAIL_AUDIT_CONTRACT_VERSION",
+            cv.PARTIAL_TYPED_B_PROGRESS_VERSION,
+        ), patch.object(
+            cv,
+            "build_detail_audit_user_blocks",
+            side_effect=legacy_builder,
+        ):
+            with self.assertRaisesRegex(
+                RuntimeError, "crash after typed B settlement"
+            ):
+                run_engine(store, first, max_calls=4)
+
+        progress_path = next(
+            store.root.glob("*/audit_details_progress.json")
+        )
+        before_resume = json.loads(
+            progress_path.read_text(encoding="utf-8")
+        )["payload"]
+        self.assertEqual(
+            before_resume["detail_contract_version"],
+            cv.PARTIAL_TYPED_B_PROGRESS_VERSION,
+        )
+        self.assertEqual(before_resume["completed_typed_b_batches"], [])
+        budget_path = next(store.root.glob("*/budget.json"))
+        receipts_path = next(store.root.glob("*/call_receipts.json"))
+        budget_before = budget_path.read_bytes()
+        receipts_before = receipts_path.read_bytes()
+
+        resume = FakeTransport([])
+        with self.assertRaisesRegex(
+            cv.CoverageBudgetExceededError, "call cap reached: 4 of 4"
+        ):
+            run_engine(store, resume, max_calls=4)
+
+        self.assertEqual(resume.calls, [])
+        self.assertEqual(budget_path.read_bytes(), budget_before)
+        self.assertEqual(receipts_path.read_bytes(), receipts_before)
+        after_resume = json.loads(
+            progress_path.read_text(encoding="utf-8")
+        )["payload"]
+        self.assertEqual(
+            after_resume["detail_contract_version"],
+            cv.DETAIL_AUDIT_CONTRACT_VERSION,
+        )
+        self.assertEqual(len(after_resume["completed_typed_b_batches"]), 1)
+
+    def test_global_count_collision_requeues_only_invalid_typed_b_row(self):
+        source = SCREENPLAY_TEXT.replace(
+            "[PAGE 6]",
+            "[PAGE 6]\n"
+            "First judge takes the stage.\n"
+            "Second judge takes the stage.\n"
+            "First contestant takes the stage.\n"
+            "Second contestant takes the stage.",
+        )
+        coverage = valid_coverage()
+        coverage["story_spine"]["opposition"] = (
+            "Two judges are bribed and two contestants perform."
+        )
+        audit = provider_audit_core(coverage)
+        normalized = cv.normalize_audit_tool_input(
+            copy.deepcopy(audit), range(1, 7)
+        )
+        rows = cv.build_detail_audit_rows(
+            coverage,
+            cv.build_existing_evidence_checks(coverage, source),
+            normalized["sequence_ledger"],
+        )
+        count_rows = [
+            row for row in rows
+            if row.get("subject", {}).get("source_field_path")
+            == "story_spine.opposition"
+            and row.get("subject", {}).get("trigger") == "counting_claim"
+        ]
+        self.assertEqual(
+            [row["subject"]["count_entity"] for row in count_rows],
+            ["judges", "contestants"],
+        )
+        anchors = cv._source_anchor_catalog(source)
+
+        def anchor_id(phrase):
+            folded = cv._fold_evidence_text(phrase)
+            return next(
+                source_id for source_id, anchor in anchors.items()
+                if folded in cv._fold_evidence_text(anchor["excerpt"])
+            )
+
+        judge_ids = [
+            anchor_id("First judge takes the stage"),
+            anchor_id("Second judge takes the stage"),
+        ]
+        contestant_ids = [
+            anchor_id("First contestant takes the stage"),
+            anchor_id("Second contestant takes the stage"),
+        ]
+
+        def typed_counts(source_ids_by_slot):
+            return {"count_results": [
+                {
+                    "slot": row["slot"],
+                    "instances": [
+                        {
+                            "source_id": source_id,
+                            "matches_claim": True,
+                            "multiplicity": 1,
+                        }
+                        for source_id in source_ids_by_slot[row["slot"]]
+                    ],
+                }
+                for row in count_rows
+                if row["slot"] in source_ids_by_slot
+            ]}
+
+        malformed_main = typed_detail_payload_for_rows(rows, source)
+        for result in malformed_main["count_results"]:
+            if result["slot"] in {row["slot"] for row in count_rows}:
+                result.pop("instances")
+        malformed_a = {
+            "count_results": [
+                {"slot": row["slot"], "instances": None}
+                for row in count_rows
+            ]
+        }
+        overlapping_b = typed_counts({
+            row["slot"]: judge_ids for row in count_rows
+        })
+        store = new_store()
+
+        with self.assertRaisesRegex(
+            cv.CoverageContractError,
+            "Typed detail recovery left invalid count ledgers",
+        ):
+            run_engine(
+                store,
+                FakeTransport([
+                    (coverage, settled_usage()),
+                    (audit, settled_usage()),
+                    (malformed_main, settled_usage()),
+                    (malformed_a, settled_usage()),
+                    (overlapping_b, settled_usage()),
+                ]),
+                text=source,
+            )
+
+        progress_path = next(
+            store.root.glob("*/audit_details_progress.json")
+        )
+        progress = json.loads(progress_path.read_text(encoding="utf-8"))[
+            "payload"
+        ]
+        self.assertEqual(
+            progress["typed_b_plan"], [count_rows[1]["slot"]]
+        )
+        self.assertEqual(progress["completed_typed_b_batches"], [])
+        self.assertNotIn(
+            count_rows[0]["slot"], progress["count_retry_feedback"]
+        )
+        self.assertIn(
+            "overlaps an instance already used",
+            progress["count_retry_feedback"][count_rows[1]["slot"]][
+                "reason"
+            ],
+        )
+
+        corrected = typed_counts({
+            count_rows[1]["slot"]: contestant_ids,
+        })
+        resume = FakeTransport([
+            (corrected, settled_usage()),
+            RuntimeError("stop after count retry"),
+        ])
+        with self.assertRaisesRegex(RuntimeError, "stop after count retry"):
+            run_engine(store, resume, text=source)
+
+        self.assertEqual(len(resume.calls), 2)
+        self.assertTrue(resume.calls[0]["stage"].endswith("_typed_b"))
+        self.assertFalse(
+            resume.calls[1]["stage"].startswith(
+                "coverage_v1.fact_audit_details"
+            )
+        )
+        completed = json.loads(
+            progress_path.read_text(encoding="utf-8")
+        )["payload"]
+        self.assertEqual(len(completed["completed_typed_b_batches"]), 1)
+        self.assertNotIn(
+            count_rows[1]["slot"], completed["count_retry_feedback"]
+        )
 
     def test_typed_b_checkpoints_wrong_group_candidate_and_exact_reason(self):
         coverage = valid_coverage()
