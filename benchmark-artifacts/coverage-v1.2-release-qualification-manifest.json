@@ -1,0 +1,184 @@
+{
+  "schema_version": "coverage-v1.2-release-qualification-1",
+  "qualification": {
+    "minimum_ready": 18,
+    "required_ready_titles": [
+      "Cosquillitas",
+      "W.I.L.L.",
+      "El Arbol Negro",
+      "Terapia",
+      "La Ciguena",
+      "Sola",
+      "Diablo"
+    ],
+    "max_total_usd": 35.0,
+    "max_script_usd": 1.5,
+    "max_calls_per_script": 17,
+    "approved_audit_ledger": {
+      "path": "coverage-v1-audit-packages/00-CALIBRATION-SYNTHESIS/Coverage-V1.1-Human-Audit-Ledger.json",
+      "sha256": "1e4cdb8e37b8a0ab02c51f3f2d5a0d2a016283461cc65c45d95a0b041b96f04d"
+    }
+  },
+  "scripts": [
+    {
+      "pdf": "/opt/lemon-ingest/benchmark-artifacts/coverage-v1-benchmark-20260901-inputs/01-source.pdf",
+      "title": "Cosquillitas",
+      "format": "feature",
+      "genre_hint": "comedy",
+      "lenses": null,
+      "content_sha256": "8e46bdc2fda2cdb3b7ee8bc42574de9e70047174214c632c3047634d4c537276"
+    },
+    {
+      "pdf": "/opt/lemon-ingest/benchmark-artifacts/coverage-v1-benchmark-20260901-inputs/02-source.pdf",
+      "title": "Dia de los Muertos",
+      "format": "feature",
+      "genre_hint": "comedy",
+      "lenses": null,
+      "content_sha256": "98a70b2a8657322a3d240a4acadb2cedb2032ee94f7bcbf27fcdcc3e88cf12fc"
+    },
+    {
+      "pdf": "/opt/lemon-ingest/benchmark-artifacts/coverage-v1-benchmark-20260901-inputs/03-source.pdf",
+      "title": "Dieciocho Meses",
+      "format": "feature",
+      "genre_hint": null,
+      "lenses": null,
+      "content_sha256": "2d24aac52bb2657e638fc28eba9edef192e86bd1076169c4ac5c00ef2bb85343"
+    },
+    {
+      "pdf": "/opt/lemon-ingest/benchmark-artifacts/coverage-v1-benchmark-20260901-inputs/04-source.pdf",
+      "title": "Durante la Tormenta",
+      "format": "feature",
+      "genre_hint": null,
+      "lenses": null,
+      "content_sha256": "5b8746e04904973bd872722469c92075ba56577b18c78221d723cf6182b83a86"
+    },
+    {
+      "pdf": "/opt/lemon-ingest/benchmark-artifacts/coverage-v1-benchmark-20260901-inputs/05-source.pdf",
+      "title": "Sola",
+      "format": "feature",
+      "genre_hint": null,
+      "lenses": null,
+      "content_sha256": "081888ba87aaacbefc552a900c9c8ff9c96c19150883a5a8b2f09c29520fe57f"
+    },
+    {
+      "pdf": "/opt/lemon-ingest/benchmark-artifacts/coverage-v1-benchmark-20260901-inputs/06-source.pdf",
+      "title": "W.I.L.L.",
+      "format": "feature",
+      "genre_hint": "comedy",
+      "lenses": null,
+      "content_sha256": "0b2d3222f2b42bf9c96758f42018b9c478948612cd5647d817fc1aecad2f8f40"
+    },
+    {
+      "pdf": "/opt/lemon-ingest/benchmark-artifacts/coverage-v1-benchmark-20260901-inputs/07-source.pdf",
+      "title": "Felix, Un Complicado Rompecabezas",
+      "format": "feature",
+      "genre_hint": null,
+      "lenses": null,
+      "content_sha256": "c61c5ab3c4c38eddc51d7ace844a1126de5cf3b5165f2efc39c45bd03b853d6b"
+    },
+    {
+      "pdf": "/opt/lemon-ingest/benchmark-artifacts/coverage-v1-benchmark-20260901-inputs/08-source.pdf",
+      "title": "La Sazon de Mama",
+      "format": "feature",
+      "genre_hint": null,
+      "lenses": null,
+      "content_sha256": "d6d7a2512e34dc090953bc5514a2fb8127565a948ef946336c781d3d71258e11"
+    },
+    {
+      "pdf": "/opt/lemon-ingest/benchmark-artifacts/coverage-v1-benchmark-20260901-inputs/09-source.pdf",
+      "title": "Papa en la Luna",
+      "format": "feature",
+      "genre_hint": null,
+      "lenses": null,
+      "content_sha256": "d44d9a21e630ba14002a91da9e7b17ba43af0d03731eb21b8f1be09bb05f9813"
+    },
+    {
+      "pdf": "/opt/lemon-ingest/benchmark-artifacts/coverage-v1-benchmark-20260901-inputs/10-source.pdf",
+      "title": "La Ciguena",
+      "format": "feature",
+      "genre_hint": null,
+      "lenses": null,
+      "content_sha256": "7fd570d101fa509c09b8da89394c7ca1f2bb972769cebad0d917760d0a342b0a"
+    },
+    {
+      "pdf": "/opt/lemon-ingest/benchmark-artifacts/coverage-v1-benchmark-20260901-inputs/11-source.pdf",
+      "title": "Terapia",
+      "format": "feature",
+      "genre_hint": null,
+      "lenses": null,
+      "content_sha256": "7fb23bf38b0a2506bbf89579167e9cd3e7b5a2f78c6d14078daf666f459492ac"
+    },
+    {
+      "pdf": "/opt/lemon-ingest/benchmark-artifacts/coverage-v1-benchmark-20260901-inputs/12-source.pdf",
+      "title": "El InterCambio",
+      "format": "feature",
+      "genre_hint": null,
+      "lenses": null,
+      "content_sha256": "3173b3736957ae9a78bbc3152b3900ff222d99b8550f3de8420d82b95125d30d"
+    },
+    {
+      "pdf": "/opt/lemon-ingest/benchmark-artifacts/coverage-v1-benchmark-20260901-inputs/13-source.pdf",
+      "title": "Mi Bully Es Mi Cunado",
+      "format": "feature",
+      "genre_hint": null,
+      "lenses": null,
+      "content_sha256": "575595b6d9c8b2e3e91ac6c58bc9ab74721e47f1b988517c85ad76238ba9f862"
+    },
+    {
+      "pdf": "/opt/lemon-ingest/benchmark-artifacts/coverage-v1-benchmark-20260901-inputs/14-source.pdf",
+      "title": "2 Familias",
+      "format": "feature",
+      "genre_hint": null,
+      "lenses": null,
+      "content_sha256": "03eaebdebd6ad50684e1ff353fb3305bfdf532222370515fadf99beb050ca01d"
+    },
+    {
+      "pdf": "/opt/lemon-ingest/benchmark-artifacts/coverage-v1-benchmark-20260901-inputs/15-source.pdf",
+      "title": "A.I.",
+      "format": "feature",
+      "genre_hint": "comedy",
+      "lenses": null,
+      "content_sha256": "91f66ae3e8cc2ab2d489f6e29f3d824cd9f32ea7645313e38a3a91128bded0c7"
+    },
+    {
+      "pdf": "/opt/lemon-ingest/benchmark-artifacts/coverage-v1-benchmark-20260901-inputs/16-source.pdf",
+      "title": "El Arbol Negro",
+      "format": "feature",
+      "genre_hint": null,
+      "lenses": null,
+      "content_sha256": "b4e91f73d72c2f74b9105c415aa3e3cd686f05302d1a325ba58d1d735daff43e"
+    },
+    {
+      "pdf": "/opt/lemon-ingest/benchmark-artifacts/coverage-v1-benchmark-20260901-inputs/17-source.pdf",
+      "title": "No Eres Tu, Son Mis Daddy Issues",
+      "format": "feature",
+      "genre_hint": null,
+      "lenses": null,
+      "content_sha256": "f7079721b7440fe38e4dab4ad4986482e73cde228b379731efbafb8b29cc2513"
+    },
+    {
+      "pdf": "/opt/lemon-ingest/benchmark-artifacts/coverage-v1-benchmark-20260901-inputs/18-source.pdf",
+      "title": "Diablo",
+      "format": "tv_pilot",
+      "genre_hint": null,
+      "lenses": null,
+      "content_sha256": "30895e3e4a57ab3cdd1590ae227ce79fc578a0ba59b389458992b6d2c7f16aa4"
+    },
+    {
+      "pdf": "/opt/lemon-ingest/benchmark-artifacts/coverage-v1-benchmark-20260901-inputs/19-source.pdf",
+      "title": "Leyendas Legendarias",
+      "format": "tv_pilot",
+      "genre_hint": null,
+      "lenses": null,
+      "content_sha256": "c846b38c7c074bb061d605ca4e13a7ca471821f9ae1f7b6bfecec299a5a7f8cd"
+    },
+    {
+      "pdf": "/opt/lemon-ingest/benchmark-artifacts/coverage-v1-benchmark-20260901-inputs/20-source.pdf",
+      "title": "School of Kings",
+      "format": "tv_pilot",
+      "genre_hint": null,
+      "lenses": null,
+      "content_sha256": "ee42f4fa833c7bc0bddab9cdd0125cb8bcc36b98b69a9142bcc726206047c1ba"
+    }
+  ]
+}

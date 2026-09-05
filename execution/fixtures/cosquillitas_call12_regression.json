@@ -1,0 +1,64 @@
+{
+  "fixture_version": "cosquillitas-call12-offline-1",
+  "settled_artifacts": {
+    "report_sha256": "f608434c2e65638df351a4a1884bd564adc4e48a19ff66947b268a2c503f3778",
+    "scorecard_sha256": "fbfdaced265fa5133a377dc4d7c7ec269f027e0ef826007b279aa137d15c65bf",
+    "audit_core_sha256": "5732ea4b94c0e1bff855e7f9df1d5ee88da7d32f9891d53f92f8be3e710f0329",
+    "audit_details_progress_sha256": "6b08147b5cc3bcb57bc8d04e9c642dba0bbfb2e95556fdacae52af45d03ddeb3"
+  },
+  "richie_evidence": [
+    {"printed_page": 73, "fact": "A hidden camera is established inside Richie's photo."},
+    {"printed_page": 87, "fact": "Richie hears Tony admit the gifts and challenges him."},
+    {"printed_page": 97, "fact": "The exposé reveals Dante, Tony, and gifts to at least two judges."},
+    {"printed_page": 98, "fact": "The same feed continues with Richie's private and spying videos."}
+  ],
+  "remaining_uncertainty": "Who activates or delivers the arena feed is unconfirmed.",
+  "literal_climax_and_ending": [
+    "Los Chavos receive four 10s.",
+    "Cosquillitas perform through hostility.",
+    "Juanito freezes.",
+    "Javierin steps forward.",
+    "Juanito takes over and receives the larger ovation.",
+    "The judges score Cosquillitas 10, 10, 5, 2.",
+    "Los Chavos are declared winners and celebrate.",
+    "Richie declares love, Lucesita kisses him, and gives him the wig.",
+    "Dante and Tony footage plays and security blocks them.",
+    "Gifts to at least two judges are shown and the judges are caught.",
+    "The trophy and prize go to Cosquillitas.",
+    "Pregnancy, car, peso, father, peace, and cure retraction resolve.",
+    "The theme song and Otra encore end the screenplay."
+  ],
+  "rejected_transport_case": {
+    "slot": "row_034",
+    "field": "action",
+    "source_id": "row_034:action:p088-l024w02-p088-l038",
+    "canonical_source_id": "p088-l024-l038"
+  },
+  "quality_snapshot": {
+    "status": "needs_review",
+    "fact_audit": {
+      "central_failures": [
+        "guard.citation_relevance",
+        "guard.cross_field_consistency",
+        "guard.existing_evidence"
+      ],
+      "sequence_evidence": [
+        {"classification": "unclassified", "grounding_valid": false}
+      ],
+      "existing_evidence_verdicts": [
+        {
+          "classification": "unsupported",
+          "note": "FOCUSED_EVIDENCE_CONTRADICTION: source exists."
+        }
+      ],
+      "citation_relevance": [
+        {"classification": "unsupported"}
+      ]
+    },
+    "citation_verification": {
+      "unverified": 0,
+      "relevance_unverified": 2,
+      "integrity_verified": false
+    }
+  }
+}

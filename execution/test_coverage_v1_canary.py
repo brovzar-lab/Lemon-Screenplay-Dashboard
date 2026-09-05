@@ -17,6 +17,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 import coverage_v1 as cv  # noqa: E402
 import coverage_v1_canary as canary  # noqa: E402
 from test_coverage_v1 import (  # noqa: E402
+    CALL12_FIXTURE,
     SCREENPLAY_TEXT,
     FakeTransport,
     settled_usage,
@@ -99,6 +100,67 @@ class DryRunTests(unittest.TestCase):
                 parser_version="test-parser",
             )
 
+    def test_qualification_manifest_binds_audit_ledger_and_sources(self):
+        root = Path(tempfile.mkdtemp())
+        entries = make_pdfs(root, 1)
+        entries[0]["content_sha256"] = canary.compute_content_hash(
+            Path(entries[0]["pdf"])
+        )
+        ledger = root / "approved-ledger.json"
+        ledger.write_text('{"approved":true}', encoding="utf-8")
+        manifest = root / "qualification.json"
+        manifest.write_text(json.dumps({
+            "schema_version": canary.QUALIFICATION_MANIFEST_VERSION,
+            "qualification": {
+                "minimum_ready": 1,
+                "required_ready_titles": ["Guión 1"],
+                "max_calls_per_script": canary.MAX_CANARY_CALLS_PER_SCRIPT,
+                "max_total_usd": 1.5,
+                "max_script_usd": 1.5,
+                "approved_audit_ledger": {
+                    "path": ledger.name,
+                    "sha256": canary.compute_content_hash(ledger),
+                },
+            },
+            "scripts": entries,
+        }), encoding="utf-8")
+
+        loaded_entries, qualification = canary.load_manifest(manifest)
+
+        self.assertEqual(loaded_entries, entries)
+        self.assertTrue(
+            qualification["approved_audit_ledger"]["verified"]
+        )
+        ledger.write_text('{"approved":false}', encoding="utf-8")
+        with self.assertRaises(canary.CanaryError):
+            canary.load_manifest(manifest)
+
+    def test_paid_qualification_checks_every_source_hash_before_inference(self):
+        root = Path(tempfile.mkdtemp())
+        entries = make_pdfs(root, 2)
+        for entry in entries:
+            entry["content_sha256"] = canary.compute_content_hash(
+                Path(entry["pdf"])
+            )
+        entries[1]["content_sha256"] = "0" * 64
+        transport_calls = []
+
+        with self.assertRaises(canary.CanaryError):
+            canary.run_canary(
+                entries,
+                out_dir=root / "out",
+                execute=True,
+                transport=lambda **kwargs: transport_calls.append(kwargs),
+                parse_fn=fake_parse,
+                parser_version="test-parser",
+                qualification={
+                    "minimum_ready": 1,
+                    "required_ready_titles": ["Guión 1"],
+                },
+            )
+
+        self.assertEqual(transport_calls, [])
+
 
 class PaidBatchTests(unittest.TestCase):
     def run_batch(self, script_count=3, **overrides):
@@ -145,6 +207,11 @@ class PaidBatchTests(unittest.TestCase):
         self.assertTrue(bars["every_script_within_cap"])
         self.assertTrue(bars["within_configured_call_cap"])
         self.assertTrue(bars["zero_unverified_citations"])
+        self.assertTrue(bars["every_report_sealed"])
+        self.assertTrue(bars["zero_unresolved_evidence"])
+        self.assertTrue(bars["citation_integrity_verified"])
+        self.assertTrue(bars["zero_focused_evidence_contradictions"])
+        self.assertTrue(bars["release_quality_passed"])
         self.assertTrue(bars["resume_repaid_nothing"])
         self.assertTrue(bars["invocation_settled_cost_target_060"])
 
@@ -160,16 +227,15 @@ class PaidBatchTests(unittest.TestCase):
             {"cost": {"call_count": 3}},
             {"cost": {"call_count": 6}},
             {"cost": {"call_count": 7}},
-        ]))
+        ], 7))
         self.assertFalse(canary._within_call_ceiling([
             {"cost": {"call_count": 8}},
-        ]))
+        ], 7))
 
     def test_scorecard_names_configured_cap_and_disabled_checks_truthfully(self):
-        with patch.object(canary, "MAX_CANARY_CALLS_PER_SCRIPT", 11):
-            scorecard, _transport, _root = self.run_batch(
-                1, resume_drill_index=0
-            )
+        scorecard, _transport, _root = self.run_batch(
+            1, resume_drill_index=0, max_calls_per_script=11
+        )
 
         self.assertEqual(scorecard["configured_max_calls_per_script"], 11)
         self.assertEqual(
@@ -186,6 +252,110 @@ class PaidBatchTests(unittest.TestCase):
         self.assertIsNone(bars["resume_repaid_nothing"])
         self.assertTrue(bars["invocation_settled_cost_target_060"])
         self.assertNotIn("settled_cost_target_060", bars)
+
+    def test_gold_qualification_allows_two_safe_review_reports(self):
+        required = [f"Script {index}" for index in range(1, 8)]
+        rows = []
+        for index in range(1, 21):
+            sealed = index <= 18
+            rows.append({
+                "title": f"Script {index}",
+                "status": "sealed" if sealed else "needs_review",
+                "cost": {"call_count": 2},
+                "citations_unverified": 0,
+                "release_quality": {
+                    "sealed": sealed,
+                    "central_failures": 0 if sealed else 1,
+                    "unresolved_evidence": 0 if sealed else 1,
+                    "citation_integrity_verified": sealed,
+                    "focused_evidence_contradictions": 0,
+                },
+            })
+        policy = {
+            "minimum_ready": 18,
+            "required_ready_titles": required,
+        }
+
+        bars = canary._release_quality_bars(rows, policy)
+
+        self.assertFalse(bars["every_report_sealed"])
+        self.assertEqual(bars["ready_count"], 18)
+        self.assertEqual(bars["needs_review_count"], 2)
+        self.assertTrue(bars["all_required_titles_ready"])
+        self.assertTrue(bars["only_safe_terminal_states"])
+        self.assertTrue(bars["release_quality_passed"])
+
+        rows[0]["status"] = "needs_review"
+        rows[18]["status"] = "sealed"
+        rows[18]["release_quality"] = {
+            "sealed": True,
+            "central_failures": 0,
+            "unresolved_evidence": 0,
+            "citation_integrity_verified": True,
+            "focused_evidence_contradictions": 0,
+        }
+        required_bars = canary._release_quality_bars(rows, policy)
+        self.assertFalse(required_bars["all_required_titles_ready"])
+        self.assertFalse(required_bars["release_quality_passed"])
+
+    def test_call12_shaped_report_fails_release_quality_bars(self):
+        report = CALL12_FIXTURE["quality_snapshot"]
+
+        quality = canary._report_quality(report)
+
+        self.assertFalse(quality["sealed"])
+        self.assertEqual(quality["unresolved_evidence"], 1)
+        self.assertFalse(quality["citation_integrity_verified"])
+        self.assertEqual(quality["focused_evidence_contradictions"], 1)
+
+        report = {
+            **report,
+            "verdict": "CONSIDER",
+            "confidence": "medium",
+            "film_now_nominated": False,
+            "human_review_recommended": True,
+            "review_reasons": ["sequence evidence is unresolved"],
+            "cost": {
+                "charged_usd": 0.28,
+                "settled_usd": 0.28,
+                "uncertain_usd": 0.0,
+                "call_count": 2,
+            },
+            "coverage": valid_coverage(),
+        }
+        report["fact_audit"] = {
+            **report["fact_audit"],
+            "support_rate": 0.8409,
+        }
+        report["citation_verification"] = {
+            **report["citation_verification"],
+            "total": 10,
+        }
+        root = Path(tempfile.mkdtemp())
+        with patch.object(
+            canary.coverage_v1,
+            "run_coverage_v1",
+            return_value=(report, {
+                "actual_cost_microusd": 280_000,
+                "call_count": 2,
+                "calls": [],
+            }),
+        ):
+            scorecard = canary.run_canary(
+                make_pdfs(root, 1),
+                out_dir=root / "out",
+                execute=True,
+                transport=lambda **_kwargs: None,
+                parse_fn=fake_parse,
+                parser_version="test-parser",
+                resume_drill_index=0,
+            )
+
+        self.assertFalse(scorecard["automated_bars"]["release_quality_passed"])
+        self.assertTrue(any(
+            "release quality bars failed" in failure
+            for failure in scorecard["hard_failures"]
+        ))
 
     def test_unknown_spend_stops_batch_and_charges_full_reserve(self):
         class UnknownSpendTransport:

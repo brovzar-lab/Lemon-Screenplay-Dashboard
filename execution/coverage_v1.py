@@ -67,7 +67,9 @@ ENGINE_NAME = "coverage_v1"
 
 MAX_REPAIR_CALLS = 1
 DEFAULT_MAX_COST_USD = 1.00
-DEFAULT_MAX_CALLS = 7
+# The verified completion envelope may need detail recovery through Call 17.
+# The monetary guard remains authoritative, so unused call capacity costs zero.
+DEFAULT_MAX_CALLS = 17
 DEFAULT_COVERAGE_MODEL = "sonnet"
 DEFAULT_AUDIT_MODEL = "haiku"
 
@@ -96,7 +98,7 @@ MAX_DETAIL_DIRECT_SLOTS = 42
 MAX_SEQUENCE_FIELD_REPAIR_SLOTS = 40
 MAX_POST_DETAIL_SEQUENCE_REPAIR_FIELDS = 100
 AUDIT_CORE_CONTRACT_VERSION = "coverage-v1.2-audit-core-1"
-DETAIL_AUDIT_CONTRACT_VERSION = "coverage-v1.2-detail-18"
+DETAIL_AUDIT_CONTRACT_VERSION = "coverage-v1.2-detail-19"
 SEQUENCE_REPAIR_CONTRACT_VERSION = "coverage-v1.2-sequence-repair-6"
 PARTIAL_TYPED_B_PROGRESS_VERSION = "coverage-v1.2-detail-15"
 LEGACY_FIELD_SOURCE_PROGRESS_VERSION = "coverage-v1.2-detail-16"
@@ -125,10 +127,13 @@ DETAIL_17_GROUNDED_GUIDANCE = (
     "subject only when the screenplay grammar unambiguously carries the same "
     "actor through the same scene; never cross a scene boundary or a compatible "
     "intervening actor. "
-    "For a compound action or result only, a bounded range may join the first "
+    "For a compound action, result, or audience event, a bounded range may "
+    "join the first "
     "and last listed line IDs as pNNN-lAAA-lBBB on one page or "
     "pNNN-lAAA-pMMM-lBBB across the immediately following page. It must "
-    "contain no scene boundary and may span at most 24 source lines. "
+    "contain no scene boundary and may span at most 24 source lines. An actor "
+    "range is only a search envelope; code narrows it to one direct line that "
+    "literally identifies the actor before accepting it. "
     "Character knowledge may use only a same-page range of at most three "
     "wrapped source lines and must still contain an explicit knowledge verb. "
     "If no allowed source proves the field, return the "
@@ -986,6 +991,11 @@ def _reconcile_literal_sequence_claims(
                 "ledger_index": ledger_index,
                 "order": beat.get("order"),
                 "actor": beat.get("actor"),
+                "affected_orders": [
+                    later.get("order")
+                    for _later_index, later in climax_rows
+                    if _later_index >= ledger_index
+                ],
             })
     if not mismatches:
         return audit_payload
@@ -1559,6 +1569,21 @@ def _sequence_source_span(
     )
 
 
+def _canonical_sequence_source_id(source_id: str) -> str:
+    """Normalize a provider-composed range to the engine's stored form."""
+    match = re.fullmatch(
+        r"p(?P<page>\d{3})-l(?P<start>\d{3})(?:w\d{2})?-"
+        r"(?:(?:p(?P<end_page>\d{3})-)?l(?P<end>\d{3}))",
+        source_id,
+    )
+    if match is None:
+        return source_id
+    page = match.group("page")
+    end_page = match.group("end_page") or page
+    middle = "" if end_page == page else f"p{end_page}-"
+    return f"p{page}-l{match.group('start')}-{middle}l{match.group('end')}"
+
+
 def _sequence_source_token_anchor(
     value: Any,
     row: Dict[str, Any],
@@ -1572,7 +1597,7 @@ def _sequence_source_token_anchor(
     prefix = f"{row.get('slot')}:{field}:"
     if not value.startswith(prefix) or not value.removeprefix(prefix):
         return None, f"{field} source token is not bound to its row and field"
-    anchor = value.removeprefix(prefix)
+    anchor = _canonical_sequence_source_id(value.removeprefix(prefix))
     if re.fullmatch(_SEQUENCE_SOURCE_ANCHOR_ID, anchor) is None:
         return None, f"{field} source token has an invalid anchor"
     span = _sequence_source_span(anchor)
@@ -1581,10 +1606,6 @@ def _sequence_source_token_anchor(
     is_range = re.fullmatch(
         r"p\d{3}-l\d{3}(?:w\d{2})?", anchor
     ) is None
-    if is_range and field not in {
-        "action", "result", "character_knowledge",
-    }:
-        return None, f"{field} cannot use a source line range"
     if is_range and field == "character_knowledge" and (
         span[0] != span[2] or span[3] - span[1] > 2
     ):
@@ -1604,7 +1625,7 @@ def _sequence_atom_source_token_anchor(
     if not isinstance(value, str):
         return None, f"material atom {atom_id} source token must be a string"
     prefix = f"{row.get('slot')}:{atom_id}:"
-    anchor = value.removeprefix(prefix)
+    anchor = _canonical_sequence_source_id(value.removeprefix(prefix))
     if not value.startswith(prefix) or re.fullmatch(
         _SEQUENCE_SOURCE_ANCHOR_ID, anchor
     ) is None:
@@ -1769,6 +1790,15 @@ def _expand_detail_audit_payload(
                     field: value[f"{field}_source_id"]
                     for field in required_fields
                 }
+                located = [
+                    source_ids[field] != SEQUENCE_SOURCE_NOT_LOCATED
+                    for field in required_fields
+                ]
+                value["classification"] = (
+                    "supported" if all(located)
+                    else "partially_supported" if any(located)
+                    else "unsupported"
+                )
                 if legacy_field_sources:
                     source_ids = {
                         field: (
@@ -1783,15 +1813,6 @@ def _expand_detail_audit_payload(
                         )
                         for field, source_id in source_ids.items()
                     }
-                    located = [
-                        field not in unsupported_fields
-                        for field in required_fields
-                    ]
-                    value["classification"] = (
-                        "supported" if all(located)
-                        else "partially_supported" if any(located)
-                        else "unsupported"
-                    )
                 value = {
                     "classification": value["classification"],
                     "checks": [
@@ -2885,6 +2906,29 @@ def _sequence_source_anchor(
         "span": (page, start, end_page, end),
         "line_range": (page, start, end_page, end),
     }
+
+
+def _sequence_actor_point_from_range(
+    source_text: str,
+    source_id: str,
+    beat: Dict[str, Any],
+) -> Optional[str]:
+    """Select the smallest code-bound actor anchor inside a valid range."""
+    span = _sequence_source_span(source_id)
+    if span is None or _sequence_source_anchor(source_text, source_id) is None:
+        return None
+    candidates: List[Tuple[int, str]] = []
+    for candidate_id, candidate in _source_anchor_catalog(source_text).items():
+        candidate_span = _sequence_source_span(candidate_id)
+        if candidate_span is None:
+            continue
+        coordinate = candidate_span[:2]
+        if not (span[:2] <= coordinate <= span[2:]):
+            continue
+        excerpt = str(candidate.get("excerpt", ""))
+        if _sequence_anchor_actor_reason(beat, "actor", excerpt) is None:
+            candidates.append((len(excerpt.split()), candidate_id))
+    return min(candidates)[1] if candidates else None
 
 
 def _sequence_role_roster_matches(claim: str, excerpt: str) -> bool:
@@ -4551,7 +4595,15 @@ def _sequence_leading_verb_number(excerpt: str, claim: str) -> Optional[str]:
     if re.search(r"(?:amos|emos|imos|an|en)$", first):
         return "plural"
     claim_words = set(re.findall(r"[a-záéíóúüñ]+", _fold_evidence_text(claim)))
-    if first in claim_words and first.endswith("s"):
+    if (
+        first in claim_words
+        and first.endswith("s")
+        and any(
+            pattern.fullmatch(first)
+            for canonical, pattern in _SEQUENCE_SEMANTIC_EQUIVALENTS.items()
+            if canonical in _SEQUENCE_ACTION_GENERIC_TERMS
+        )
+    ):
         return "singular"
     return None
 
@@ -4885,6 +4937,24 @@ def _decode_grounded_detail_value(
         if source_anchor_id is not None:
             if not isinstance(source_anchor_id, str):
                 return None, f"check {index + 1} source_id is invalid"
+            if (
+                kind == "sequence_evidence"
+                and field == "actor"
+                and re.fullmatch(
+                    r"p\d{3}-l\d{3}(?:w\d{2})?",
+                    source_anchor_id,
+                ) is None
+            ):
+                beat = subject.get("beat")
+                narrowed = (
+                    _sequence_actor_point_from_range(
+                        source_text, source_anchor_id, beat
+                    )
+                    if isinstance(beat, dict) else None
+                )
+                if narrowed is None:
+                    return None, "actor source range has no exact actor anchor"
+                source_anchor_id = narrowed
             source_anchor = (
                 _sequence_source_anchor(source_text, source_anchor_id)
                 if kind == "sequence_evidence"
@@ -5761,6 +5831,7 @@ def _normalize_existing_evidence_result(
         )
         if source_contradiction:
             return {
+                **normalized,
                 "classification": "unsupported",
                 "note": (
                     "FOCUSED_EVIDENCE_CONTRADICTION: the auditor marked "
@@ -7994,6 +8065,13 @@ _SOURCE_ABSENCE_ASSERTION = re.compile(
     r"no (?:hay|existe) (?:una? )?fuente|sin (?:una? )?fuente)\b",
     re.IGNORECASE,
 )
+_MEDIA_OWNER_ABSENCE_ASSERTION = re.compile(
+    r"\b(?:camera|c[aá]mara|footage|grabaci[oó]n|recording|video)\b"
+    r"[^.;:!?\n]{0,80}\b(?:has|have|with|tiene|tienen|con)?\s*"
+    r"(?:no(?:\s+identified)?|missing|unknown|unidentified|unconfirmed|sin)\s+"
+    r"(?:owner|agent|operator|dueñ[oa]|agente|operador)\b",
+    re.IGNORECASE,
+)
 _NEGATED_NEW_SOURCE_DIRECTIVE = re.compile(
     r"\b(?:do\s+not|does\s+not|don't|doesn't|no\s+hay\s+que|"
     r"no\s+se\s+debe|sin|without)\b[^,;.!?]{0,80}\b(?:add|create|"
@@ -8051,7 +8129,10 @@ def _is_reveal_provenance_claim(value: str) -> bool:
     return any(
         (
             _REVEAL_MEDIA_CLAIM.search(clause)
-            and _REVEAL_PROVENANCE_DISPUTE.search(clause)
+            and (
+                _REVEAL_PROVENANCE_DISPUTE.search(clause)
+                or _MEDIA_OWNER_ABSENCE_ASSERTION.search(clause)
+            )
         )
         or _REVEAL_CAPTURED_CONTENT_CLAIM.search(clause)
         for clause in re.split(r"(?:[.;:!?]\s+|\n+)", value)
@@ -8072,8 +8153,10 @@ def _captured_content_terms(claim: str) -> Tuple[str, ...]:
 
 def _asserts_new_or_missing_source(value: str) -> bool:
     value = _NEGATED_NEW_SOURCE_DIRECTIVE.sub("", value)
-    if _SOURCE_ABSENCE_ASSERTION.search(value) or _EXPLICIT_NEW_SOURCE.search(
-        value
+    if (
+        _SOURCE_ABSENCE_ASSERTION.search(value)
+        or _MEDIA_OWNER_ABSENCE_ASSERTION.search(value)
+        or _EXPLICIT_NEW_SOURCE.search(value)
     ):
         return True
     return bool(_CONTRADICTORY_NEW_SOURCE.search(value))
@@ -9943,6 +10026,34 @@ def _fact_repair_protected_changes(
         for path, (before, after) in protected.items()
         if before != after
     ]
+
+
+def _fact_repair_sequence_protected_changes(
+    original: Dict[str, Any], candidate: Any,
+) -> List[str]:
+    """Freeze canonical chronology while its source rows remain unresolved."""
+    if not isinstance(candidate, dict):
+        return []
+    paths = {
+        "logline": original.get("logline"),
+        "story_spine": original.get("story_spine"),
+        "synopsis": original.get("synopsis"),
+    }
+    return [
+        f"fact repair changed unresolved sequence field {path}"
+        for path, before in paths.items()
+        if candidate.get(path) != before
+    ]
+
+
+def _fact_repair_can_run_with_sequence_pending(
+    repair_targets: Sequence[str],
+) -> bool:
+    """Allow only field-local evidence cleanup beside unresolved chronology."""
+    targets = set(repair_targets)
+    return bool(targets) and targets <= {
+        "guard.existing_evidence", "guard.citation_relevance",
+    }
 
 
 # ── Fact audit ───────────────────────────────────────────────────────────────
@@ -12746,8 +12857,12 @@ def _fact_repair_targets(
         deterministic_sequence_mismatches
     ) and all(
         isinstance(row, dict)
-        and f"sequence_ledger[{row.get('ledger_index')}]"
-        in grounded_sequence_paths
+        and isinstance(row.get("affected_orders"), list)
+        and row["affected_orders"]
+        and all(
+            f"sequence_ledger[{order}]" in grounded_sequence_paths
+            for order in row["affected_orders"]
+        )
         for row in deterministic_sequence_mismatches
     )
     if (
@@ -15811,10 +15926,14 @@ def run_coverage_v1(
         fact_repair_has_checkpoint
         or guard.max_calls - guard.calls_started >= 3
     )
+    sequence_local_fact_repair = bool(
+        sequence_repair_pending
+        and _fact_repair_can_run_with_sequence_pending(repair_targets)
+    )
     if (
         repair_targets
         and not unrepairable_central_failures
-        and not sequence_repair_pending
+        and (not sequence_repair_pending or sequence_local_fact_repair)
         and guard.in_flight is None
         and fact_repair_has_completion_capacity
         and (
@@ -15952,6 +16071,12 @@ def run_coverage_v1(
                     coverage_payload, corrected_coverage
                 )
             )
+            if sequence_local_fact_repair:
+                structural_problems.extend(
+                    _fact_repair_sequence_protected_changes(
+                        coverage_payload, corrected_coverage
+                    )
+                )
             scope_problems = (
                 _fact_repair_citation_scope_problems(corrected_coverage)
                 if not structural_problems
@@ -16034,6 +16159,12 @@ def run_coverage_v1(
                         coverage_payload, corrected_coverage
                     )
                 )
+                if sequence_local_fact_repair:
+                    structural_problems.extend(
+                        _fact_repair_sequence_protected_changes(
+                            coverage_payload, corrected_coverage
+                        )
+                    )
                 scope_problems = (
                     _fact_repair_citation_scope_problems(corrected_coverage)
                     if not structural_problems

@@ -20,6 +20,11 @@ import coverage_v1 as cv  # noqa: E402
 
 # ── Fixtures ─────────────────────────────────────────────────────────────────
 
+CALL12_FIXTURE = json.loads(
+    (Path(__file__).parent / "fixtures/cosquillitas_call12_regression.json")
+    .read_text(encoding="utf-8")
+)
+
 SCREENPLAY_TEXT = """\
 [PAGE 1]
 EL ÚLTIMO PORTERO
@@ -3176,6 +3181,47 @@ Another video plays on another screen.
 
         self.assertIsNone(expanded["results"][row["slot"]])
 
+    def test_fixed_sequence_transport_derives_partial_classification(self):
+        coverage = valid_coverage()
+        audit = cv.normalize_audit_tool_input(
+            provider_audit_core(coverage), range(1, 7)
+        )
+        row = next(
+            row for row in cv.build_detail_audit_rows(
+                coverage,
+                cv.build_existing_evidence_checks(coverage, SCREENPLAY_TEXT),
+                audit["sequence_ledger"],
+            )
+            if row["kind"] == "sequence_evidence"
+            and "character_knowledge" in row["subject"]["required_fields"]
+        )
+        payload = typed_detail_payload_for_rows([row])
+        group = cv._detail_result_group(row)
+        payload[group][0]["classification"] = "supported"
+        payload[group][0]["character_knowledge_source_id"] = (
+            cv.SEQUENCE_SOURCE_NOT_LOCATED
+        )
+
+        expanded = cv._expand_detail_audit_payload(payload, [row])
+
+        self.assertEqual(
+            expanded["results"][row["slot"]]["classification"],
+            "partially_supported",
+        )
+
+    def test_call12_range_token_is_canonicalized_before_validation(self):
+        case = CALL12_FIXTURE["rejected_transport_case"]
+        row = {"slot": case["slot"], "kind": "sequence_evidence"}
+
+        anchor, reason = cv._sequence_source_token_anchor(
+            case["source_id"],
+            row,
+            case["field"],
+        )
+
+        self.assertIsNone(reason)
+        self.assertEqual(anchor, case["canonical_source_id"])
+
     def test_fixed_sequence_transport_rejects_single_actor_substitution(self):
         source = (
             "[PAGE 1]\nCarlos performs the song.\nDiego performs the dance.\n"
@@ -3641,6 +3687,17 @@ El público pide otra canción
                 "Diego wins the contest.",
                 "Carlos attacks Diego",
                 None,
+            ),
+            (
+                "different named actor cannot inherit across adjacent lines",
+                (
+                    "[PAGE 1]\nDiego leaves the room.\n"
+                    "Carlos shoots Ana.\n"
+                ),
+                "Diego",
+                "Carlos shoots Ana.",
+                "Diego leaves the room",
+                "Carlos shoots Ana",
             ),
             (
                 "named actor used as a prepositional coactor",
@@ -13858,6 +13915,29 @@ Angela knows she said yes under puppeting.""",
 
         self.assertIn("guard.existing_evidence", targets)
 
+    def test_only_local_evidence_repair_can_run_beside_sequence_blockers(self):
+        self.assertTrue(cv._fact_repair_can_run_with_sequence_pending([
+            "guard.existing_evidence",
+            "guard.citation_relevance",
+        ]))
+        self.assertFalse(cv._fact_repair_can_run_with_sequence_pending([
+            "guard.cross_field_consistency",
+        ]))
+        original = valid_coverage()
+        corrected = copy.deepcopy(original)
+        corrected["pass_reason"] = (
+            "The source is inferable, but activation remains unconfirmed."
+        )
+        self.assertEqual(
+            cv._fact_repair_sequence_protected_changes(original, corrected),
+            [],
+        )
+        corrected["story_spine"]["climax"] = "A reordered climax."
+        self.assertIn(
+            "fact repair changed unresolved sequence field story_spine",
+            cv._fact_repair_sequence_protected_changes(original, corrected),
+        )
+
     def test_negated_richie_camera_note_does_not_request_a_new_source(self):
         self.assertFalse(cv._asserts_new_or_missing_source(
             "These concerns support CONSIDER without turning an existing "
@@ -13871,6 +13951,12 @@ Angela knows she said yes under puppeting.""",
         ))
         self.assertTrue(cv._asserts_new_or_missing_source(
             "Do not add a new camera, but create another source."
+        ))
+        self.assertTrue(cv._is_reveal_provenance_claim(
+            "The surveillance video has no owner."
+        ))
+        self.assertTrue(cv._asserts_new_or_missing_source(
+            "The surveillance video has no identified agent."
         ))
 
     def test_cosquillitas_richie_evidence_repair_ignores_unrelated_sequence_gaps(self):
@@ -13919,6 +14005,11 @@ Siguen videos donde Richie espía a Lucesita.
         normalized = audit["existing_evidence_verdicts"][0]
         self.assertEqual(normalized["classification"], "unsupported")
         self.assertIn("FOCUSED_EVIDENCE_CONTRADICTION", normalized["note"])
+        self.assertEqual(normalized["source_status"], "established")
+        self.assertEqual(normalized["activation_status"], "unconfirmed")
+        self.assertEqual(
+            normalized["reviewed_roles"], cv._focused_role_tokens(target)
+        )
         audit["sequence_evidence"] = [{
             "field_path": "sequence_ledger[9]",
             "classification": "unclassified",
@@ -14002,20 +14093,34 @@ Siguen videos donde Richie espía a Lucesita.
         )
         reconciled["sequence_evidence"] = [
             {
-                "field_path": "sequence_ledger[0]",
+                "field_path": "sequence_ledger[1]",
                 "classification": "supported",
                 "grounding_valid": True,
             },
             {
-                "field_path": "sequence_ledger[1]",
+                "field_path": "sequence_ledger[2]",
                 "classification": "unclassified",
                 "grounding_status": "unresolved",
                 "grounding_valid": False,
+            },
+            {
+                "field_path": "sequence_ledger[3]",
+                "classification": "supported",
+                "grounding_valid": True,
             },
         ]
         by_claim = {
             row["claim_id"]: row for row in reconciled["verdicts"]
         }
+        self.assertNotIn(
+            "guard.cross_field_consistency",
+            cv._fact_repair_targets(by_claim, reconciled, []),
+        )
+        reconciled["sequence_evidence"][1].update({
+            "classification": "supported",
+            "grounding_status": "grounded",
+            "grounding_valid": True,
+        })
         self.assertIn(
             "guard.cross_field_consistency",
             cv._fact_repair_targets(by_claim, reconciled, []),
@@ -15602,7 +15707,7 @@ class TestPostDetailSequenceRepair(unittest.TestCase):
         self.assertIsNone(reason)
         self.assertTrue(decoded and decoded["grounding_valid"])
 
-    def test_bounded_ranges_ground_compound_events_but_not_other_fields(self):
+    def test_bounded_ranges_ground_events_and_actor_ranges_narrow(self):
         source = (
             "[PAGE 1]\n"
             "El video muestra a Tony sobornando a dos jueces con regalos.\n"
@@ -15735,10 +15840,30 @@ class TestPostDetailSequenceRepair(unittest.TestCase):
             if check["field"] in {"action", "result"}
         ))
         row = {"slot": "sequence_001", "kind": "sequence_evidence"}
-        _anchor, reason = cv._sequence_source_token_anchor(
+        actor_range, reason = cv._sequence_source_token_anchor(
             "sequence_001:actor:p001-l001-l002", row, "actor"
         )
-        self.assertIn("cannot use a source line range", str(reason))
+        self.assertIsNone(reason)
+        self.assertEqual(actor_range, "p001-l001-l002")
+        actor_source = (
+            "[PAGE 1]\nCarlos watches.\nDiego opens the vault.\n"
+        )
+        self.assertEqual(
+            cv._sequence_actor_point_from_range(
+                actor_source,
+                actor_range,
+                {"actor": "Diego"},
+            ),
+            "p001-l002",
+        )
+        self.assertIsNone(cv._sequence_actor_point_from_range(
+            (
+                "[PAGE 1]\nDiego leaves.\n"
+                "INT. OTHER HOUSE - DAY\nCarlos returns.\n"
+            ),
+            "p001-l001-l003",
+            {"actor": "Diego"},
+        ))
         overlong = "[PAGE 1]\n" + "\n".join(
             f"Line {index} has enough source words." for index in range(25)
         )
