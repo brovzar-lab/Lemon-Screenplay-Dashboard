@@ -642,10 +642,7 @@ def build_literal_sequence_correction_tool(
                 "sequence_rows": {
                     "type": "object",
                     "properties": {
-                        stage_id: {
-                            "type": "string",
-                            "pattern": _LITERAL_SEQUENCE_CORRECTION_PATTERN,
-                        }
+                        stage_id: {"type": "string"}
                         for stage_id in stage_ids
                     },
                     "required": stage_ids,
@@ -10116,10 +10113,10 @@ def build_literal_sequence_retry_user_blocks(
 
 LITERAL_SEQUENCE_CONTRACT_VERSION = "literal-sequence-contract-4"
 LITERAL_SEQUENCE_CORRECTION_CHECKPOINT_VERSION = (
-    "literal-sequence-correction-4"
+    "literal-sequence-correction-5"
 )
 PRIOR_LITERAL_SEQUENCE_CORRECTION_CHECKPOINT_VERSION = (
-    "literal-sequence-correction-3"
+    "literal-sequence-correction-4"
 )
 _LITERAL_SEQUENCE_BINDING_KEY = "_literal_source_binding"
 _LITERAL_SEQUENCE_CORRECTION_FIELDS = (
@@ -17209,15 +17206,41 @@ def run_coverage_v1(
             result = raw_call(**kwargs)
         except Exception as error:
             error_usage = getattr(error, "usage", None)
+            if bool(getattr(error, "proven_no_spend", False)):
+                if isinstance(error_usage, dict) and (
+                    any(
+                        type(error_usage.get(field)) is not int
+                        or error_usage[field] != 0
+                        for field in (
+                            "input_tokens",
+                            "output_tokens",
+                            "cache_creation_input_tokens",
+                            "cache_read_input_tokens",
+                            "call_count",
+                            "actual_cost_microusd",
+                        )
+                    )
+                    or error_usage.get("calls") != []
+                ):
+                    reserved = int(
+                        (guard.in_flight or {}).get(
+                            "reserved_microusd", reservation
+                        )
+                    )
+                    raise CoverageUnresolvedSpendError(
+                        "A transport marked its rejection as unspent but "
+                        "returned contradictory usage; the full request "
+                        "reserve remains charged and no further call is allowed",
+                        reserved,
+                    ) from error
+                guard.release_unspent_call()
+                raise
             if isinstance(error_usage, dict):
                 usage_total = _merge_usage(usage_total, error_usage)
                 _note_usage(usage_sink, usage_total)
                 guard.settle_failure(
                     fingerprint, stage, error_usage, error
                 )
-            elif bool(getattr(error, "proven_no_spend", False)):
-                guard.release_unspent_call()
-                raise
             else:
                 reserved = int(
                     (guard.in_flight or {}).get(

@@ -8930,10 +8930,7 @@ El público pide otra canción
         self.assertEqual(sequence_rows["required"], stage_ids)
         self.assertEqual(set(sequence_rows["properties"]), set(stage_ids))
         self.assertTrue(all(
-            schema == {
-                "type": "string",
-                "pattern": cv._LITERAL_SEQUENCE_CORRECTION_PATTERN,
-            }
+            schema == {"type": "string"}
             for schema in sequence_rows["properties"].values()
         ))
         ceiling = cv._request_cost_ceiling_microusd({
@@ -18280,6 +18277,59 @@ Security leaves.
 
 
 class TestBudget(unittest.TestCase):
+    def test_proven_no_spend_rejection_releases_local_reservation(self):
+        from ingest_v9 import LlmRequestRejectedError, empty_usage
+
+        class RejectBeforeGeneration:
+            calls = 0
+
+            def __call__(self, **_kwargs):
+                self.calls += 1
+                rejection = LlmRequestRejectedError(
+                    "request rejected before model generation"
+                )
+                rejection.usage = empty_usage()
+                rejection.usage["failed_calls"] = [{
+                    "failure_state": "provider_rejected_before_generation",
+                    "usage": empty_usage(),
+                }]
+                raise rejection
+
+        store = new_store()
+        transport = RejectBeforeGeneration()
+        with self.assertRaises(LlmRequestRejectedError):
+            run_engine(store, transport)
+
+        budget = json.loads(next(
+            store.root.glob("*/budget.json")
+        ).read_text(encoding="utf-8"))["payload"]
+        self.assertEqual(transport.calls, 1)
+        self.assertEqual(budget["calls_started"], 0)
+        self.assertEqual(budget["usage"]["call_count"], 0)
+        self.assertIsNone(budget["in_flight"])
+
+    def test_proven_no_spend_rejection_with_cost_keeps_reservation(self):
+        from ingest_v9 import LlmRequestRejectedError, empty_usage
+
+        def contradictory_rejection(**_kwargs):
+            rejection = LlmRequestRejectedError(
+                "request incorrectly marked as unspent"
+            )
+            rejection.usage = empty_usage()
+            rejection.usage["actual_cost_microusd"] = 1
+            raise rejection
+
+        store = new_store()
+        with self.assertRaises(cv.CoverageUnresolvedSpendError):
+            run_engine(store, contradictory_rejection)
+
+        budget = json.loads(next(
+            store.root.glob("*/budget.json")
+        ).read_text(encoding="utf-8"))["payload"]
+        self.assertEqual(budget["calls_started"], 1)
+        self.assertEqual(budget["usage"]["actual_cost_microusd"], 0)
+        self.assertIsNotNone(budget["in_flight"])
+
     def test_sequential_receipts_repair_missing_budget_settlement(self):
         store = new_store()
         binding = {"fixture": "receipt-reconciliation"}

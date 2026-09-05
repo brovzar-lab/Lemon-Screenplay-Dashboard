@@ -1082,6 +1082,8 @@ class LlmProvenanceError(RuntimeError):
 class LlmRequestRejectedError(RuntimeError):
     """The upstream API rejected a request before model generation."""
 
+    proven_no_spend = True
+
 
 class LlmPreCallRetryableError(RuntimeError):
     """The trusted proxy proves no provider call occurred, so retry is safe."""

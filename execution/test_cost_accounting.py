@@ -1689,7 +1689,9 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         }
 
         with patch.object(ingest_v9.requests, "post", return_value=self._exact_response(response)) as post:
-            with self.assertRaises(ingest_v9.LlmRequestRejectedError):
+            with self.assertRaises(
+                ingest_v9.LlmRequestRejectedError
+            ) as raised:
                 ingest_v9.call_llm(
                     system_blocks=[{"type": "text", "text": "system"}],
                     user_blocks=[{"type": "text", "text": "screenplay"}],
@@ -1701,6 +1703,7 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                 )
 
         self.assertEqual(post.call_count, 1)
+        self.assertTrue(raised.exception.proven_no_spend)
 
     def test_transient_pre_call_accounting_outage_retries_then_succeeds(self):
         unavailable = MagicMock()
