@@ -423,10 +423,21 @@ class PaidBatchTests(unittest.TestCase):
             transport=second,
             parse_fn=fake_parse,
             parser_version="test-parser",
+            prior_charged_usd=0.2,
+            prior_call_count=1,
             resume_drill_index=99,
         )
         self.assertEqual(scorecard2["scripts"][0]["status"], "sealed")
         self.assertEqual(len(second.calls), 1)
+        self.assertAlmostEqual(
+            scorecard2["scripts"][0]["cost"]["charged_usd"], 0.26
+        )
+        self.assertAlmostEqual(
+            scorecard2["scripts"][0]["invocation_cost"]["charged_usd"],
+            0.06,
+        )
+        self.assertAlmostEqual(scorecard2["totals"]["charged_usd"], 0.26)
+        self.assertEqual(scorecard2["totals"]["call_count"], 2)
 
     def test_batch_cap_refuses_scripts_it_cannot_cover(self):
         # $0.28 per script; cap the batch so the third script is refused.
@@ -440,6 +451,85 @@ class PaidBatchTests(unittest.TestCase):
         self.assertTrue(
             any("refused" in failure for failure in scorecard["hard_failures"])
         )
+
+    def test_prior_settled_spend_reduces_batch_headroom(self):
+        root = Path(tempfile.mkdtemp())
+        transport_calls = []
+
+        scorecard = canary.run_canary(
+            make_pdfs(root, 1),
+            out_dir=root / "out",
+            execute=True,
+            transport=lambda **kwargs: transport_calls.append(kwargs),
+            parse_fn=fake_parse,
+            parser_version="test-parser",
+            max_total_usd=1.5,
+            max_script_usd=1.0,
+            prior_charged_usd=0.6,
+            prior_call_count=3,
+            resume_drill_index=0,
+        )
+
+        self.assertEqual(transport_calls, [])
+        self.assertEqual(
+            scorecard["scripts"][0]["status"], "refused_batch_cap"
+        )
+        self.assertEqual(scorecard["totals"]["charged_usd"], 0.6)
+        self.assertEqual(scorecard["totals"]["settled_usd"], 0.6)
+        self.assertEqual(scorecard["totals"]["call_count"], 3)
+
+    def test_required_failure_stops_and_persists_progress(self):
+        root = Path(tempfile.mkdtemp())
+        entries = make_pdfs(root, 2)
+        for entry in entries:
+            entry["content_sha256"] = canary.compute_content_hash(
+                Path(entry["pdf"])
+            )
+        policy = {
+            "minimum_ready": 1,
+            "required_ready_titles": ["Guión 1"],
+        }
+
+        with patch.object(
+            canary.coverage_v1,
+            "run_coverage_v1",
+            side_effect=cv.CoverageContractError("literal sequence failed"),
+        ) as run:
+            scorecard = canary.run_canary(
+                entries,
+                out_dir=root / "out",
+                execute=True,
+                transport=lambda **_kwargs: None,
+                parse_fn=fake_parse,
+                parser_version="test-parser",
+                max_total_usd=3.0,
+                max_script_usd=1.5,
+                qualification=policy,
+                resume_drill_index=0,
+            )
+
+        self.assertEqual(run.call_count, 1)
+        self.assertEqual(len(scorecard["scripts"]), 1)
+        self.assertIn("required screenplay Guión 1", scorecard[
+            "stopped_early_reason"
+        ])
+        progress = json.loads(
+            (root / "out" / "progress.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(progress["scripts"][0]["status"], "failed_closed")
+        self.assertEqual(progress["run_status"], "finished")
+
+    def test_required_needs_review_makes_qualification_unrecoverable(self):
+        reason = canary._qualification_stop_reason(
+            [{"title": "Cosquillitas", "status": "needs_review"}],
+            20,
+            {
+                "minimum_ready": 18,
+                "required_ready_titles": ["Cosquillitas"],
+            },
+        )
+
+        self.assertIn("required screenplay Cosquillitas", reason)
 
     def test_contract_failure_charges_are_still_counted(self):
         root = Path(tempfile.mkdtemp())

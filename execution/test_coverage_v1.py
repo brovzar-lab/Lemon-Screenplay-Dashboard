@@ -5235,7 +5235,8 @@ El público pide otra canción
                     or "atomic event" in str(reason)
                     or "actor-action event" in str(reason)
                     or "compound event" in str(reason)
-                    or "numeric fact" in str(reason),
+                    or "numeric fact" in str(reason)
+                    or "does not stage the beat actor" in str(reason),
                     reason,
                 )
 
@@ -6700,6 +6701,10 @@ El público pide otra canción
         # Billy's approved audit: Richie chooses Lucesita before the exposé,
         # so both beats remain in the multi-stage climax before ending begins.
         coverage = valid_coverage()
+        coverage["story_spine"]["climax"] = (
+            "Richie chooses Lucesita before Diego plays the exposé and "
+            "overturns the corrupt result."
+        )
         audit = provider_audit_core(coverage)
         richie = audit["sequence_ledger"]["climax"][0]
         ground_sequence_row_for_test(
@@ -7153,6 +7158,1284 @@ El público pide otra canción
                 self.assertTrue(
                     cv._audit_problems_need_only_sequence_retry(problems)
                 )
+
+    def test_structurally_weak_sequence_uses_bounded_literal_pass(self):
+        coverage = valid_coverage()
+        bad_core = provider_audit_core(coverage)
+        bad_core["sequence_ledger"]["tag"] = []
+        good_core = provider_audit_core(coverage)
+        good_normalized = cv.normalize_audit_tool_input(
+            copy.deepcopy(good_core), range(1, 7)
+        )
+        transport = FakeTransport([
+            (coverage, settled_usage()),
+            (bad_core, settled_usage()),
+            (
+                {"sequence_ledger": good_core["sequence_ledger"]},
+                settled_usage(),
+            ),
+            (
+                supported_detail_payload(coverage, good_normalized),
+                settled_usage(),
+            ),
+        ])
+
+        report, _usage = run_engine(new_store(), transport)
+
+        self.assertEqual(report["status"], "sealed")
+        self.assertEqual(
+            [call["stage"] for call in transport.calls],
+            [
+                "coverage_v1.coverage",
+                "coverage_v1.fact_audit",
+                "coverage_v1.literal_sequence_retry",
+                "coverage_v1.fact_audit_details",
+            ],
+        )
+        retry = transport.calls[2]
+        self.assertEqual(retry["model_key"], "sonnet")
+        self.assertEqual(
+            retry["tool"]["name"], "submit_literal_sequence_v1_2"
+        )
+        self.assertEqual(
+            retry["max_tokens"], cv.LITERAL_SEQUENCE_MAX_TOKENS
+        )
+        prompt = "\n".join(
+            str(block.get("text", "")) for block in retry["user_blocks"]
+        )
+        self.assertIn("one actor-action-result change per row", prompt)
+        self.assertIn("relationship reversal before the decisive exposure", prompt)
+        self.assertIn("official corrected result or trophy", prompt)
+        self.assertNotIn("# SCREENPLAY TEXT", prompt)
+
+    def test_literal_sequence_schema_can_preserve_call12_stage_count(self):
+        phase = cv.LITERAL_SEQUENCE_TOOL["input_schema"]["properties"][
+            "sequence_ledger"
+        ]["properties"]["climax"]
+
+        self.assertGreaterEqual(
+            phase["maxItems"], len(CALL12_FIXTURE["literal_climax_and_ending"])
+        )
+
+    def test_call12_literal_climax_order_survives_same_page_beats(self):
+        labels = CALL12_FIXTURE["literal_climax_and_ending"]
+        pages = [89, 90, 92, 92, 92, 93, 95, 96, 97, 97, 98, 100, 101]
+
+        def beat(label, page):
+            return {
+                "actor": "The named screenplay actor",
+                "action": label,
+                "result": label,
+                "character_knowledge": "The actor knows that the beat occurred.",
+                "audience_knowledge": "The audience sees the beat occur.",
+                "page": page,
+            }
+
+        response = {"sequence_ledger": {
+            "climax": [
+                beat(label, page)
+                for label, page in zip(labels[:11], pages[:11])
+            ],
+            "ending": [beat(labels[11], pages[11])],
+            "final_scene": [beat(labels[12], pages[12])],
+            "tag": [{
+                **beat("NOT PRESENT", 101),
+                **{field: "NOT PRESENT" for field in cv.GROUNDED_SEQUENCE_FIELDS},
+            }],
+            "aftermath": [{
+                **beat("NOT PRESENT", 101),
+                **{field: "NOT PRESENT" for field in cv.GROUNDED_SEQUENCE_FIELDS},
+            }],
+        }}
+
+        merged = cv._merge_literal_sequence_retry(
+            {"verdicts": []}, response, range(1, 102), SCREENPLAY_TEXT
+        )
+
+        self.assertEqual(
+            [row["action"] for row in merged["sequence_ledger"][:13]],
+            labels,
+        )
+
+    def test_literal_retry_cannot_drop_richie_or_actorless_climax_events(self):
+        labels = CALL12_FIXTURE["literal_climax_and_ending"]
+        pages = [89, 90, 92, 92, 92, 93, 95, 96, 97, 97, 98, 100, 101]
+
+        def beat(label, page):
+            return {
+                "actor": "The screenplay actor",
+                "action": label,
+                "result": label,
+                "character_knowledge": "The actor knows that the beat occurred.",
+                "audience_knowledge": "The audience sees the beat occur.",
+                "page": page,
+            }
+
+        response = {"sequence_ledger": {
+            "climax": [
+                beat(label, page)
+                for label, page in zip(labels[:11], pages[:11])
+            ],
+            "ending": [beat(labels[11], pages[11])],
+            "final_scene": [beat(labels[12], pages[12])],
+            "tag": [{
+                **beat("NOT PRESENT", 101),
+                **{
+                    field: "NOT PRESENT"
+                    for field in cv.GROUNDED_SEQUENCE_FIELDS
+                },
+            }],
+            "aftermath": [{
+                **beat("NOT PRESENT", 101),
+                **{
+                    field: "NOT PRESENT"
+                    for field in cv.GROUNDED_SEQUENCE_FIELDS
+                },
+            }],
+        }}
+        candidate = cv._merge_literal_sequence_retry(
+            {"verdicts": []}, response, range(1, 102), SCREENPLAY_TEXT
+        )
+
+        for label in (
+            labels[7],  # Richie declaration, kiss, and wig reveal.
+            labels[9],  # Gifts and capture, no proper actor required.
+            labels[10],  # Official trophy result.
+        ):
+            shortened = copy.deepcopy(response)
+            shortened["sequence_ledger"]["climax"] = [
+                row
+                for row in shortened["sequence_ledger"]["climax"]
+                if row["action"] != label
+            ]
+            with self.subTest(omitted=label), self.assertRaisesRegex(
+                cv.CoverageContractError,
+                "omitted or collapsed prior material events",
+            ):
+                cv._merge_literal_sequence_retry(
+                    candidate, shortened, range(1, 102), SCREENPLAY_TEXT
+                )
+
+        relocated = copy.deepcopy(response)
+        trophy = next(
+            row
+            for row in relocated["sequence_ledger"]["climax"]
+            if row["action"] == labels[10]
+        )
+        relocated["sequence_ledger"]["climax"].remove(trophy)
+        relocated["sequence_ledger"]["ending"].insert(0, trophy)
+        with self.assertRaisesRegex(
+            cv.CoverageContractError,
+            "omitted or collapsed prior material events",
+        ):
+            cv._merge_literal_sequence_retry(
+                candidate, relocated, range(1, 102), SCREENPLAY_TEXT
+            )
+
+    def test_literal_retry_cannot_substitute_another_true_video_event(self):
+        source_text = SCREENPLAY_TEXT + (
+            "\nThe screen reveals the bribery footage.\n"
+            "The bribery is exposed.\n"
+            "The screen reveals the vacation footage.\n"
+            "The vacation is exposed.\n"
+            "The screen reveals vacation footage; the bribery continues.\n"
+            "The screen reveals vacation footage after the bribery.\n"
+            "The vacation is exposed after the bribery.\n"
+            "The screen reveals vacation footage amid the bribery.\n"
+            "The vacation is exposed amid the bribery.\n"
+            "The screen reveals vacation footage; the bribery is mentioned.\n"
+        )
+        prior = provider_audit_core(valid_coverage())
+        prior["sequence_ledger"]["climax"][0].update({
+            "actor": "The screen",
+            "action": "The screen reveals the bribery footage.",
+            "result": "The bribery is exposed.",
+            "character_knowledge": "The judges know the bribery is exposed.",
+            "audience_knowledge": "The audience sees the bribery footage.",
+        })
+        candidate = cv._merge_literal_sequence_retry(
+            {"verdicts": []},
+            {"sequence_ledger": prior["sequence_ledger"]},
+            range(1, 7),
+            source_text,
+        )
+        for action, result in (
+            (
+                "The screen reveals the vacation footage.",
+                "The vacation is exposed.",
+            ),
+            (
+                "The screen reveals vacation footage; the bribery continues.",
+                "The vacation is exposed.",
+            ),
+            (
+                "The screen reveals vacation footage after the bribery.",
+                "The vacation is exposed after the bribery.",
+            ),
+            (
+                "The screen reveals vacation footage amid the bribery.",
+                "The vacation is exposed amid the bribery.",
+            ),
+            (
+                "The screen reveals vacation footage; the bribery is mentioned.",
+                "The bribery is exposed.",
+            ),
+        ):
+            repaired = copy.deepcopy(prior)
+            repaired["sequence_ledger"]["climax"][0].update({
+                "action": action,
+                "result": result,
+                "character_knowledge": (
+                    "The judges know the vacation is exposed."
+                ),
+                "audience_knowledge": (
+                    "The audience sees the vacation footage."
+                ),
+            })
+
+            with self.subTest(action=action), self.assertRaisesRegex(
+                cv.CoverageContractError,
+                "omitted or collapsed prior material events",
+            ):
+                cv._merge_literal_sequence_retry(
+                    candidate,
+                    {"sequence_ledger": repaired["sequence_ledger"]},
+                    range(1, 7),
+                    source_text,
+                )
+
+    def test_literal_retry_cannot_reverse_actorless_event_relations(self):
+        source_text = SCREENPLAY_TEXT + """
+The car hits the bus.
+The bus is damaged by the car.
+The bus hits the car.
+The car is damaged by the bus.
+"""
+        prior = provider_audit_core(valid_coverage())
+        prior["sequence_ledger"]["climax"][0].update({
+            "actor": "The car",
+            "action": "The car hits the bus.",
+            "result": "The bus is damaged by the car.",
+            "character_knowledge": "The driver knows the bus was hit.",
+            "audience_knowledge": "The audience sees the car hit the bus.",
+        })
+        candidate = cv._merge_literal_sequence_retry(
+            {"verdicts": []},
+            {"sequence_ledger": prior["sequence_ledger"]},
+            range(1, 7),
+            source_text,
+        )
+        repaired = copy.deepcopy(prior)
+        repaired["sequence_ledger"]["climax"][0].update({
+            "actor": "The bus",
+            "action": "The bus hits the car.",
+            "result": "The car is damaged by the bus.",
+            "character_knowledge": "The driver knows the car was hit.",
+            "audience_knowledge": "The audience sees the bus hit the car.",
+        })
+
+        with self.assertRaisesRegex(
+            cv.CoverageContractError,
+            "omitted or collapsed prior material events",
+        ):
+            cv._merge_literal_sequence_retry(
+                candidate,
+                {"sequence_ledger": repaired["sequence_ledger"]},
+                range(1, 7),
+                source_text,
+            )
+
+    def test_literal_retry_cannot_move_negation_between_video_objects(self):
+        prior_claim = (
+            "The screen reveals not the bribery footage but the vacation "
+            "footage."
+        )
+        reversed_claim = (
+            "The screen reveals the bribery footage but not the vacation "
+            "footage."
+        )
+        source_text = SCREENPLAY_TEXT + f"\n{prior_claim}\n{reversed_claim}\n"
+        prior = provider_audit_core(valid_coverage())
+        prior["sequence_ledger"]["climax"][0].update({
+            "actor": "The screen",
+            "action": prior_claim,
+            "result": prior_claim,
+            "character_knowledge": (
+                "The judges know the vacation footage was shown."
+            ),
+            "audience_knowledge": (
+                "The audience sees the vacation footage, not the bribery."
+            ),
+        })
+        candidate = cv._merge_literal_sequence_retry(
+            {"verdicts": []},
+            {"sequence_ledger": prior["sequence_ledger"]},
+            range(1, 7),
+            source_text,
+        )
+        repaired = copy.deepcopy(prior)
+        repaired["sequence_ledger"]["climax"][0].update({
+            "action": reversed_claim,
+            "result": reversed_claim,
+        })
+
+        with self.assertRaisesRegex(
+            cv.CoverageContractError,
+            "omitted or collapsed prior material events",
+        ):
+            cv._merge_literal_sequence_retry(
+                candidate,
+                {"sequence_ledger": repaired["sequence_ledger"]},
+                range(1, 7),
+                source_text,
+            )
+
+    def test_literal_retry_cannot_change_singular_role_to_plural(self):
+        source_text = SCREENPLAY_TEXT + """
+The judge awards the trophy.
+The judge celebrates.
+The judges award the trophy.
+The judges celebrate.
+"""
+        prior = provider_audit_core(valid_coverage())
+        prior["sequence_ledger"]["climax"][0].update({
+            "actor": "The judge",
+            "action": "The judge awards the trophy.",
+            "result": "The judge celebrates.",
+            "character_knowledge": "The judge knows the trophy was awarded.",
+            "audience_knowledge": "The audience sees the judge celebrate.",
+        })
+        candidate = cv._merge_literal_sequence_retry(
+            {"verdicts": []},
+            {"sequence_ledger": prior["sequence_ledger"]},
+            range(1, 7),
+            source_text,
+        )
+        repaired = copy.deepcopy(prior)
+        repaired["sequence_ledger"]["climax"][0].update({
+            "actor": "The judges",
+            "action": "The judges award the trophy.",
+            "result": "The judges celebrate.",
+            "character_knowledge": (
+                "The judges know the trophy was awarded."
+            ),
+            "audience_knowledge": (
+                "The audience sees the judges celebrate."
+            ),
+        })
+
+        with self.assertRaisesRegex(
+            cv.CoverageContractError,
+            "omitted or collapsed prior material events",
+        ):
+            cv._merge_literal_sequence_retry(
+                candidate,
+                {"sequence_ledger": repaired["sequence_ledger"]},
+                range(1, 7),
+                source_text,
+            )
+
+    def test_literal_retry_accepts_only_exact_call2_judge_normalization(self):
+        prior = {
+            "order": 1,
+            "phase": "climax",
+            "actor": "Three judges",
+            "action": (
+                "Hold up scoring paletas: first judge scores 10, second "
+                "scores 10, third scores 5, fourth scores 2."
+            ),
+            "result": (
+                "Mathematical total awards Los Chavos the win despite "
+                "Cosquillitas' superior emotional performance; formal "
+                "announcement: 'Los nuevos reyes y ganadores del CINLTT, "
+                "LOS CHAVOS!'"
+            ),
+            "character_knowledge": "The contestants see the scores.",
+            "audience_knowledge": "The audience sees the scores.",
+            "page": 93,
+        }
+        repaired = {
+            **prior,
+            "actor": "The judges",
+            "action": (
+                "Judge 1 scores 10; Judge 2 scores 10; "
+                "Judge 3 scores 5; Judge 4 scores 2."
+            ),
+        }
+        source = "[PAGE 93]\nFour judges display their scores.\n"
+
+        preserved, diagnostics = cv._literal_retry_preserves_prior_events(
+            {"sequence_ledger": [prior]},
+            {"sequence_ledger": [repaired]},
+            source,
+        )
+
+        self.assertTrue(preserved, diagnostics)
+        changed_score = copy.deepcopy(repaired)
+        changed_score["action"] = changed_score["action"].replace(
+            "Judge 4 scores 2", "Judge 4 scores 3"
+        )
+        preserved, _diagnostics = cv._literal_retry_preserves_prior_events(
+            {"sequence_ledger": [prior]},
+            {"sequence_ledger": [changed_score]},
+            source,
+        )
+        self.assertFalse(preserved)
+
+    def test_literal_retry_accepts_call2_compound_row_decomposition(self):
+        def beat(actor, action, result, page, order=1):
+            return {
+                "order": order,
+                "phase": "climax",
+                "actor": actor,
+                "action": action,
+                "result": result,
+                "character_knowledge": "The characters know what happened.",
+                "audience_knowledge": "The audience sees what happened.",
+                "page": page,
+            }
+
+        source = (
+            "[PAGE 92]\nJuanito freezes before singing.\n"
+            "[PAGE 93]\nJavierin steps forward and Juanito sings.\n"
+            "[PAGE 94]\nThe judges score.\n"
+            "[PAGE 97]\nThe video exposes Tony and the judges are caught.\n"
+        )
+        juanito = beat(
+            "Juanito",
+            "Freezes paralyzed when his turn arrives; Javierín steps forward "
+            "to cover for him; Juanito then presses his fist to his chest and "
+            "releases a raw, desafinada note that evolves into unearthly, "
+            "angelical vocal sounds that hypnotize the entire auditorium into "
+            "sepulcral silence.",
+            "Juanito produces a transformative vocal performance that silences "
+            "the hostile crowd; audience is hypnotized; the ovation that "
+            "follows is stronger than the one given to Los Chavos.",
+            92,
+        )
+        next_beat = beat(
+            "The judges",
+            "The judges score the performance.",
+            "The scoring begins.",
+            94,
+            2,
+        )
+        juanito_split = [
+            beat(
+                "Juanito",
+                "Freezes paralyzed when his turn arrives.",
+                "Juanito cannot sing.",
+                92,
+            ),
+            beat(
+                "Javierín",
+                "Javierín steps forward to cover for Juanito.",
+                "Javierín prepares to sing.",
+                93,
+                2,
+            ),
+            beat(
+                "Juanito",
+                "Juanito presses his fist to his chest and releases a raw note "
+                "that evolves into angelical vocal sounds.",
+                "Juanito hypnotizes the auditorium and earns a larger ovation "
+                "than Los Chavos.",
+                93,
+                3,
+            ),
+            {**next_beat, "order": 4},
+        ]
+        video = beat(
+            "Dante and Tony (via giant arena screen video)",
+            "A hidden-camera video plays on the enormous arena screen showing "
+            "Dante and Tony discussing the fabricated interview video and Tony "
+            "revealing he bribed judges with watches, money, lingerie, and a "
+            "Memo Ochoa poster.",
+            "Video exposure causes judges to attempt escape; security detains "
+            "all judges; conductor formally announces the result will be "
+            "overturned and trophy awarded to Cosquillitas; public erupts in "
+            "approval.",
+            97,
+        )
+        video_split = [
+            beat(
+                "The arena screen",
+                "A hidden-camera video plays showing Dante and Tony discussing "
+                "the fabricated interview video.",
+                "Dante and Tony are exposed.",
+                97,
+            ),
+            beat(
+                "The judges and security",
+                "The video shows judges receiving Tony’s gifts.",
+                "The judges flee and security catches them.",
+                97,
+                2,
+            ),
+            beat(
+                "The conductor",
+                "The conductor overturns the result.",
+                "The conductor announces that the result is overturned; "
+                "the trophy and prize are awarded to Cosquillitas; the "
+                "public applauds and celebrates.",
+                97,
+                3,
+            ),
+        ]
+
+        for prior, repaired in (
+            ([juanito, next_beat], juanito_split),
+            ([video], video_split),
+        ):
+            with self.subTest(actor=prior[0]["actor"]):
+                preserved, diagnostics = (
+                    cv._literal_retry_preserves_prior_events(
+                        {"sequence_ledger": prior},
+                        {"sequence_ledger": repaired},
+                        source,
+                    )
+                )
+                self.assertTrue(preserved, diagnostics)
+
+        without_javierin = [
+            row for row in juanito_split if row["actor"] != "Javierín"
+        ]
+        preserved, _diagnostics = cv._literal_retry_preserves_prior_events(
+            {"sequence_ledger": [juanito, next_beat]},
+            {"sequence_ledger": without_javierin},
+            source,
+        )
+        self.assertFalse(preserved)
+        without_capture = [video_split[0], video_split[2]]
+        preserved, _diagnostics = cv._literal_retry_preserves_prior_events(
+            {"sequence_ledger": [video]},
+            {"sequence_ledger": without_capture},
+            source,
+        )
+        self.assertFalse(preserved)
+
+        deleted_freeze = copy.deepcopy(juanito_split)
+        deleted_freeze[0].update({
+            "action": "Juanito closes his eyes when his turn arrives.",
+            "result": "Juanito remains focused.",
+        })
+        preserved, _diagnostics = cv._literal_retry_preserves_prior_events(
+            {"sequence_ledger": [juanito, next_beat]},
+            {"sequence_ledger": deleted_freeze},
+            source,
+        )
+        self.assertFalse(preserved)
+
+        deleted_ovation = copy.deepcopy(juanito_split)
+        deleted_ovation[2]["result"] = (
+            "Juanito's notes hypnotize the entire auditorium while Los "
+            "Chavos watch."
+        )
+        preserved, _diagnostics = cv._literal_retry_preserves_prior_events(
+            {"sequence_ledger": [juanito, next_beat]},
+            {"sequence_ledger": deleted_ovation},
+            source,
+        )
+        self.assertFalse(preserved)
+
+        for result in (
+            "Juanito hypnotizes the auditorium and watches Los Chavos "
+            "receive a larger ovation than him.",
+            "Juanito hypnotizes the auditorium; Los Chavos receive a larger "
+            "ovation than Juanito.",
+            "Juanito hypnotizes the auditorium and Los Chavos earn the "
+            "stronger ovation.",
+        ):
+            with self.subTest(reversed_ovation=result):
+                reversed_ovation = copy.deepcopy(juanito_split)
+                reversed_ovation[2]["result"] = result
+                preserved, _diagnostics = (
+                    cv._literal_retry_preserves_prior_events(
+                        {"sequence_ledger": [juanito, next_beat]},
+                        {"sequence_ledger": reversed_ovation},
+                        source,
+                    )
+                )
+                self.assertFalse(preserved)
+
+        reversed_capture = copy.deepcopy(video_split)
+        reversed_capture[1]["result"] = (
+            "Security flees and the judges catch them."
+        )
+        preserved, _diagnostics = cv._literal_retry_preserves_prior_events(
+            {"sequence_ledger": [video]},
+            {"sequence_ledger": reversed_capture},
+            source,
+        )
+        self.assertFalse(preserved)
+
+        reversed_award = copy.deepcopy(video_split)
+        reversed_award[2]["result"] = (
+            "The conductor announces that the result is overturned; "
+            "Cosquillitas awards the trophy and prize to the conductor; "
+            "the public applauds and celebrates."
+        )
+        preserved, _diagnostics = cv._literal_retry_preserves_prior_events(
+            {"sequence_ledger": [video]},
+            {"sequence_ledger": reversed_award},
+            source,
+        )
+        self.assertFalse(preserved)
+
+    def test_literal_retry_preserves_repeated_reveal_objects_and_order(self):
+        def beat(action, result, order=1):
+            return {
+                "order": order,
+                "phase": "climax",
+                "actor": "Tony",
+                "action": action,
+                "result": result,
+                "character_knowledge": "Tony knows what the screen shows.",
+                "audience_knowledge": "The audience sees the screen.",
+                "page": 97,
+            }
+
+        prior = beat(
+            "Tony reveals the birthday video; Tony reveals the vacation "
+            "video; Tony reveals the wedding video.",
+            "The public applauds.",
+        )
+        repaired = [
+            beat(
+                "Tony reveals the birthday video.",
+                "The birthday video appears.",
+            ),
+            beat(
+                "Tony reveals the vacation video.",
+                "The vacation video appears.",
+                2,
+            ),
+            beat(
+                "Tony reveals the wedding video.",
+                "The public applauds.",
+                3,
+            ),
+        ]
+        source = (
+            "[PAGE 97]\nTony reveals the birthday video.\n"
+            "Tony reveals the vacation video.\n"
+            "Tony reveals the wedding video.\nThe public applauds.\n"
+        )
+
+        preserved, diagnostics = cv._literal_retry_preserves_prior_events(
+            {"sequence_ledger": [prior]},
+            {"sequence_ledger": repaired},
+            source,
+        )
+        self.assertTrue(preserved, diagnostics)
+
+        for label, changed in (
+            ("drop one", [repaired[0], repaired[2]]),
+            ("drop two", [repaired[0]]),
+            ("reorder", [repaired[1], repaired[0], repaired[2]]),
+            (
+                "expand actor",
+                [
+                    {
+                        **repaired[0],
+                        "action": (
+                            "Carlos and Tony reveal the birthday video."
+                        ),
+                    },
+                    repaired[1],
+                    repaired[2],
+                ],
+            ),
+        ):
+            with self.subTest(label=label):
+                preserved, _diagnostics = (
+                    cv._literal_retry_preserves_prior_events(
+                        {"sequence_ledger": [prior]},
+                        {"sequence_ledger": changed},
+                        source,
+                    )
+                )
+                self.assertFalse(preserved)
+
+        bribery_prior = beat(
+            "Tony reveals the birthday bribery video; Tony reveals the "
+            "vacation bribery video; Tony reveals the wedding bribery video.",
+            "The public applauds.",
+        )
+        bribery_repaired = copy.deepcopy(repaired)
+        for row in bribery_repaired:
+            row["action"] = row["action"].replace(
+                " video", " bribery video"
+            )
+        preserved, diagnostics = cv._literal_retry_preserves_prior_events(
+            {"sequence_ledger": [bribery_prior]},
+            {"sequence_ledger": bribery_repaired},
+            source,
+        )
+        self.assertTrue(preserved, diagnostics)
+        substituted_bribery = copy.deepcopy(bribery_repaired)
+        substituted_bribery[0]["action"] = (
+            "Tony reveals the vacation bribery video."
+        )
+        preserved, _diagnostics = cv._literal_retry_preserves_prior_events(
+            {"sequence_ledger": [bribery_prior]},
+            {"sequence_ledger": substituted_bribery},
+            source,
+        )
+        self.assertFalse(preserved)
+
+    def test_literal_retry_preserves_distinct_performance_locations(self):
+        def beat(action, result, order=1):
+            return {
+                "order": order,
+                "phase": "climax",
+                "actor": "Juanito",
+                "action": action,
+                "result": result,
+                "character_knowledge": "Juanito knows that he performed.",
+                "audience_knowledge": "The audience hears the performance.",
+                "page": 93,
+            }
+
+        prior = beat(
+            "Juanito releases a raw note in the lobby; Juanito releases a "
+            "vocal sound on stage.",
+            "The public applauds.",
+        )
+        repaired = [
+            beat(
+                "Juanito releases a raw note in the lobby.",
+                "The lobby audience listens.",
+            ),
+            beat(
+                "Juanito releases a vocal sound on stage.",
+                "The public applauds.",
+                2,
+            ),
+        ]
+        source = (
+            "[PAGE 93]\nJuanito releases a raw note in the lobby.\n"
+            "Juanito releases a vocal sound on stage.\nThe public applauds.\n"
+        )
+
+        preserved, diagnostics = cv._literal_retry_preserves_prior_events(
+            {"sequence_ledger": [prior]},
+            {"sequence_ledger": repaired},
+            source,
+        )
+        self.assertTrue(preserved, diagnostics)
+
+        dropped = copy.deepcopy(repaired[:1])
+        dropped[0]["result"] = "The public applauds."
+        substituted = copy.deepcopy(repaired)
+        substituted[0]["action"] = (
+            "Juanito releases a raw note on stage."
+        )
+        expanded_actor = copy.deepcopy(repaired)
+        expanded_actor[0]["action"] = (
+            "Carlos and Juanito release a raw note in the lobby."
+        )
+        for label, changed in (
+            ("drop", dropped),
+            ("substitute", substituted),
+            ("reorder", list(reversed(repaired))),
+            ("expand actor", expanded_actor),
+        ):
+            with self.subTest(label=label):
+                preserved, _diagnostics = (
+                    cv._literal_retry_preserves_prior_events(
+                        {"sequence_ledger": [prior]},
+                        {"sequence_ledger": changed},
+                        source,
+                    )
+                )
+                self.assertFalse(preserved)
+
+        same_location_prior = beat(
+            "Juanito releases a low note on stage; Juanito releases a high "
+            "note on stage.",
+            "The public applauds.",
+        )
+        same_location_repaired = [
+            beat(
+                "Juanito releases a low note on stage.",
+                "The audience listens.",
+            ),
+            beat(
+                "Juanito releases a high note on stage.",
+                "The public applauds.",
+                2,
+            ),
+        ]
+        preserved, diagnostics = cv._literal_retry_preserves_prior_events(
+            {"sequence_ledger": [same_location_prior]},
+            {"sequence_ledger": same_location_repaired},
+            source,
+        )
+        self.assertTrue(preserved, diagnostics)
+        same_location_dropped = copy.deepcopy(same_location_repaired[:1])
+        same_location_dropped[0]["result"] = "The public applauds."
+        preserved, _diagnostics = cv._literal_retry_preserves_prior_events(
+            {"sequence_ledger": [same_location_prior]},
+            {"sequence_ledger": same_location_dropped},
+            source,
+        )
+        self.assertFalse(preserved)
+
+        timed_prior = beat(
+            "Juanito releases a raw note on stage before lunch; Juanito "
+            "produces a vocal performance on stage after lunch.",
+            "The public applauds.",
+        )
+        timed_repaired = [
+            beat(
+                "Juanito releases a raw note on stage before lunch.",
+                "The audience listens.",
+            ),
+            beat(
+                "Juanito produces a vocal performance on stage after lunch.",
+                "The public applauds.",
+                2,
+            ),
+        ]
+        preserved, diagnostics = cv._literal_retry_preserves_prior_events(
+            {"sequence_ledger": [timed_prior]},
+            {"sequence_ledger": timed_repaired},
+            source,
+        )
+        self.assertTrue(preserved, diagnostics)
+        timed_dropped = copy.deepcopy(timed_repaired[1:])
+        preserved, _diagnostics = cv._literal_retry_preserves_prior_events(
+            {"sequence_ledger": [timed_prior]},
+            {"sequence_ledger": timed_dropped},
+            source,
+        )
+        self.assertFalse(preserved)
+
+    def test_literal_retry_preserves_repeated_detention_locations_and_order(self):
+        def beat(action, result, order=1):
+            return {
+                "order": order,
+                "phase": "climax",
+                "actor": "Security",
+                "action": action,
+                "result": result,
+                "character_knowledge": "Security knows the judges are held.",
+                "audience_knowledge": "The public sees the detentions.",
+                "page": 97,
+            }
+
+        prior = beat(
+            "Security detains the judges in the lobby; security detains the "
+            "judges backstage.",
+            "The public applauds.",
+        )
+        repaired = [
+            beat(
+                "Security detains the judges in the lobby.",
+                "The lobby is secured.",
+            ),
+            beat(
+                "Security detains the judges backstage.",
+                "The public applauds.",
+                2,
+            ),
+        ]
+        source = (
+            "[PAGE 97]\nSecurity detains the judges in the lobby.\n"
+            "Security detains the judges backstage.\nThe public applauds.\n"
+        )
+
+        preserved, diagnostics = cv._literal_retry_preserves_prior_events(
+            {"sequence_ledger": [prior]},
+            {"sequence_ledger": repaired},
+            source,
+        )
+        self.assertTrue(preserved, diagnostics)
+
+        dropped = copy.deepcopy(repaired[:1])
+        dropped[0]["result"] = "The public applauds."
+        substituted = copy.deepcopy(repaired)
+        substituted[0]["action"] = (
+            "Security detains the judges backstage."
+        )
+        for label, changed in (
+            ("drop", dropped),
+            ("substitute", substituted),
+            ("reorder", list(reversed(repaired))),
+        ):
+            with self.subTest(label=label):
+                preserved, _diagnostics = (
+                    cv._literal_retry_preserves_prior_events(
+                        {"sequence_ledger": [prior]},
+                        {"sequence_ledger": changed},
+                        source,
+                    )
+                )
+                self.assertFalse(preserved)
+
+        multiword_prior = beat(
+            "Security detains the judges in the red corridor.",
+            "The public applauds.",
+        )
+        multiword_repaired = [beat(
+            "Security detains the judges in the red corridor.",
+            "The public applauds.",
+        )]
+        preserved, diagnostics = cv._literal_retry_preserves_prior_events(
+            {"sequence_ledger": [multiword_prior]},
+            {"sequence_ledger": multiword_repaired},
+            source,
+        )
+        self.assertTrue(preserved, diagnostics)
+        multiword_repaired[0]["action"] = (
+            "Security detains the judges in the red balcony."
+        )
+        preserved, _diagnostics = cv._literal_retry_preserves_prior_events(
+            {"sequence_ledger": [multiword_prior]},
+            {"sequence_ledger": multiword_repaired},
+            source,
+        )
+        self.assertFalse(preserved)
+
+    def test_literal_retry_keeps_distinct_same_field_transfix_events(self):
+        def beat(action, result, order=1):
+            return {
+                "order": order,
+                "phase": "climax",
+                "actor": "Juanito",
+                "action": action,
+                "result": result,
+                "character_knowledge": "Juanito knows what he did.",
+                "audience_knowledge": "The audience experiences it.",
+                "page": 93,
+            }
+
+        prior = beat(
+            "Juanito hypnotizes the front audience on stage; Juanito "
+            "silences the rear audience on stage.",
+            "The public applauds.",
+        )
+        repaired = [
+            beat(
+                "Juanito hypnotizes the front audience on stage.",
+                "The front audience falls silent.",
+            ),
+            beat(
+                "Juanito silences the rear audience on stage.",
+                "The public applauds.",
+                2,
+            ),
+        ]
+        source = (
+            "[PAGE 93]\nJuanito hypnotizes the front audience on stage.\n"
+            "Juanito silences the rear audience on stage.\n"
+        )
+
+        preserved, diagnostics = cv._literal_retry_preserves_prior_events(
+            {"sequence_ledger": [prior]},
+            {"sequence_ledger": repaired},
+            source,
+        )
+        self.assertTrue(preserved, diagnostics)
+        preserved, _diagnostics = cv._literal_retry_preserves_prior_events(
+            {"sequence_ledger": [prior]},
+            {"sequence_ledger": repaired[:1]},
+            source,
+        )
+        self.assertFalse(preserved)
+
+        passive_prior = beat(
+            "Juanito hypnotizes the front audience on stage; the rear "
+            "audience is hypnotized on stage.",
+            "The public applauds.",
+        )
+        passive_repaired = copy.deepcopy(repaired[:1])
+        passive_repaired[0]["result"] = "The public applauds."
+        preserved, _diagnostics = cv._literal_retry_preserves_prior_events(
+            {"sequence_ledger": [passive_prior]},
+            {"sequence_ledger": passive_repaired},
+            source,
+        )
+        self.assertFalse(preserved)
+
+    def test_literal_retry_binds_counts_and_noncompletion(self):
+        def beat(action, order=1):
+            return {
+                "order": order,
+                "phase": "climax",
+                "actor": "Tony and Security",
+                "action": action,
+                "result": "The beat continues.",
+                "character_knowledge": "Tony and Security know what happens.",
+                "audience_knowledge": "The public sees what happens.",
+                "page": 97,
+            }
+
+        prior = beat(
+            "Tony bribes two masked judges; Security tries to detain the "
+            "judges; "
+            "Tony reveals the birthday video."
+        )
+        repaired = [
+            beat("Tony bribes 2 masked judges."),
+            beat("Security tries to detain the judges.", 2),
+            beat("Tony reveals the birthday video.", 3),
+        ]
+        source = (
+            "[PAGE 97]\nTony bribes two masked judges.\n"
+            "Tony bribes two senior judges.\n"
+            "Security tries to detain the judges.\n"
+            "Security intends to detain the judges.\n"
+            "Security detains the judges.\n"
+            "Tony reveals the birthday video.\n"
+        )
+
+        preserved, diagnostics = cv._literal_retry_preserves_prior_events(
+            {"sequence_ledger": [prior]},
+            {"sequence_ledger": repaired},
+            source,
+        )
+        self.assertTrue(preserved, diagnostics)
+
+        for label, index, action in (
+            (
+                "word-number mutation",
+                0,
+                "Tony bribes three masked judges.",
+            ),
+            (
+                "counted-subgroup mutation",
+                0,
+                "Tony bribes two senior judges.",
+            ),
+            ("completion mutation", 1, "Security detains the judges."),
+        ):
+            with self.subTest(label=label):
+                changed = copy.deepcopy(repaired)
+                changed[index]["action"] = action
+                preserved, _diagnostics = (
+                    cv._literal_retry_preserves_prior_events(
+                        {"sequence_ledger": [prior]},
+                        {"sequence_ledger": changed},
+                        source,
+                    )
+                )
+                self.assertFalse(preserved)
+
+        completed_prior = copy.deepcopy(prior)
+        completed_prior["action"] = completed_prior["action"].replace(
+            "tries to detain", "detains"
+        )
+        attempted_repair = copy.deepcopy(repaired)
+        attempted_repair[1]["action"] = (
+            "Security tries to detain the judges."
+        )
+        preserved, _diagnostics = cv._literal_retry_preserves_prior_events(
+            {"sequence_ledger": [completed_prior]},
+            {"sequence_ledger": attempted_repair},
+            source,
+        )
+        self.assertFalse(preserved)
+
+        intended_prior = copy.deepcopy(prior)
+        intended_prior["action"] = intended_prior["action"].replace(
+            "tries to detain", "intends to detain"
+        )
+        completed_repair = copy.deepcopy(repaired)
+        completed_repair[1]["action"] = "Security detains the judges."
+        preserved, _diagnostics = cv._literal_retry_preserves_prior_events(
+            {"sequence_ledger": [intended_prior]},
+            {"sequence_ledger": completed_repair},
+            source,
+        )
+        self.assertFalse(preserved)
+
+        intended_repair = copy.deepcopy(repaired)
+        intended_repair[1]["action"] = (
+            "Security intends to detain the judges."
+        )
+        preserved, _diagnostics = cv._literal_retry_preserves_prior_events(
+            {"sequence_ledger": [completed_prior]},
+            {"sequence_ledger": intended_repair},
+            source,
+        )
+        self.assertFalse(preserved)
+
+    def test_literal_retry_preserves_repeated_fabricated_objects_and_order(self):
+        def beat(action, result, order=1):
+            return {
+                "order": order,
+                "phase": "climax",
+                "actor": "Tony",
+                "action": action,
+                "result": result,
+                "character_knowledge": "Tony knows what he fabricated.",
+                "audience_knowledge": "The audience sees the fabrications.",
+                "page": 97,
+            }
+
+        prior = beat(
+            "Tony fabricates the birthday video; Tony fabricates the "
+            "vacation video; Tony fabricates the wedding video.",
+            "The public applauds.",
+        )
+        repaired = [
+            beat(
+                "Tony fabricates the birthday video.",
+                "The birthday video appears.",
+            ),
+            beat(
+                "Tony fabricates the vacation video.",
+                "The vacation video appears.",
+                2,
+            ),
+            beat(
+                "Tony fabricates the wedding video.",
+                "The public applauds.",
+                3,
+            ),
+        ]
+        source = (
+            "[PAGE 97]\nTony fabricates the birthday video.\n"
+            "Tony fabricates the vacation video.\n"
+            "Tony fabricates the wedding video.\nThe public applauds.\n"
+        )
+
+        preserved, diagnostics = cv._literal_retry_preserves_prior_events(
+            {"sequence_ledger": [prior]},
+            {"sequence_ledger": repaired},
+            source,
+        )
+        self.assertTrue(preserved, diagnostics)
+
+        substituted = copy.deepcopy(repaired)
+        substituted[0]["action"] = "Tony fabricates the vacation video."
+        for label, changed in (
+            ("drop", [repaired[0], repaired[2]]),
+            ("substitute", substituted),
+            ("reorder", [repaired[1], repaired[0], repaired[2]]),
+        ):
+            with self.subTest(label=label):
+                preserved, _diagnostics = (
+                    cv._literal_retry_preserves_prior_events(
+                        {"sequence_ledger": [prior]},
+                        {"sequence_ledger": changed},
+                        source,
+                    )
+                )
+                self.assertFalse(preserved)
+
+    def test_literal_retry_preserves_generic_award_object(self):
+        def beat(action, result, order=1):
+            return {
+                "order": order,
+                "phase": "climax",
+                "actor": "The conductor",
+                "action": action,
+                "result": result,
+                "character_knowledge": "The conductor knows the result.",
+                "audience_knowledge": "The audience sees the result.",
+                "page": 97,
+            }
+
+        prior = beat(
+            "The scholarship is awarded to Juanito; security detains the "
+            "judges; the conductor overturns the result.",
+            "The public applauds.",
+        )
+        repaired = [
+            beat(
+                "The scholarship is awarded to Juanito.",
+                "Juanito receives the scholarship.",
+            ),
+            beat(
+                "Security detains the judges.",
+                "The judges are held.",
+                2,
+            ),
+            beat(
+                "The conductor overturns the result.",
+                "The public applauds.",
+                3,
+            ),
+        ]
+        source = (
+            "[PAGE 97]\nThe scholarship is awarded to Juanito.\n"
+            "The car is awarded to Juanito.\nSecurity detains the judges.\n"
+            "The conductor overturns the result.\nThe public applauds.\n"
+        )
+
+        preserved, diagnostics = cv._literal_retry_preserves_prior_events(
+            {"sequence_ledger": [prior]},
+            {"sequence_ledger": repaired},
+            source,
+        )
+        self.assertTrue(preserved, diagnostics)
+        substituted = copy.deepcopy(repaired)
+        substituted[0]["action"] = "The car is awarded to Juanito."
+        substituted[0]["result"] = "Juanito receives the car."
+        preserved, _diagnostics = cv._literal_retry_preserves_prior_events(
+            {"sequence_ledger": [prior]},
+            {"sequence_ledger": substituted},
+            source,
+        )
+        self.assertFalse(preserved)
+
+    def test_literal_retry_cannot_erase_staged_tag_knowledge(self):
+        source_text = "[PAGE 1]\nCarlos learns that Ana survived.\n"
+        sequence = provider_audit_core(valid_coverage())["sequence_ledger"]
+        for beats in sequence.values():
+            for beat in beats:
+                beat["page"] = 1
+        sequence["tag"][0].update({
+            "actor": "Carlos",
+            "action": "Carlos learns that Ana survived.",
+            "result": "Carlos learns that Ana survived.",
+            "character_knowledge": cv.SEQUENCE_KNOWLEDGE_NOT_APPLICABLE,
+            "audience_knowledge": "Carlos learns that Ana survived.",
+        })
+
+        merged = cv._merge_literal_sequence_retry(
+            {"verdicts": []},
+            {"sequence_ledger": sequence},
+            [1],
+            source_text,
+        )
+
+        tag = next(
+            beat for beat in merged["sequence_ledger"]
+            if beat["phase"] == "tag"
+        )
+        self.assertNotIn(
+            tag["order"],
+            merged.get(
+                "_sequence_repair_authorized_not_applicable_orders", []
+            ),
+        )
+        row = next(
+            item for item in cv.build_detail_audit_rows(
+                {}, [], merged["sequence_ledger"]
+            )
+            if item["identifier"] == f"sequence_ledger[{tag['order']}]"
+        )
+        candidate = {
+            "classification": "supported",
+            "note": "The source supports every field.",
+            "checks": [
+                {
+                    "field": field,
+                    "source_id": f"{row['slot']}:{field}:p001-l001",
+                    "supports": True,
+                }
+                for field in row["subject"]["required_fields"]
+            ],
+        }
+        decoded, reason = cv._decode_grounded_detail_value(
+            candidate, row, source_text
+        )
+        self.assertIsNone(decoded)
+        self.assertIn("contradicts staged actor knowledge", reason)
 
     def test_knowledge_parser_handles_awareness_and_seeking_literally(self):
         self.assertTrue(cv._has_exactly_one_knowledge_claim(
@@ -8387,7 +9670,11 @@ class TestRepairBudget(unittest.TestCase):
             (broken, settled_usage()),
             (fixed, settled_usage()),
             (bad_audit, settled_usage()),
-            (provider_audit_core(fixed), settled_usage()),
+            ({
+                "sequence_ledger": provider_audit_core(fixed)[
+                    "sequence_ledger"
+                ],
+            }, settled_usage()),
             (supported_detail_payload(fixed), settled_usage()),
         ])
 
@@ -13049,6 +14336,67 @@ Dante hands cash to the judges as Tony watches.
             problems,
         )
 
+    def test_cosquillitas_same_page_trophy_cannot_precede_expose_source(self):
+        source = SCREENPLAY_TEXT + """
+Dante plays the bribery video.
+The audience sees Dante play the bribery video.
+Dante knows the bribery video is public.
+The judges award the trophy to Cosquillitas.
+The audience sees the judges award the trophy to Cosquillitas.
+The judges know Cosquillitas won the trophy.
+"""
+        coverage = valid_coverage()
+        audit = supported_audit(coverage)
+        audit["sequence_ledger"][0].update({
+            "actor": "The judges",
+            "action": "The judges award the trophy to Cosquillitas.",
+            "result": "The judges award the trophy to Cosquillitas.",
+            "character_knowledge": (
+                "The judges know Cosquillitas won the trophy."
+            ),
+            "audience_knowledge": (
+                "The audience sees the judges award the trophy to "
+                "Cosquillitas."
+            ),
+        })
+        audit["sequence_ledger"][1].update({
+            "actor": "Dante",
+            "action": "Dante plays the bribery video.",
+            "result": "Dante plays the bribery video.",
+            "character_knowledge": (
+                "Dante knows the bribery video is public."
+            ),
+            "audience_knowledge": (
+                "The audience sees Dante play the bribery video."
+            ),
+        })
+        audit = completed_audit_fixture(coverage, audit, source)
+        for verdict in audit["verdicts"]:
+            if verdict["claim_id"] == "guard.sequence_integrity":
+                verdict["classification"] = "supported"
+        count_row = {
+            "field_path": "sequence_ledger[2].action#numbered_role_count",
+            "classification": "supported",
+        }
+        audit = cv._replace_audit_details(
+            audit,
+            [
+                *audit["existing_evidence_verdicts"],
+                *audit["sequence_evidence"],
+                count_row,
+            ],
+            audit["citation_relevance"],
+        )
+        guard = next(
+            verdict
+            for verdict in audit["verdicts"]
+            if verdict["claim_id"] == "guard.sequence_integrity"
+        )
+
+        self.assertFalse(cv._sequence_repair_source_order_is_literal(audit))
+        self.assertEqual(guard["classification"], "contradicted")
+        self.assertIn("literal_source_order", guard["note"])
+
     def test_sequence_ledger_requires_an_explicit_ending_phase(self):
         coverage = valid_coverage()
         audit = supported_audit(coverage)
@@ -13991,6 +15339,16 @@ Siguen videos donde Richie espía a Lucesita.
             row for row in checks
             if row["field_path"] == "development_priorities[0]"
         )
+        self.assertEqual(
+            [row["printed_page"] for row in CALL12_FIXTURE["richie_evidence"]],
+            [73, 87, 97, 98],
+        )
+        self.assertEqual(cv._focused_role_tokens(target), [
+            "source_device=p.73",
+            "motive_access=p.87",
+            "reveal=p.97",
+            "provenance_aftermath=p.98",
+        ])
         audit = cv._replace_audit_details(
             supported_audit(coverage), [{
             "field_path": target["field_path"],
@@ -14042,7 +15400,7 @@ Siguen videos donde Richie espía a Lucesita.
             actor="Richie",
             action=(
                 "Richie approaches Lucesita and declares his love before "
-                "the exposé."
+                "the exposé, then receives her wig."
             ),
             knowledge="Richie knows he still loves Lucesita.",
             audience="The audience sees Richie reunite with Lucesita.",
@@ -14133,6 +15491,56 @@ Siguen videos donde Richie espía a Lucesita.
         self.assertNotIn(
             "guard.cross_field_consistency",
             cv._fact_repair_targets(by_claim, reconciled, []),
+        )
+
+    def test_cosquillitas_missing_richie_event_fails_closed(self):
+        coverage = valid_coverage()
+        coverage["story_spine"]["ending"] = (
+            "Richie reunites with Lucesita and receives her wig."
+        )
+        audit = supported_audit(coverage)
+        source = """[PAGE 1]
+RICHIE
+Richie waits with Lucesita.
+LUCESITA
+Lucesita answers Richie.
+SECURITY
+Security watches. When Richie asks, Busca remains prose.
+[PAGE 2]
+RICHIE
+Richie returns to Lucesita.
+LUCESITA
+Lucesita greets Richie.
+SECURITY
+Security leaves.
+"""
+        self.assertEqual(
+            cv._screenplay_character_name_tokens(source),
+            {"richie", "lucesita"},
+        )
+
+        reconciled = cv._reconcile_literal_sequence_claims(
+            audit, coverage, source
+        )
+
+        cross_field = next(
+            row for row in reconciled["verdicts"]
+            if row["claim_id"] == "guard.cross_field_consistency"
+        )
+        self.assertEqual(cross_field["classification"], "unsupported")
+        self.assertTrue(any(
+            row.get("kind") == "missing_spine_event"
+            and "Richie" in row.get("actors", [])
+            and row.get("affected_orders") == []
+            for row in reconciled["deterministic_sequence_mismatches"]
+        ))
+        self.assertNotIn(
+            "guard.cross_field_consistency",
+            cv._fact_repair_targets(
+                {row["claim_id"]: row for row in reconciled["verdicts"]},
+                reconciled,
+                [],
+            ),
         )
 
     def test_fact_repair_gets_one_targeted_citation_scope_retry(self):
@@ -15706,6 +17114,58 @@ class TestPostDetailSequenceRepair(unittest.TestCase):
 
         self.assertIsNone(reason)
         self.assertTrue(decoded and decoded["grounding_valid"])
+
+    def test_depicted_or_possessive_names_cannot_ground_action_actor(self):
+        cases = (
+            (
+                "Dante and Tony",
+                "Dante and Tony footage plays on the arena screen.",
+            ),
+            ("Tony", "Tony footage plays on the arena screen."),
+            ("Tony", "Tony's footage plays on the arena screen."),
+        )
+        for actor, source_line in cases:
+            with self.subTest(source_line=source_line):
+                source = f"[PAGE 98]\n{source_line}\n"
+                beat = {
+                    "order": 1,
+                    "phase": "climax",
+                    "actor": actor,
+                    "action": f"{actor} plays footage on the arena screen.",
+                    "result": "The footage appears on the arena screen.",
+                    "character_knowledge": cv.SEQUENCE_KNOWLEDGE_NOT_APPLICABLE,
+                    "audience_knowledge": "The audience sees the footage.",
+                    "page": 98,
+                }
+                row = cv.build_detail_audit_rows({}, [], [beat])[0]
+                value = {
+                    "classification": "partially_supported",
+                    "checks": [
+                        {
+                            "field": field,
+                            "source_id": (
+                                f"{row['slot']}:{field}:p098-l001"
+                                if field == "actor"
+                                else cv.SEQUENCE_SOURCE_NOT_LOCATED
+                            ),
+                            "supports": field == "actor",
+                        }
+                        for field in row["subject"]["required_fields"]
+                    ],
+                    "note": "Only the claimed actor is under test.",
+                }
+
+                decoded, reason = cv._decode_grounded_detail_value(
+                    value, row, source
+                )
+
+                self.assertIsNone(decoded)
+                self.assertIn("does not stage the beat actor", reason or "")
+
+    def test_named_actor_can_still_ground_a_literal_media_action(self):
+        self.assertTrue(cv._sequence_actor_leads_clause(
+            "Richie", "Richie plays the footage on the arena screen."
+        ))
 
     def test_bounded_ranges_ground_events_and_actor_ranges_narrow(self):
         source = (

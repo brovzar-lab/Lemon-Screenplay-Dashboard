@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import re
 import sys
@@ -210,6 +211,65 @@ def _release_quality_bars(
     return bars
 
 
+def _qualification_stop_reason(
+    rows: List[Dict[str, Any]],
+    script_count: int,
+    qualification: Dict[str, Any],
+) -> Optional[str]:
+    """Return why later spending cannot recover the qualification gate."""
+    processed = [row for row in rows if row.get("status")]
+    defective_ready = [
+        str(row.get("title", ""))
+        for row in processed
+        if row.get("status") == "sealed"
+        and isinstance(row.get("release_quality"), dict)
+        and not all((
+            row["release_quality"].get("central_failures") == 0,
+            row["release_quality"].get("unresolved_evidence") == 0,
+            row["release_quality"].get("citation_integrity_verified") is True,
+            row["release_quality"].get("focused_evidence_contradictions") == 0,
+        ))
+    ]
+    if defective_ready:
+        return (
+            "Ready report failed objective verification: "
+            + ", ".join(defective_ready)
+        )
+    required = set(qualification["required_ready_titles"])
+    failed_required = [
+        str(row.get("title", ""))
+        for row in processed
+        if row.get("title") in required and row.get("status") != "sealed"
+    ]
+    if failed_required:
+        return (
+            "required screenplay " + ", ".join(failed_required)
+            + " did not seal Ready"
+        )
+    ready = sum(row.get("status") == "sealed" for row in processed)
+    remaining = max(0, script_count - len(processed))
+    minimum = int(qualification["minimum_ready"])
+    if ready + remaining < minimum:
+        return (
+            f"only {ready + remaining} Ready reports remain possible; "
+            f"qualification requires {minimum}"
+        )
+    return None
+
+
+def _write_scorecard_snapshot(
+    out_dir: Path,
+    scorecard: Dict[str, Any],
+) -> None:
+    """Keep a crash-safe scorecard after every completed script attempt."""
+    payload = json.dumps(scorecard, ensure_ascii=False, indent=1)
+    for name in ("progress.json", "scorecard.json"):
+        path = out_dir / name
+        temporary = path.with_name(f".{name}.tmp")
+        temporary.write_text(payload, encoding="utf-8")
+        temporary.replace(path)
+
+
 def load_manifest(
     path: Path,
 ) -> Tuple[List[Dict[str, Any]], Optional[Dict[str, Any]]]:
@@ -306,6 +366,8 @@ def run_canary(
     parser_version: Optional[str] = None,
     max_calls_per_script: int = MAX_CANARY_CALLS_PER_SCRIPT,
     qualification: Optional[Dict[str, Any]] = None,
+    prior_charged_usd: float = 0.0,
+    prior_call_count: int = 0,
 ) -> Dict[str, Any]:
     """Run the canary batch. Returns the scorecard dict (also written to disk).
 
@@ -318,6 +380,22 @@ def run_canary(
     ):
         raise CanaryError(
             f"max_calls_per_script must be between 1 and {MAX_CANARY_CALLS_PER_SCRIPT}"
+        )
+    if (
+        isinstance(prior_charged_usd, bool)
+        or not isinstance(prior_charged_usd, (int, float))
+        or not math.isfinite(prior_charged_usd)
+        or not 0 <= prior_charged_usd <= max_total_usd
+    ):
+        raise CanaryError(
+            "prior_charged_usd must be a finite amount inside the batch cap"
+        )
+    if type(prior_call_count) is not int or prior_call_count < 0:
+        raise CanaryError("prior_call_count must be a non-negative integer")
+    if (prior_charged_usd == 0) != (prior_call_count == 0):
+        raise CanaryError(
+            "prior_charged_usd and prior_call_count must describe the same "
+            "settled qualification history"
         )
     preflight_hashes: Dict[str, str] = {}
     if execute and qualification is not None:
@@ -369,20 +447,43 @@ def run_canary(
         "mode": "paid" if execute else "dry_run",
         "max_total_usd": max_total_usd,
         "max_script_usd": max_script_usd,
+        "prior_charged_usd": round(float(prior_charged_usd), 6),
+        "prior_call_count": prior_call_count,
         "configured_max_calls_per_script": max_calls_per_script,
         "qualification": qualification,
         "scripts": [],
         "totals": {
-            "charged_usd": 0.0,
-            "settled_usd": 0.0,
+            "charged_usd": round(float(prior_charged_usd), 6),
+            "settled_usd": round(float(prior_charged_usd), 6),
             "uncertain_usd": 0.0,
-            "call_count": 0,
+            "call_count": prior_call_count,
         },
         "hard_failures": [],
         "resume_drill": {"status": "not_run", "repaid_nothing": None},
+        "run_status": "running",
     }
 
-    charged_total = 0.0
+    def persist_snapshot() -> None:
+        scorecard["updated_at"] = datetime.now(timezone.utc).isoformat()
+        _write_scorecard_snapshot(out_dir, scorecard)
+
+    def stop_if_qualification_is_unrecoverable() -> bool:
+        if not execute or qualification is None:
+            return False
+        reason = _qualification_stop_reason(
+            scorecard["scripts"], len(entries), qualification
+        )
+        if reason is None:
+            return False
+        scorecard["stopped_early_reason"] = reason
+        scorecard["hard_failures"].append(
+            "qualification stopped before further spending: " + reason
+        )
+        persist_snapshot()
+        return True
+
+    persist_snapshot()
+    charged_total = float(prior_charged_usd)
     for index, entry in enumerate(entries, start=1):
         pdf_path = Path(entry["pdf"]).expanduser()
         title = entry.get("title") or pdf_path.stem.replace("_", " ").replace("-", " ")
@@ -392,6 +493,9 @@ def run_canary(
         if not pdf_path.is_file():
             row["status"] = "missing_pdf"
             scorecard["hard_failures"].append(f"#{index} {title}: PDF not found")
+            persist_snapshot()
+            if stop_if_qualification_is_unrecoverable():
+                break
             continue
 
         content_hash = preflight_hashes.get(str(pdf_path)) or compute_content_hash(pdf_path)
@@ -402,12 +506,18 @@ def run_canary(
             scorecard["hard_failures"].append(
                 f"#{index} {title}: source hash mismatch"
             )
+            persist_snapshot()
+            if stop_if_qualification_is_unrecoverable():
+                break
             continue
 
         parsed = parse(pdf_path, content_hash)
         if not parsed or not parsed.get("text"):
             row["status"] = "parse_failed"
             scorecard["hard_failures"].append(f"#{index} {title}: parse failed")
+            persist_snapshot()
+            if stop_if_qualification_is_unrecoverable():
+                break
             continue
         text = parsed["text"]
         page_count = int(parsed.get("page_count", 0))
@@ -423,6 +533,7 @@ def run_canary(
 
         if not execute:
             row["status"] = "planned"
+            persist_snapshot()
             continue
 
         # Batch cap: refuse to start a script the remaining authorization
@@ -434,6 +545,7 @@ def run_canary(
                 f"per-script cap ${max_script_usd:.2f} would exceed the "
                 f"${max_total_usd:.2f} batch authorization"
             )
+            persist_snapshot()
             break
 
         run_kwargs = dict(
@@ -544,17 +656,25 @@ def run_canary(
                 row["unresolved_reserve_usd"] = round(
                     unresolved_reserve / 1_000_000, 6
                 )
+                scorecard["stopped_early_reason"] = (
+                    "paid inference accounting is unresolved"
+                )
+                persist_snapshot()
+                break
+            persist_snapshot()
+            if stop_if_qualification_is_unrecoverable():
                 break
             continue
 
-        # The engine's durable budget ledger already includes calls made by
-        # the killed invocation, so the resumed report is the lifetime total.
+        # The report cost is screenplay lifetime cost. Batch totals already
+        # start with all prior qualification spend, so add only this
+        # invocation's new settled or uncertain charge.
         cost = dict(report["cost"])
         invocation_cost = coverage_v1._usage_cost_split(
             coverage_v1._merge_usage(kill_sink, run_sink)
         )
         quality = _report_quality(report)
-        charged_total += float(cost["charged_usd"])
+        charged_total += float(invocation_cost["charged_usd"])
         row.update(
             {
                 "status": report["status"],
@@ -580,21 +700,32 @@ def run_canary(
             }
         )
         scorecard["totals"]["charged_usd"] = round(
-            scorecard["totals"]["charged_usd"] + cost["charged_usd"], 6
+            scorecard["totals"]["charged_usd"]
+            + invocation_cost["charged_usd"],
+            6,
         )
         scorecard["totals"]["settled_usd"] = round(
-            scorecard["totals"]["settled_usd"] + cost["settled_usd"], 6
+            scorecard["totals"]["settled_usd"]
+            + invocation_cost["settled_usd"],
+            6,
         )
         scorecard["totals"]["uncertain_usd"] = round(
-            scorecard["totals"]["uncertain_usd"] + cost["uncertain_usd"], 6
+            scorecard["totals"]["uncertain_usd"]
+            + invocation_cost["uncertain_usd"],
+            6,
         )
-        scorecard["totals"]["call_count"] += int(cost["call_count"])
+        scorecard["totals"]["call_count"] += int(
+            invocation_cost["call_count"]
+        )
 
         report_path = out_dir / "reports" / f"{index:02d}-{_slug(title)}.json"
         report_path.write_text(
             json.dumps(report, ensure_ascii=False, indent=1), encoding="utf-8"
         )
         row["report_path"] = str(report_path)
+        persist_snapshot()
+        if stop_if_qualification_is_unrecoverable():
+            break
 
     # Automated bar checks (paid mode only; the human bars are printed below).
     if execute:
@@ -647,9 +778,8 @@ def run_canary(
             )
 
     scorecard["finished_at"] = datetime.now(timezone.utc).isoformat()
-    (out_dir / "scorecard.json").write_text(
-        json.dumps(scorecard, ensure_ascii=False, indent=1), encoding="utf-8"
-    )
+    scorecard["run_status"] = "finished"
+    persist_snapshot()
     return scorecard
 
 
@@ -670,6 +800,21 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--out", type=Path, default=None)
     parser.add_argument("--max-total-usd", type=float, default=None)
     parser.add_argument("--max-script-usd", type=float, default=None)
+    parser.add_argument(
+        "--prior-charged-usd",
+        type=float,
+        default=0.0,
+        help=(
+            "total settled qualification spend before this invocation, "
+            "including charges represented by reused checkpoints"
+        ),
+    )
+    parser.add_argument(
+        "--prior-call-count",
+        type=int,
+        default=0,
+        help="settled qualification calls completed before this invocation",
+    )
     parser.add_argument(
         "--resume-drill-index", type=int, default=DEFAULT_RESUME_DRILL_INDEX
     )
@@ -720,6 +865,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         proxy_url=args.proxy_url,
         max_calls_per_script=max_calls_per_script,
         qualification=qualification,
+        prior_charged_usd=args.prior_charged_usd,
+        prior_call_count=args.prior_call_count,
     )
 
     print(json.dumps(scorecard, ensure_ascii=False, indent=1))

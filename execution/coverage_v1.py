@@ -83,6 +83,8 @@ COVERAGE_THINKING_BUDGET = 8_000
 # The higher ceiling prevents truncation; providers charge only tokens used.
 AUDIT_MAX_TOKENS = 8_000
 AUDIT_THINKING_BUDGET = 4_000
+LITERAL_SEQUENCE_MAX_TOKENS = 4_000
+LITERAL_SEQUENCE_THINKING_BUDGET = 2_000
 REPAIR_MAX_TOKENS = 4_000
 REPAIR_THINKING_BUDGET = 2_000
 
@@ -97,7 +99,8 @@ MAX_DETAIL_AUDIT_ROWS = 64
 MAX_DETAIL_DIRECT_SLOTS = 42
 MAX_SEQUENCE_FIELD_REPAIR_SLOTS = 40
 MAX_POST_DETAIL_SEQUENCE_REPAIR_FIELDS = 100
-AUDIT_CORE_CONTRACT_VERSION = "coverage-v1.2-audit-core-1"
+AUDIT_CORE_CONTRACT_VERSION = "coverage-v1.2-audit-core-2"
+PRIOR_AUDIT_CORE_CONTRACT_VERSION = "coverage-v1.2-audit-core-1"
 DETAIL_AUDIT_CONTRACT_VERSION = "coverage-v1.2-detail-19"
 SEQUENCE_REPAIR_CONTRACT_VERSION = "coverage-v1.2-sequence-repair-6"
 PARTIAL_TYPED_B_PROGRESS_VERSION = "coverage-v1.2-detail-15"
@@ -184,7 +187,10 @@ def _supported_audit_core_checkpoint(payload: Dict[str, Any]) -> bool:
     """Accept the decoupled core contract and the last sealed legacy core."""
     return (
         payload.get("audit_core_contract_version")
-        == AUDIT_CORE_CONTRACT_VERSION
+        in {
+            AUDIT_CORE_CONTRACT_VERSION,
+            PRIOR_AUDIT_CORE_CONTRACT_VERSION,
+        }
         or payload.get("detail_contract_version")
         == LEGACY_AUDIT_CORE_VERSION
     )
@@ -573,6 +579,28 @@ AUDIT_TOOL: Dict[str, Any] = {
     },
 }
 
+
+LITERAL_SEQUENCE_TOOL: Dict[str, Any] = {
+    "name": "submit_literal_sequence_v1_2",
+    "description": (
+        "Return only the complete literal climax and ending ledger in "
+        "screenplay order. Do not return audit verdicts or coverage prose."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "sequence_ledger": copy.deepcopy(
+                AUDIT_TOOL["input_schema"]["properties"]["sequence_ledger"]
+            ),
+        },
+        "required": ["sequence_ledger"],
+    },
+}
+for _literal_sequence_phase in AUDIT_SEQUENCE_PHASES:
+    LITERAL_SEQUENCE_TOOL["input_schema"]["properties"]["sequence_ledger"][
+        "properties"
+    ][_literal_sequence_phase]["maxItems"] = 16
+
 REPAIR_TOOL: Dict[str, Any] = {
     "name": "submit_coverage_repair_v1",
     "description": (
@@ -652,7 +680,13 @@ def strict_schema_complexity(schema: Dict[str, Any]) -> Dict[str, int]:
 
 def assert_schemas_compiler_safe() -> None:
     """Refuse to run with schemas that risk the V9 string-envelope trap."""
-    for tool in (COVERAGE_TOOL, AUDIT_TOOL, REPAIR_TOOL, FACT_REPAIR_TOOL):
+    for tool in (
+        COVERAGE_TOOL,
+        AUDIT_TOOL,
+        LITERAL_SEQUENCE_TOOL,
+        REPAIR_TOOL,
+        FACT_REPAIR_TOOL,
+    ):
         stats = strict_schema_complexity(tool["input_schema"])
         for metric, ceiling in STRICT_BUDGET.items():
             if stats[metric] > ceiling:
@@ -937,11 +971,40 @@ def normalize_audit_tool_input(
 _LITERAL_SEQUENCE_MISMATCH_PREFIX = "DETERMINISTIC_SPINE_SEQUENCE_MISMATCH:"
 
 
+def _literal_sequence_event_terms(value: str) -> set[str]:
+    """Return event terms without letting shared character names prove a beat."""
+    terms = _sequence_semantic_terms(value, "")
+    for name in _sequence_named_actors(value):
+        terms.discard(_sequence_stem_word(_fold_evidence_text(name)))
+    return terms
+
+
+def _literal_sequence_canonical_terms(value: str) -> set[str]:
+    """Return only deterministic bilingual event concepts."""
+    folded = _fold_evidence_text(value)
+    return {
+        canonical
+        for canonical, pattern in _SEQUENCE_SEMANTIC_EQUIVALENTS.items()
+        if pattern.search(folded)
+    }
+
+
+def _literal_spine_atoms(value: str) -> List[str]:
+    """Split spine prose so one unrelated clause cannot prove another."""
+    atoms = [
+        atom.strip(" ,;:")
+        for atom in _SEQUENCE_MATERIAL_ATOM_BOUNDARY.split(value)
+        if atom.strip(" ,;:")
+    ]
+    return atoms or [value]
+
+
 def _reconcile_literal_sequence_claims(
     audit_payload: Dict[str, Any],
     coverage: Dict[str, Any],
+    source_text: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Fail a cross-field claim when a mid-climax beat was moved to ending."""
+    """Fail cross-field trust when the spine and literal ledger diverge."""
     sequence = audit_payload.get("sequence_ledger")
     spine = coverage.get("story_spine")
     if not isinstance(sequence, list) or not isinstance(spine, dict):
@@ -952,51 +1015,127 @@ def _reconcile_literal_sequence_claims(
     ]
     climax_text = _fold_evidence_text(str(spine.get("climax", "")))
     ending_text = _fold_evidence_text(str(spine.get("ending", "")))
-    if len(climax_rows) < 2 or not climax_text or not ending_text:
-        return audit_payload
 
     def contains(text: str, name: str) -> bool:
         return bool(re.search(rf"\b{re.escape(name)}\b", text))
 
     mismatches: List[str] = []
     mismatch_rows: List[Dict[str, Any]] = []
-    for ledger_index, beat in climax_rows[:-1]:
-        actor_names = [
-            _fold_evidence_text(name)
-            for name in _sequence_named_actors(str(beat.get("actor", "")))
-        ]
-        action_names = [
-            _fold_evidence_text(name)
-            for name in _sequence_named_actors(str(beat.get("action", "")))
-        ]
-        misplaced = next((
-            name for name in actor_names
-            if contains(ending_text, name)
-            and not contains(climax_text, name)
-            and any(
-                companion != name
-                and contains(ending_text, companion)
-                and not contains(climax_text, companion)
-                for companion in action_names
+    material_rows = [
+        row for row in sequence
+        if isinstance(row, dict) and not _is_strict_sequence_absence_marker(row)
+    ]
+    trusted_names = (
+        _screenplay_character_name_tokens(source_text)
+        if source_text is not None else set()
+    )
+    ledger_events = [
+        {
+            "text": _fold_evidence_text(" ".join(
+                str(row.get(field, "")) for field in ("actor", "action", "result")
+            )),
+            "terms": _literal_sequence_event_terms(" ".join(
+                str(row.get(field, "")) for field in ("actor", "action", "result")
+            )),
+            "canonical_terms": _literal_sequence_canonical_terms(" ".join(
+                str(row.get(field, "")) for field in ("actor", "action", "result")
+            )),
+        }
+        for row in material_rows
+    ]
+    for claim_field in ("climax", "ending"):
+        claim = str(spine.get(claim_field, ""))
+        for atom in _literal_spine_atoms(claim):
+            raw_names = [
+                name for name in _sequence_named_actors(atom)
+                if _fold_evidence_text(name) in trusted_names
+            ]
+            names = {_fold_evidence_text(name) for name in raw_names}
+            if not names:
+                continue
+            canonical_terms = _literal_sequence_canonical_terms(atom)
+            content_terms = _literal_sequence_event_terms(atom)
+            if not canonical_terms and not content_terms:
+                continue
+            eligible = [
+                event for event in ledger_events
+                if any(
+                    contains(event["text"], name) for name in names
+                )
+            ]
+            missing_terms = sorted(
+                term for term in canonical_terms
+                if not any(
+                    term in event["canonical_terms"] for event in eligible
+                )
             )
-        ), None)
-        if misplaced:
-            mismatches.append(
-                f"{_LITERAL_SEQUENCE_MISMATCH_PREFIX} climax beat "
-                f"{beat.get('order')} ({beat.get('actor')}) occurs before "
-                "later climax beats, but its named event appears only in "
-                "story_spine.ending."
+            has_content_anchor = bool(
+                content_terms
+                and any(content_terms & event["terms"] for event in eligible)
             )
-            mismatch_rows.append({
-                "ledger_index": ledger_index,
-                "order": beat.get("order"),
-                "actor": beat.get("actor"),
-                "affected_orders": [
-                    later.get("order")
-                    for _later_index, later in climax_rows
-                    if _later_index >= ledger_index
-                ],
-            })
+            if not missing_terms and (
+                canonical_terms or not names or has_content_anchor
+            ):
+                continue
+            label = ", ".join(raw_names) or "the material event"
+            detail = (
+                "; missing concepts: " + ", ".join(missing_terms)
+                if missing_terms else ""
+            )
+            mismatch = (
+                f"{_LITERAL_SEQUENCE_MISMATCH_PREFIX} story_spine."
+                f"{claim_field} names {label}, but the literal sequence "
+                f"contains no matching atom-local event anchor{detail}."
+            )
+            if mismatch not in mismatches:
+                mismatches.append(mismatch)
+                mismatch_rows.append({
+                    "kind": "missing_spine_event",
+                    "claim_field": f"story_spine.{claim_field}",
+                    "actors": raw_names,
+                    "event_terms": sorted(canonical_terms),
+                    "claim_atom": atom,
+                    "affected_orders": [],
+                })
+
+    if len(climax_rows) >= 2 and climax_text and ending_text:
+        for ledger_index, beat in climax_rows[:-1]:
+            actor_names = [
+                _fold_evidence_text(name)
+                for name in _sequence_named_actors(str(beat.get("actor", "")))
+            ]
+            action_names = [
+                _fold_evidence_text(name)
+                for name in _sequence_named_actors(str(beat.get("action", "")))
+            ]
+            misplaced = next((
+                name for name in actor_names
+                if contains(ending_text, name)
+                and not contains(climax_text, name)
+                and any(
+                    companion != name
+                    and contains(ending_text, companion)
+                    and not contains(climax_text, companion)
+                    for companion in action_names
+                )
+            ), None)
+            if misplaced:
+                mismatches.append(
+                    f"{_LITERAL_SEQUENCE_MISMATCH_PREFIX} climax beat "
+                    f"{beat.get('order')} ({beat.get('actor')}) occurs before "
+                    "later climax beats, but its named event appears only in "
+                    "story_spine.ending."
+                )
+                mismatch_rows.append({
+                    "ledger_index": ledger_index,
+                    "order": beat.get("order"),
+                    "actor": beat.get("actor"),
+                    "affected_orders": [
+                        later.get("order")
+                        for _later_index, later in climax_rows
+                        if _later_index >= ledger_index
+                    ],
+                })
     if not mismatches:
         return audit_payload
 
@@ -3023,6 +3162,38 @@ def _sequence_anchor_actor_reason(
     return f"{field} source excerpt does not identify the beat actor or group"
 
 
+_SEQUENCE_NON_AGENT_NOMINAL_HEAD = re.compile(
+    r"^\s*(?:footage|videos?|recordings?|photos?|photographs?|audio|"
+    r"images?|grabacion(?:es)?|fotografias?|imagenes?)\b"
+)
+
+
+def _sequence_actor_prefix_modifies_noun(
+    actor_names: Sequence[str], clause_tail: str
+) -> bool:
+    """Reject a depicted or possessing person mistaken for an action agent."""
+    identities = sorted(
+        {_fold_evidence_text(name) for name in actor_names},
+        key=len,
+        reverse=True,
+    )
+    if not identities:
+        return False
+    identity = "(?:" + "|".join(map(re.escape, identities)) + ")"
+    connector = r"(?:\s*,\s*(?:(?:and|y|&)\s*)?|\s+(?:and|y|&)\s+)"
+    roster = re.match(
+        rf"{identity}(?:{connector}{identity})*",
+        clause_tail,
+    )
+    if roster is None:
+        return False
+    remainder = clause_tail[roster.end():]
+    return bool(
+        re.match(r"^\s*['’]s\b", remainder)
+        or _SEQUENCE_NON_AGENT_NOMINAL_HEAD.match(remainder)
+    )
+
+
 def _sequence_actor_leads_clause(actor: str, excerpt: str) -> bool:
     """Require the claimed action actor before another clause predicate."""
     folded_excerpt = _fold_evidence_text(excerpt)
@@ -3061,6 +3232,10 @@ def _sequence_actor_leads_clause(actor: str, excerpt: str) -> bool:
                 word not in _SEQUENCE_ROLE_STOPWORDS
                 for word in re.findall(r"[a-záéíóúüñ]+", clause_prefix)
             ):
+                if names and _sequence_actor_prefix_modifies_noun(
+                    names, folded_excerpt[match.start():]
+                ):
+                    continue
                 return True
     return False
 
@@ -3277,7 +3452,7 @@ _SEQUENCE_SEMANTIC_EQUIVALENTS = {
         r"\b(?:announc\w*|anuncia\w*|declara\w*|se\s+llama)\b"
     ),
     "bribe": re.compile(
-        r"\b(?:brib(?:e|es|ed|ing)|soborn\w*)\b"
+        r"\b(?:brib(?:e|es|ed|ing|ery)|soborn\w*)\b"
     ),
     "award": re.compile(
         r"\b(?:award\w*|entrega\w*|otorga\w*|premio\w*)\b"
@@ -4437,7 +4612,8 @@ _SEQUENCE_NON_NEGATING_PRIVATIVE = re.compile(
 )
 _SEQUENCE_NONCOMPLETION = re.compile(
     r"\b(?:(?:almost|casi|nearly)\s+|"
-    r"(?:attempts?|is\s+unable|plans?|pretends?|refuses?|threatens?|tries?)"
+    r"(?:attempts?|intend(?:s|ed|ing)?|is\s+unable|plans?|pretends?|"
+    r"refuses?|threatens?|tries?)"
     r"\s+to\s+|(?:can|could|may|might|would)\s+|"
     r"(?:amenaza\s+con|fracasa\s+al|finge|intenta|planea|se\s+niega\s+a|"
     r"trata\s+de)\s+|(?:podria|puede)\s+)"
@@ -5393,6 +5569,25 @@ def _decode_grounded_detail_value(
             knowledge_check = checks_by_field["character_knowledge"]
             knowledge_excerpt = str(knowledge_check.get("excerpt", ""))
             if knowledge_not_applicable:
+                raw_range = subject.get("source_page_range")
+                start_page = end_page = int(beat["page"])
+                if (
+                    isinstance(raw_range, list)
+                    and len(raw_range) == 2
+                    and all(type(value) is int for value in raw_range)
+                    and raw_range[0] <= raw_range[1]
+                ):
+                    start_page, end_page = raw_range
+                if _sequence_actor_bound_knowledge_on_pages(
+                    str(beat.get("actor", "")),
+                    start_page,
+                    end_page,
+                    source_text,
+                ):
+                    return None, (
+                        "not-applicable character knowledge contradicts staged "
+                        "actor knowledge in the source"
+                    )
                 page_text = pages.get(knowledge_check.get("page"), "")
                 distance = _sequence_anchor_line_distance(
                     action_check, knowledge_check, page_text
@@ -7152,6 +7347,37 @@ def build_character_page_index(text: str, max_names: int = 25) -> str:
         for name, page_list in ranked[:max_names]
     ]
     return "\n".join(lines)
+
+
+def _screenplay_character_name_tokens(text: str) -> set[str]:
+    """Return repeated source names that also appear as dialogue cues."""
+    indexed = {
+        _fold_evidence_text(line.partition(":")[0])
+        for line in build_character_page_index(text, max_names=100).splitlines()
+        if ":" in line
+    }
+    cue_names: set[str] = set()
+    for raw_line in text.splitlines():
+        cue = re.sub(r"\s*\([^)]*\)\s*$", "", raw_line.strip())
+        if _sequence_is_dialogue_cue(cue, text):
+            cue_names.update(
+                _fold_evidence_text(name)
+                for name in _sequence_named_actors(cue)
+            )
+    generic_roles = {
+        "security", "seguridad",
+        *(
+            _fold_evidence_text(role)
+            for group in _SEQUENCE_ROLE_EQUIVALENT_GROUPS
+            for role in group
+        ),
+        *(
+            _fold_evidence_text(plural)
+            for _singular, plural
+            in _SEQUENCE_NUMBERED_HUMAN_ROLE_GROUPS.values()
+        ),
+    }
+    return (indexed & cue_names) - generic_roles
 
 
 def _character_index_block(text: str) -> Dict[str, Any]:
@@ -8944,6 +9170,89 @@ def build_sequence_retry_user_blocks(
     ]
 
 
+def build_literal_sequence_retry_user_blocks(
+    text: str,
+    title: str,
+    coverage: Dict[str, Any],
+    candidate: Dict[str, Any],
+    page_reference_map: PageReferenceMap,
+    sequence_focus: Dict[str, Any],
+    problems: Sequence[str],
+) -> List[Dict[str, Any]]:
+    """Build the bounded source packet for a complete literal sequence pass."""
+    sequence_problems = [
+        problem for problem in problems
+        if not _audit_problems_are_detail_only([problem])
+    ]
+    source_blocks = build_sequence_retry_user_blocks(
+        text,
+        title,
+        candidate,
+        page_reference_map,
+        sequence_focus,
+        [],
+    )[:3]
+    story_spine = coverage.get("story_spine")
+    story_spine = story_spine if isinstance(story_spine, dict) else {}
+    return [
+        *source_blocks,
+        {
+            "type": "text",
+            "text": (
+                "# FALLIBLE PRIOR LEDGER\n\n"
+                + json.dumps(
+                    candidate.get("sequence_ledger", []),
+                    ensure_ascii=False,
+                    indent=1,
+                )
+                + "\n\n# COVERAGE CLAIMS TO CHECK, NOT TRUST\n\n"
+                + json.dumps(
+                    {
+                        "climax": story_spine.get("climax"),
+                        "ending": story_spine.get("ending"),
+                        "synopsis": coverage.get("synopsis"),
+                    },
+                    ensure_ascii=False,
+                    indent=1,
+                )
+            ),
+        },
+        {
+            "type": "text",
+            "text": (
+                f"# COMPLETE LITERAL SEQUENCE PASS — {title}\n\n"
+                "Rebuild the complete climax-and-ending ledger from the "
+                "supplied screenplay pages. The prior ledger and coverage are "
+                "fallible leads, never authority, but they are a minimum event "
+                "inventory: retain every prior material event and add any "
+                "omitted source event. Do not replace a prior event with a "
+                "different true event that happens to share an actor, page, "
+                "or generic action words. Return every material beat "
+                "in literal screenplay order, with one actor-action-result "
+                "change per row. Split beats even when they share a printed "
+                "page. Never collapse: an apparent score or victory, a "
+                "relationship reversal before the decisive exposure, the "
+                "exposure itself, pursuit or capture, the official corrected "
+                "result or trophy, separate coda payoffs, the final scene, a "
+                "tag, or aftermath. Do not invent a framework beat.\n\n"
+                "For every row, name the literal actor or screenplay role, "
+                "describe only that row's action and immediate result, record "
+                "one atomic character-knowledge claim, record what the "
+                "audience learns, and use the action's first printed page. "
+                "Never use numeric actor shorthand. If numbered roles matter, "
+                "repeat the role before every identity in the action and use "
+                "the collective role as actor. A material tag or aftermath "
+                "with no separate character knowledge must use exactly `NOT "
+                "APPLICABLE` for character_knowledge. A genuinely absent tag "
+                "or aftermath must be one row with all five text fields "
+                "exactly `NOT PRESENT`. Use only the supplied pages.\n\n"
+                "DETERMINISTIC FAILURES IN THE PRIOR LEDGER:\n- "
+                + "\n- ".join(sequence_problems)
+            ),
+        },
+    ]
+
+
 def build_rejected_sequence_field_retry_user_blocks(
     text: str,
     title: str,
@@ -10611,6 +10920,1240 @@ def _audit_problems_need_only_sequence_retry(
     return bool(slots) and len(slots) <= MAX_SEQUENCE_FIELD_REPAIR_SLOTS
 
 
+def _audit_problems_need_literal_sequence_retry(
+    _payload: Dict[str, Any],
+    problems: Sequence[str],
+) -> bool:
+    """Use a full bounded pass when sequence structure, not detail, failed."""
+    structural = [
+        problem for problem in problems
+        if not _audit_problems_are_detail_only([problem])
+    ]
+    sequence_only = bool(structural) and all(
+        problem.startswith(("sequence_ledger", "sequence not-applicable"))
+        for problem in structural
+    )
+    return (
+        sequence_only
+        and not _audit_problems_need_only_sequence_retry(problems)
+    )
+
+
+def _literal_retry_event_rows(payload: Dict[str, Any]) -> List[Dict[str, Any]]:
+    ledger = payload.get("sequence_ledger")
+    return [
+        row for row in ledger
+        if isinstance(row, dict) and not _is_strict_sequence_absence_marker(row)
+    ] if isinstance(ledger, list) else []
+
+
+def _literal_retry_event_signature(
+    row: Dict[str, Any],
+    trusted_names: set[str],
+) -> Dict[str, Any]:
+    action = str(row.get("action", ""))
+    result = str(row.get("result", ""))
+    event_text = f"{action} {result}"
+    text = " ".join(
+        str(row.get(field, "")) for field in ("actor", "action", "result")
+    )
+    participants = {
+        identity
+        for _start, _end, identity in _sequence_relation_identity_mentions(text)
+        if identity.startswith("role:")
+        or identity.removeprefix("name:") in trusted_names
+    }
+    return {
+        "actor": str(row.get("actor", "")),
+        "action": action,
+        "result": result,
+        "text": text,
+        "event_text": event_text,
+        "page": row.get("page"),
+        "phase": row.get("phase"),
+        "participants": participants,
+        "canonical_terms": _literal_sequence_canonical_terms(event_text),
+        "preservation_concepts": _literal_retry_preservation_concepts(
+            event_text
+        ),
+        "content_terms": _literal_sequence_event_terms(event_text),
+        "identity_terms": _literal_retry_identity_terms(
+            event_text, trusted_names
+        ),
+        "atoms": [
+            _literal_retry_atom_signature(
+                atom, trusted_names, str(row.get("actor", ""))
+            )
+            for atom in _sequence_material_claim_atoms(row)
+        ],
+    }
+
+
+_LITERAL_RETRY_EVENT_CONCEPTS = {
+    "video": re.compile(
+        r"\b(?:footage|grabaci\w*|recording\w*|screens?)\b",
+        re.IGNORECASE,
+    ),
+    "reveal": re.compile(
+        r"\b(?:display\w*|expos\w*|expone\w*|muestra\w*|reveal\w*|"
+        r"revela\w*|shows?|shown)\b",
+        re.IGNORECASE,
+    ),
+}
+
+_LITERAL_RETRY_CONCEPT_ALIASES = {
+    "announce": "resolution",
+    "bribe": "corruption",
+    "gift": "corruption",
+}
+_LITERAL_RETRY_NON_MATERIAL_CONCEPTS = frozenset({"venue"})
+_LITERAL_RETRY_RESOLUTION = re.compile(
+    r"\b(?:annul\w*|invalidate\w*|overturn\w*|reverse\w*|void\w*)\b",
+    re.IGNORECASE,
+)
+
+
+def _literal_retry_preservation_concepts(value: str) -> set[str]:
+    """Return event concepts that a structural retry may not erase."""
+    concepts = _literal_retry_atom_canonical_terms(value)
+    normalized = {
+        _LITERAL_RETRY_CONCEPT_ALIASES.get(concept, concept)
+        for concept in concepts
+        if concept not in _LITERAL_RETRY_NON_MATERIAL_CONCEPTS
+    }
+    if _LITERAL_RETRY_RESOLUTION.search(_fold_evidence_text(value)):
+        normalized.add("resolution")
+    return normalized
+
+
+def _literal_retry_identity_value(value: str) -> Optional[int]:
+    digit = re.search(r"\d+", value)
+    if digit is not None:
+        return int(digit.group())
+    return next((
+        identity
+        for word, identity in _SEQUENCE_ROLE_IDENTITY_WORDS.items()
+        if re.search(rf"\b{re.escape(word)}\b", value)
+    ), None)
+
+
+def _literal_retry_numbered_role_score_signature(
+    value: str,
+) -> Optional[Tuple[Tuple[str, ...], Tuple[Tuple[int, int], ...]]]:
+    """Bind an elided score list to the same explicit role/score roster."""
+    folded = _fold_evidence_text(value)
+    explicit = _sequence_action_role_identity_mentions(value)
+    if not explicit:
+        return None
+    role_family = next(
+        (
+            family for family in _SEQUENCE_ROLE_EQUIVALENT_GROUPS
+            if explicit[0][0] in family
+        ),
+        frozenset((explicit[0][0],)),
+    )
+    if any(role not in role_family for role, _identity, _start, _end in explicit):
+        return None
+    occurrences: Dict[Tuple[int, int], int] = {
+        (start, end): identity
+        for _role, identity, start, end in explicit
+    }
+    first_start = explicit[0][2]
+    for match in _SEQUENCE_ELIDED_ROLE_IDENTITY.finditer(folded):
+        start, end = match.span("identity")
+        if start <= first_start or any(
+            explicit_start <= start < explicit_end
+            for _role, _identity, explicit_start, explicit_end in explicit
+        ):
+            continue
+        identity = _literal_retry_identity_value(match.group("identity"))
+        if identity is not None:
+            occurrences[(start, end)] = identity
+    ordered = sorted(
+        (start, end, identity)
+        for (start, end), identity in occurrences.items()
+    )
+    if len(ordered) < 2 or len({item[2] for item in ordered}) != len(ordered):
+        return None
+    score_words = "|".join(
+        sorted(map(re.escape, _COUNT_SCORE_WORDS), key=len, reverse=True)
+    )
+    score_pattern = re.compile(
+        rf"\b(?:{score_words})\b\s+(?P<score>{_COUNT_TOKEN_PATTERN})\b"
+    )
+    scores: List[Tuple[int, int]] = []
+    for index, (_start, end, identity) in enumerate(ordered):
+        next_start = ordered[index + 1][0] if index + 1 < len(ordered) else len(
+            folded
+        )
+        matches = list(score_pattern.finditer(folded[end:next_start]))
+        if len(matches) != 1:
+            return None
+        raw_score = matches[0].group("score")
+        score = 11 if raw_score == "once" else _count_token_value(raw_score)
+        if score is None:
+            return None
+        scores.append((identity, score))
+    return tuple(sorted(role_family)), tuple(scores)
+
+
+def _literal_retry_is_numbered_role_normalization(
+    old_action: str,
+    new_action: str,
+) -> bool:
+    old_signature = _literal_retry_numbered_role_score_signature(old_action)
+    return bool(
+        old_signature is not None
+        and old_signature
+        == _literal_retry_numbered_role_score_signature(new_action)
+        and _numbered_sequence_role_group(old_action) is None
+        and _numbered_sequence_role_group(new_action) is not None
+    )
+
+
+def _literal_retry_atom_canonical_terms(value: str) -> set[str]:
+    folded = _fold_evidence_text(value)
+    return _literal_sequence_canonical_terms(value) | {
+        canonical
+        for canonical, pattern in _LITERAL_RETRY_EVENT_CONCEPTS.items()
+        if pattern.search(folded)
+    }
+
+
+def _literal_retry_identity_terms(
+    value: str,
+    trusted_names: set[str],
+) -> set[str]:
+    """Keep distinctive event terms after removing actors and generic verbs."""
+    folded = _fold_evidence_text(value)
+    terms = _literal_sequence_event_terms(value)
+    for canonical, pattern in _SEQUENCE_SEMANTIC_EQUIVALENTS.items():
+        terms.discard(canonical)
+        for match in pattern.finditer(folded):
+            terms.difference_update(
+                _sequence_stem_word(word)
+                for word in re.findall(r"[a-záéíóúüñ]+", match.group())
+            )
+    for pattern in _LITERAL_RETRY_EVENT_CONCEPTS.values():
+        for match in pattern.finditer(folded):
+            terms.difference_update(
+                _sequence_stem_word(word)
+                for word in re.findall(r"[a-záéíóúüñ]+", match.group())
+            )
+    terms.difference_update(
+        _sequence_stem_word(word)
+        for name in trusted_names
+        for word in re.findall(r"[a-záéíóúüñ]+", name)
+    )
+    terms.difference_update(
+        _sequence_stem_word(word)
+        for aliases in _SEQUENCE_NUMBERED_HUMAN_ROLE_GROUPS.values()
+        for alias in aliases
+        for word in re.findall(
+            r"[a-záéíóúüñ]+", _fold_evidence_text(alias)
+        )
+    )
+    terms.difference_update(
+        _sequence_stem_word(role)
+        for role in _SEQUENCE_NUMBERED_HUMAN_ROLE_GROUPS
+    )
+    terms.difference_update({
+        "act", "action", "appear", "audience", "beat", "begin", "change",
+        "complete", "display", "event", "expos", "footage", "happen",
+        "immediate", "material", "occur", "play", "result", "reveal",
+        "screen", "see", "show", "watch",
+    })
+    return terms
+
+
+def _literal_retry_atom_signature(
+    atom: Dict[str, Any],
+    trusted_names: set[str],
+    actor_context: str = "",
+) -> Dict[str, Any]:
+    value = str(atom.get("text", ""))
+    return {
+        "field": atom.get("field"),
+        "event_text": value,
+        "actor_context": actor_context,
+        "trusted_names": trusted_names,
+        "participants": {
+            identity
+            for _start, _end, identity in (
+                _sequence_relation_identity_mentions(value)
+            )
+            if identity.startswith("role:")
+            or identity.removeprefix("name:") in trusted_names
+        },
+        "canonical_terms": _literal_retry_atom_canonical_terms(value),
+        "preservation_concepts": _literal_retry_preservation_concepts(value),
+        "content_terms": _literal_sequence_event_terms(value),
+        "identity_terms": _literal_retry_identity_terms(
+            value, trusted_names
+        ),
+        "skeleton": _literal_retry_atom_skeleton(value),
+    }
+
+
+def _literal_retry_atom_skeleton(value: str) -> Tuple[str, ...]:
+    """Preserve event word order, including numeric and negation position."""
+    return tuple(
+        _sequence_stem_word(token)
+        for token in re.findall(
+            r"\d+|[a-záéíóúüñ]+", _fold_evidence_text(value)
+        )
+    )
+
+
+def _literal_retry_preserves_prior_atoms(
+    old_atoms: Sequence[Dict[str, Any]],
+    new_atoms: Sequence[Dict[str, Any]],
+) -> bool:
+    """Bind each prior action/result clause to one repaired clause."""
+    if len(old_atoms) != len(new_atoms):
+        return False
+
+    def matches(old: Dict[str, Any], new: Dict[str, Any]) -> bool:
+        if (
+            old["field"] != new["field"]
+            or not old["participants"].issubset(new["participants"])
+            or not _sequence_role_roster_matches(
+                old["event_text"], new["event_text"]
+            )
+            or not _sequence_role_roster_matches(
+                new["event_text"], old["event_text"]
+            )
+            or old["canonical_terms"] != new["canonical_terms"]
+            or old["identity_terms"] != new["identity_terms"]
+            or old["skeleton"] != new["skeleton"]
+            or not _sequence_numeric_claim_matches(
+                old["event_text"], new["event_text"]
+            )
+            or not _sequence_numeric_claim_matches(
+                new["event_text"], old["event_text"]
+            )
+            or not _sequence_negation_matches(
+                old["event_text"], new["event_text"]
+            )
+            or _sequence_has_opposite_action(
+                old["event_text"], new["event_text"]
+            )
+            or _sequence_has_role_relation_swap(
+                old["event_text"], new["event_text"]
+            )
+        ):
+            return False
+        return bool(
+            old["canonical_terms"] & new["canonical_terms"]
+            if old["canonical_terms"]
+            else old["content_terms"] & new["content_terms"]
+        )
+
+    candidates = [
+        [
+            new_index
+            for new_index, new in enumerate(new_atoms)
+            if matches(old, new)
+        ]
+        for old in old_atoms
+    ]
+    assigned: Dict[int, int] = {}
+
+    def assign(old_index: int, seen: set[int]) -> bool:
+        for new_index in candidates[old_index]:
+            if new_index in seen:
+                continue
+            seen.add(new_index)
+            if (
+                new_index not in assigned
+                or assign(assigned[new_index], seen)
+            ):
+                assigned[new_index] = old_index
+                return True
+        return False
+
+    return all(
+        assign(old_index, set())
+        for old_index in sorted(
+            range(len(old_atoms)), key=lambda index: len(candidates[index])
+        )
+    )
+
+
+def _literal_retry_block_signature(
+    rows: Sequence[Dict[str, Any]],
+    trusted_names: set[str],
+) -> Dict[str, Any]:
+    actor = " ".join(str(row.get("actor", "")) for row in rows)
+    action = " ".join(str(row.get("action", "")) for row in rows)
+    result = " ".join(str(row.get("result", "")) for row in rows)
+    text = " ".join((actor, action, result))
+    event_text = f"{action} {result}"
+    return {
+        "actor": actor,
+        "action": action,
+        "result": result,
+        "text": text,
+        "event_text": event_text,
+        "participants": {
+            identity
+            for _start, _end, identity in (
+                _sequence_relation_identity_mentions(text)
+            )
+            if identity.startswith("role:")
+            or identity.removeprefix("name:") in trusted_names
+        },
+        "canonical_terms": _literal_sequence_canonical_terms(event_text),
+        "preservation_concepts": _literal_retry_preservation_concepts(
+            event_text
+        ),
+        "content_terms": _literal_sequence_event_terms(event_text),
+        "identity_terms": _literal_retry_identity_terms(
+            event_text, trusted_names
+        ),
+        "atoms": [
+            _literal_retry_atom_signature(
+                atom, trusted_names, str(row.get("actor", ""))
+            )
+            for row in rows
+            for atom in _sequence_material_claim_atoms(row)
+        ],
+    }
+
+
+_LITERAL_RETRY_PROPOSITION_PATTERNS = {
+    "freeze": re.compile(
+        r"\b(?:cannot\s+sing|freez\w*|paraly[sz]\w*|unable\s+to\s+sing)\b",
+        re.IGNORECASE,
+    ),
+    "cover": re.compile(
+        r"\b(?:cover\w*\s+for|steps?\s+forward(?:\s+to\s+cover)?)\b",
+        re.IGNORECASE,
+    ),
+    "chest": re.compile(
+        r"\b(?:press\w*|touch\w*)[^.;]{0,45}\b(?:chest|fist)\b",
+        re.IGNORECASE,
+    ),
+    "perform": re.compile(
+        r"\b(?:produc\w*[^.;]{0,45}vocal\s+performance|"
+        r"releas\w*[^.;]{0,45}(?:note|vocal\s+sounds?)|"
+        r"vocal\s+performance)\b",
+        re.IGNORECASE,
+    ),
+    "transfix": re.compile(
+        r"\b(?:hypnot\w*|silenc\w*[^.;]{0,35}"
+        r"(?:audience|auditorium|crowd|public))\b",
+        re.IGNORECASE,
+    ),
+    "ovation_comparison": re.compile(
+        r"\b(?:ovation|applause)\b[^.;]{0,60}\b"
+        r"(?:eclips\w*|larger|louder|stronger)\b|"
+        r"\b(?:eclips\w*|larger|louder|stronger)\b[^.;]{0,60}\b"
+        r"(?:ovation|applause)\b",
+        re.IGNORECASE,
+    ),
+    "video": re.compile(
+        r"\b(?:footage|hidden-camera|recording|video)\b[^.;]{0,45}"
+        r"\b(?:plays?|shown?|starts?)\b|\b(?:plays?|shown?)\b"
+        r"[^.;]{0,45}\b(?:footage|recording|video)\b",
+        re.IGNORECASE,
+    ),
+    "reveal": re.compile(
+        r"\b(?:expos(?!ure)\w*|reveal\w*|shows?|shown|showing)\b",
+        re.IGNORECASE,
+    ),
+    "fabricate": _SEQUENCE_SEMANTIC_EQUIVALENTS["fabricate"],
+    "corruption": re.compile(
+        r"\b(?:brib\w*|gifts?|regal\w*|soborn\w*)\b",
+        re.IGNORECASE,
+    ),
+    "escape": _SEQUENCE_SEMANTIC_EQUIVALENTS["escape"],
+    "detain": re.compile(
+        r"\b(?:aprehend\w*|arrest\w*|atrapa\w*|catch\w*|caught|"
+        r"captur\w*|detain\w*)\b",
+        re.IGNORECASE,
+    ),
+    "resolution": _LITERAL_RETRY_RESOLUTION,
+    "award": _SEQUENCE_SEMANTIC_EQUIVALENTS["award"],
+    "approval": re.compile(
+        r"\b(?:audience|crowd|public|publico)\b[^.;]{0,45}"
+        r"\b(?:applaud\w*|approval|celebrat\w*|erupt\w*)\b",
+        re.IGNORECASE,
+    ),
+}
+_LITERAL_RETRY_RELATION_ROLES = {
+    "judges": re.compile(r"\b(?:judges?|jueces?|juez|juezas?)\b"),
+    "security": re.compile(r"\b(?:security|seguridad|guards?|guardias?)\b"),
+    "conductor": re.compile(
+        r"\b(?:announcer|conductor|host|presentador(?:a)?)\b"
+    ),
+    "public": re.compile(
+        r"\b(?:audience|auditorium|crowd|public|publico)\b"
+    ),
+}
+_LITERAL_RETRY_FALSE_NAMES = frozenset(
+    "Audience Conductor Crowd Freezes Judges Public Security The Video"
+    .casefold().split()
+)
+_LITERAL_RETRY_REVEAL_GENERIC_QUALIFIERS = frozenset(
+    "are camera enormou enormous hidden is plays screen shown showing video"
+    .split()
+)
+_LITERAL_RETRY_STANDALONE_LOCATIONS = frozenset(
+    "arena backstage bathroom bedroom house kitchen lobby office room stage "
+    "street theater theatre warehouse"
+    .split()
+)
+_LITERAL_RETRY_PERFORMANCE_QUALIFIERS = frozenset(
+    "alto alta high higher bajo baja low lower"
+    .split()
+)
+_LITERAL_RETRY_LOCATION_PHRASE = re.compile(
+    r"\b(?:at|in|inside|near|on|outside)\s+(?:the\s+)?"
+    r"(?P<location>[a-z]+(?:\s+(?!(?:after|and|as|before|but|during|for|"
+    r"then|that|to|where|which|while|who|with)\b)[a-z]+){0,3})",
+    re.IGNORECASE,
+)
+_LITERAL_RETRY_GENERIC_PASSIVE_TRANSFIX = re.compile(
+    r"^\s*(?:the\s+)?(?:audience|auditorium|crowd|public|publico)\s+"
+    r"(?:is|are|was|were)\s+hypnot\w*"
+    r"(?:\s+(?:at|in|inside|near|on|outside)\s+(?:the\s+)?"
+    r"[a-z]+(?:\s+[a-z]+){0,3})?\s*[.!]?\s*$",
+    re.IGNORECASE,
+)
+
+
+def _literal_retry_entity_mentions(
+    value: str,
+) -> List[Tuple[int, int, str]]:
+    """Return the few identities needed to bind retry propositions."""
+    folded = _fold_evidence_text(value)
+    mentions: Dict[Tuple[int, int], str] = {}
+    for identity, pattern in _LITERAL_RETRY_RELATION_ROLES.items():
+        for match in pattern.finditer(folded):
+            mentions[match.span()] = f"role:{identity}"
+    for name in _sequence_named_actors(value):
+        identity = _fold_evidence_text(name)
+        if identity in _LITERAL_RETRY_FALSE_NAMES:
+            continue
+        for match in re.finditer(
+            rf"(?<!\w){re.escape(identity)}(?!\w)", folded
+        ):
+            if not any(
+                left <= match.start() < right
+                for left, right in mentions
+            ):
+                mentions[match.span()] = f"name:{identity}"
+    return [
+        (start, end, identity)
+        for (start, end), identity in sorted(mentions.items())
+    ]
+
+
+def _literal_retry_fact_relation(
+    concept: str,
+    value: str,
+    actor_context: str,
+    match: re.Match[str],
+    prior_entities: Sequence[str],
+) -> Tuple[str, ...]:
+    folded = _fold_evidence_text(value)
+    mentions = _literal_retry_entity_mentions(value)
+    actor_entities = [
+        identity for _start, _end, identity
+        in _literal_retry_entity_mentions(actor_context)
+    ]
+    before = [item for item in mentions if item[1] <= match.start()]
+    after = [item for item in mentions if item[0] >= match.end()]
+
+    def nearest_before(excluded: Sequence[str] = ()) -> str:
+        return next(
+            (
+                identity for _start, _end, identity in reversed(before)
+                if identity not in excluded
+            ),
+            next((item for item in actor_entities if item not in excluded), ""),
+        )
+
+    def coordinated_agents(excluded: Sequence[str] = ()) -> Tuple[str, ...]:
+        candidates = [item for item in before if item[2] not in excluded]
+        if not candidates:
+            return tuple(sorted({
+                identity for identity in actor_entities
+                if identity not in excluded
+            }))
+        agents = [candidates[-1][2]]
+        right = candidates[-1]
+        for left in reversed(candidates[:-1]):
+            if _SEQUENCE_RELATION_COORDINATION.fullmatch(
+                folded[left[1]:right[0]]
+            ) is None:
+                break
+            agents.append(left[2])
+            right = left
+        return tuple(sorted(set(agents)))
+
+    if concept in {"freeze", "chest", "perform"}:
+        return coordinated_agents()
+    if concept == "cover":
+        agents = coordinated_agents()
+        patient = next(
+            (
+                identity for _start, _end, identity in after
+                if identity not in agents
+            ),
+            "",
+        )
+        if not patient and re.search(r"\b(?:her|him|la|lo)\b", folded):
+            patient = next(
+                (
+                    identity for identity in reversed(prior_entities)
+                    if identity not in agents
+                ),
+                "",
+            )
+        return (*agents, *tuple(filter(None, (patient,))))
+    if concept == "transfix":
+        public = "role:public" if "role:public" in {
+            identity for _start, _end, identity in mentions
+        } else ""
+        agents = coordinated_agents({"role:public"})
+        return (*agents, *tuple(filter(None, (public,))))
+    if concept == "ovation_comparison":
+        context_actor = next(
+            (
+                identity for identity in actor_entities
+                if identity != "role:public"
+            ),
+            "",
+        )
+        explicit_recipient = re.search(
+            r"\b(?:earn\w*|get\w*|obtien\w*|recib\w*|receiv\w*)\b"
+            r"[^.;]{0,35}\b(?:larger|louder|stronger)\b[^.;]{0,20}"
+            r"\b(?:applause|ovation)\b",
+            folded,
+        )
+        winner = (
+            coordinated_agents({"role:public"})
+            if explicit_recipient is not None
+            else tuple(filter(None, (context_actor,)))
+        )
+        than = re.search(r"\b(?:que|than)\b", folded[match.start():])
+        than_start = match.start() + than.start() if than is not None else -1
+        target = next(
+            (
+                identity for start, _end, identity in mentions
+                if start > than_start >= 0 and identity not in winner
+            ),
+            context_actor if (
+                than_start >= 0
+                and re.search(
+                    r"\b(?:her|him|them)\b", folded[than_start:]
+                )
+            ) else (
+                context_actor
+                if context_actor and context_actor not in winner else ""
+            ),
+        )
+        return (*winner, *tuple(filter(None, (target,))))
+    if concept == "fabricate":
+        agents = set(coordinated_agents())
+        agents.update(
+            identity for identity in prior_entities[-4:]
+            if identity.startswith("name:")
+        )
+        return tuple(sorted(agents))
+    if concept == "reveal":
+        return tuple(sorted({
+            identity for _start, _end, identity in mentions
+            if identity not in {"role:public"}
+        }))
+    if concept == "corruption":
+        judges = "role:judges" if any(
+            identity == "role:judges" for _start, _end, identity in mentions
+        ) else ""
+        givers = coordinated_agents({"role:judges"})
+        if re.search(r"\b(?:gifts?|regal\w*)\b", folded):
+            givers = tuple(
+                identity for _start, _end, identity in mentions
+                if identity.startswith("name:")
+            ) or givers
+        return (*givers, *tuple(filter(None, (judges,))))
+    if concept == "escape":
+        return coordinated_agents()
+    if concept == "detain":
+        agents = coordinated_agents()
+        patient = next(
+            (
+                identity for _start, _end, identity in after
+                if identity not in agents
+            ),
+            "",
+        )
+        if not patient and re.search(r"\b(?:them|los|las)\b", folded):
+            patient = next(
+                (
+                    identity for _start, _end, identity in reversed(before)
+                    if identity not in agents
+                ),
+                next(
+                    (
+                        identity for identity in reversed(prior_entities)
+                        if identity not in agents
+                    ),
+                    "",
+                ),
+            )
+        return (*agents, *tuple(filter(None, (patient,))))
+    if concept == "resolution":
+        return coordinated_agents()
+    if concept == "award":
+        agents = coordinated_agents() if before else ()
+        recipient = next(
+            (
+                identity for start, _end, identity in after
+                if re.search(r"\b(?:a|to)\s+(?:the\s+)?$", folded[:start])
+            ),
+            next((identity for _start, _end, identity in after), ""),
+        )
+        return (*agents, *tuple(filter(None, (recipient,))))
+    if concept == "approval":
+        return ("role:public",)
+    return ()
+
+
+def _literal_retry_material_facts(
+    atoms: Sequence[Dict[str, Any]],
+) -> Tuple[List[Tuple[Any, ...]], set[int]]:
+    """Extract ordered, relation-bound facts from a decomposed retry block."""
+    facts: List[Tuple[Any, ...]] = []
+    fact_origins: Dict[Tuple[Any, ...], List[Tuple[Any, ...]]] = {}
+    covered_atoms: set[int] = set()
+    prior_entities: List[str] = []
+    prior_unmatched_words: set[str] = set()
+    prior_actor_context: Optional[str] = None
+    for atom_index, atom in enumerate(atoms):
+        value = str(atom["event_text"])
+        folded = _fold_evidence_text(value)
+        actor_context = str(atom.get("actor_context", ""))
+        if actor_context != prior_actor_context:
+            prior_entities = []
+            prior_unmatched_words = set()
+            prior_actor_context = actor_context
+        matches = sorted(
+            (
+                (match.start(), concept, match)
+                for concept, pattern in _LITERAL_RETRY_PROPOSITION_PATTERNS.items()
+                for match in pattern.finditer(_fold_evidence_text(value))
+            ),
+            key=lambda item: (item[0], item[1]),
+        )
+        for _position, concept, match in matches:
+            relation_value = value
+            if (
+                concept == "award"
+                and atom_index + 1 < len(atoms)
+                and atoms[atom_index + 1].get("field") == atom.get("field")
+                and atoms[atom_index + 1].get("actor_context") == actor_context
+            ):
+                relation_value = (
+                    f"{value} {atoms[atom_index + 1]['event_text']}"
+                )
+            relation = _literal_retry_fact_relation(
+                concept,
+                relation_value,
+                actor_context,
+                match,
+                prior_entities,
+            )
+            qualifier: Tuple[str, ...] = ()
+            if concept == "reveal":
+                qualifier = tuple(sorted({
+                    *(
+                        set(atom["preservation_concepts"])
+                        - {"reveal", "video"}
+                    ),
+                    *(
+                        set(atom["identity_terms"])
+                        - _LITERAL_RETRY_REVEAL_GENERIC_QUALIFIERS
+                        - {"discuss", "discusse", "receiv", "receive"}
+                    ),
+                }))
+            elif concept in {"video", "fabricate"}:
+                qualifier = tuple(sorted(
+                    set(atom["identity_terms"])
+                    - _LITERAL_RETRY_REVEAL_GENERIC_QUALIFIERS
+                    - {"discuss", "discusse"}
+                ))
+            elif concept in {"detain", "escape", "perform", "transfix"}:
+                qualifier = tuple(sorted({
+                    *(
+                        match.group("location")
+                        for match in _LITERAL_RETRY_LOCATION_PHRASE.finditer(
+                            folded
+                        )
+                    ),
+                    *(
+                        location for location in _LITERAL_RETRY_STANDALONE_LOCATIONS
+                        if re.search(rf"\b{re.escape(location)}\b", folded)
+                    ),
+                }))
+                if concept == "perform":
+                    qualifier = tuple(sorted({
+                        *qualifier,
+                        *(
+                            word for word in re.findall(r"[a-z]+", folded)
+                            if word in _LITERAL_RETRY_PERFORMANCE_QUALIFIERS
+                        ),
+                    }))
+                temporal = {
+                    f"{match.group('relation')}:{match.group('object')}"
+                    for match in re.finditer(
+                        r"\b(?P<relation>after|before|during)\s+(?:the\s+)?"
+                        r"(?P<object>[a-z]+)\b",
+                        folded,
+                    )
+                }
+                qualifier = tuple(sorted({*qualifier, *temporal}))
+            elif concept == "award":
+                entity_terms = {
+                    identity.removeprefix("name:").removeprefix("role:")
+                    for _start, _end, identity
+                    in _literal_retry_entity_mentions(relation_value)
+                }
+                qualifier = tuple(sorted({
+                    *(
+                        set(atom["preservation_concepts"])
+                        - {"award"}
+                    ),
+                    *(
+                        set(atom["identity_terms"])
+                        - {"are", "conductor"}
+                        - entity_terms
+                    ),
+                    *(
+                        word for word in prior_unmatched_words
+                        if word not in _SEQUENCE_ROLE_STOPWORDS
+                        and word not in entity_terms
+                    ),
+                }))
+            count_claims = tuple(
+                (
+                    int(details["claimed_total"]),
+                    details.get("claimed_universe_total"),
+                    str(details["count_quantifier"]),
+                    _sequence_stem_word(str(details["count_entity"])),
+                    tuple(sorted({
+                        _sequence_stem_word(word)
+                        for word in re.findall(
+                            r"[a-záéíóúüñ]+",
+                            _fold_evidence_text(str(details["count_anchor"])),
+                        )
+                        if _count_token_value(word) is None
+                        and word not in {
+                            "a", "an", "de", "del", "of", "the",
+                            "total", "un", "una",
+                        }
+                        and _sequence_stem_word(word)
+                        != _sequence_stem_word(
+                            str(details["count_entity"])
+                        )
+                    })),
+                )
+                for details in _material_count_claims_details(value)
+            )
+            non_count_text = value
+            while count_details := _first_material_count_claim_details(
+                non_count_text
+            ):
+                count_start, count_end = count_details["_count_span"]
+                non_count_text = (
+                    non_count_text[:count_start]
+                    + " " * (count_end - count_start)
+                    + non_count_text[count_end:]
+                )
+            numbers = tuple(
+                int(number) for number in re.findall(r"\d+", non_count_text)
+            )
+            noncompletion = {
+                _LITERAL_RETRY_CONCEPT_ALIASES.get(predicate, predicate)
+                for predicate in _sequence_noncompletion_predicates(value)
+            }
+            fact = (
+                concept,
+                relation,
+                qualifier,
+                numbers,
+                count_claims,
+                bool(_SEQUENCE_NEGATION.search(value)),
+                concept in noncompletion,
+            )
+            folded_match = _fold_evidence_text(match.group())
+            surface = next(
+                (
+                    key for key in (
+                        "hypnot", "silenc", "releas", "produc", "vocal"
+                    )
+                    if key in folded_match
+                ),
+                folded_match,
+            )
+            origin = (
+                atom.get("field"),
+                surface,
+                bool(
+                    _LITERAL_RETRY_GENERIC_PASSIVE_TRANSFIX.fullmatch(folded)
+                ),
+            )
+            redundant = (
+                concept == "perform"
+                and any(
+                    old_origin[0] != origin[0]
+                    for old_origin in fact_origins.get(fact, [])
+                )
+            ) or (
+                concept == "transfix"
+                and any(
+                    old_origin[0] != origin[0]
+                    or old_origin[2]
+                    or origin[2]
+                    for old_origin in fact_origins.get(fact, [])
+                )
+            )
+            if not redundant:
+                facts.append(fact)
+            fact_origins.setdefault(fact, []).append(origin)
+            covered_atoms.add(atom_index)
+        prior_unmatched_words = (
+            set(re.findall(r"[a-z]+", _fold_evidence_text(value)))
+            if not matches else set()
+        )
+        prior_entities.extend(
+            identity for _start, _end, identity
+            in _literal_retry_entity_mentions(value)
+        )
+        prior_entities.extend(
+            identity for _start, _end, identity
+            in _literal_retry_entity_mentions(actor_context)
+        )
+    return facts, covered_atoms
+
+
+def _literal_retry_preserves_decomposed_atoms(
+    old_atoms: Sequence[Dict[str, Any]],
+    new_atoms: Sequence[Dict[str, Any]],
+) -> bool:
+    """Keep every known proposition, relation, polarity, and source order."""
+    old_facts, covered_old = _literal_retry_material_facts(old_atoms)
+    new_facts, _covered_new = _literal_retry_material_facts(new_atoms)
+    required_old = {
+        index for index, atom in enumerate(old_atoms)
+        if not re.match(
+            r"^\s*(?:as\s+per|beyond|so\s+that|throughout|with)\b",
+            str(atom["event_text"]),
+            re.IGNORECASE,
+        )
+        and (
+            _sequence_has_material_predicate(str(atom["event_text"]))
+            or index in covered_old
+        )
+    }
+    if not required_old.issubset(covered_old):
+        return False
+
+    def matches(old: Tuple[Any, ...], new: Tuple[Any, ...]) -> bool:
+        (
+            old_concept, old_relation, old_qualifier,
+            old_numbers, old_counts, old_negated, old_noncompletion,
+        ) = old
+        (
+            new_concept, new_relation, new_qualifier,
+            new_numbers, new_counts, new_negated, new_noncompletion,
+        ) = new
+        relation_matches = old_relation == new_relation
+        qualifier_matches = (
+            old_qualifier == new_qualifier
+            if old_concept == "reveal"
+            else set(old_qualifier).issubset(new_qualifier)
+        )
+        return bool(
+            old_concept == new_concept
+            and relation_matches
+            and qualifier_matches
+            and old_numbers == new_numbers
+            and old_counts == new_counts
+            and old_negated == new_negated
+            and old_noncompletion == new_noncompletion
+        )
+
+    cursor = 0
+    for old_fact in old_facts:
+        match_index = next(
+            (
+                index for index in range(cursor, len(new_facts))
+                if matches(old_fact, new_facts[index])
+            ),
+            None,
+        )
+        if match_index is None:
+            return False
+        cursor = match_index + 1
+    return bool(old_facts)
+
+
+def _literal_retry_preserves_prior_events(
+    prior: Dict[str, Any],
+    repaired: Dict[str, Any],
+    source_text: str,
+) -> Tuple[bool, List[Dict[str, Any]]]:
+    """Require a unique source-local retry row for every prior material row."""
+    prior_ledger = prior.get("sequence_ledger")
+    if not isinstance(prior_ledger, list):
+        return True, []
+    prior_entries = [
+        (index, row) for index, row in enumerate(prior_ledger)
+        if isinstance(row, dict) and not _is_strict_sequence_absence_marker(row)
+    ]
+    prior_rows = [row for _index, row in prior_entries]
+    repaired_rows = _literal_retry_event_rows(repaired)
+    if not prior_rows:
+        return True, []
+    trusted_names = _screenplay_character_name_tokens(source_text)
+    prior_signatures = [
+        _literal_retry_event_signature(row, trusted_names) for row in prior_rows
+    ]
+    repaired_signatures = [
+        _literal_retry_event_signature(row, trusted_names)
+        for row in repaired_rows
+    ]
+    allowed_ranges = [
+        _sequence_allowed_page_range(prior_ledger, ledger_index)
+        for ledger_index, _row in prior_entries
+    ]
+
+    def matches(
+        prior_index: int,
+        repaired_indexes: Tuple[int, ...],
+    ) -> bool:
+        old = prior_signatures[prior_index]
+        if len(repaired_indexes) > 1 and len(old["atoms"]) < 3:
+            return False
+        rows = [repaired_rows[index] for index in repaired_indexes]
+        start_page, end_page = allowed_ranges[prior_index]
+        if (
+            start_page is None
+            or end_page is None
+            or any(
+                type(row.get("page")) is not int
+                or not start_page <= row["page"] <= end_page
+                or old["phase"] != row.get("phase")
+                for row in rows
+            )
+        ):
+            return False
+        new = (
+            repaired_signatures[repaired_indexes[0]]
+            if len(repaired_indexes) == 1
+            else _literal_retry_block_signature(rows, trusted_names)
+        )
+        numbered_normalization = _literal_retry_is_numbered_role_normalization(
+            old["action"], new["action"]
+        )
+        if (
+            not old["participants"].issubset(new["participants"])
+            or not _sequence_role_roster_matches(old["text"], new["text"])
+            or not _sequence_role_roster_matches(new["text"], old["text"])
+            or not old["preservation_concepts"].issubset(
+                new["preservation_concepts"]
+            )
+            or _sequence_has_opposite_action(
+                old["event_text"], new["event_text"]
+            )
+        ):
+            return False
+        if numbered_normalization:
+            old_result_atoms = [
+                atom for atom in old["atoms"] if atom["field"] == "result"
+            ]
+            new_result_atoms = [
+                atom for atom in new["atoms"] if atom["field"] == "result"
+            ]
+            return bool(
+                len(repaired_indexes) == 1
+                and old["preservation_concepts"]
+                == new["preservation_concepts"]
+                and _literal_retry_preserves_prior_atoms(
+                    old_result_atoms, new_result_atoms
+                )
+            )
+        if len(repaired_indexes) == 1:
+            return bool(
+                old["canonical_terms"].issubset(new["canonical_terms"])
+                and old["identity_terms"].issubset(new["identity_terms"])
+                and _sequence_numeric_claim_matches(
+                    old["event_text"], new["event_text"]
+                )
+                and _sequence_numeric_claim_matches(
+                    new["event_text"], old["event_text"]
+                )
+                and _sequence_negation_matches(
+                    old["event_text"], new["event_text"]
+                )
+                and not _sequence_has_role_relation_swap(
+                    old["event_text"], new["event_text"]
+                )
+                and _literal_retry_preserves_prior_atoms(
+                    old["atoms"], new["atoms"]
+                )
+            )
+        old_scores = _literal_retry_numbered_role_score_signature(
+            old["action"]
+        )
+        if old_scores is not None and old_scores != (
+            _literal_retry_numbered_role_score_signature(new["action"])
+        ):
+            return False
+        if any(
+            atom["preservation_concepts"]
+            and _SEQUENCE_NEGATION.search(atom["event_text"])
+            and not any(
+                atom["preservation_concepts"].issubset(
+                    candidate["preservation_concepts"]
+                )
+                and _sequence_negation_matches(
+                    atom["event_text"], candidate["event_text"]
+                )
+                for candidate in new["atoms"]
+            )
+            for atom in old["atoms"]
+        ):
+            return False
+        if not _literal_retry_preserves_decomposed_atoms(
+            old["atoms"], new["atoms"]
+        ):
+            return False
+        return bool(
+            old["preservation_concepts"] & new["preservation_concepts"]
+            if old["preservation_concepts"]
+            else old["content_terms"] & new["content_terms"]
+        )
+
+    candidates = [
+        [
+            tuple(range(start, end))
+            for start in range(len(repaired_rows))
+            for end in range(start + 1, min(len(repaired_rows), start + 16) + 1)
+            if matches(prior_index, tuple(range(start, end)))
+        ]
+        for prior_index in range(len(prior_rows))
+    ]
+    prior_order = sorted(
+        range(len(prior_rows)), key=lambda index: len(candidates[index])
+    )
+
+    def assign(position: int, used: set[int]) -> bool:
+        if position == len(prior_order):
+            return True
+        prior_index = prior_order[position]
+        for block in sorted(candidates[prior_index], key=len):
+            if used.isdisjoint(block) and assign(position + 1, used | set(block)):
+                return True
+        return False
+
+    assignment_succeeded = assign(0, set())
+    unmatched = [] if assignment_succeeded else [
+        index for index in prior_order if not candidates[index]
+    ] or prior_order
+    missing_concepts = {
+        term: old_count - new_count
+        for term in {
+            term
+            for signature in prior_signatures
+            for term in signature["preservation_concepts"]
+        }
+        if (
+            old_count := sum(
+                term in signature["preservation_concepts"]
+                for signature in prior_signatures
+            )
+        ) > (
+            new_count := sum(
+                term in signature["preservation_concepts"]
+                for signature in repaired_signatures
+            )
+        )
+    }
+    diagnostics = [
+        {
+            "order": prior_rows[index].get("order"),
+            "page": prior_rows[index].get("page"),
+            "actor": prior_rows[index].get("actor"),
+            "action": prior_rows[index].get("action"),
+        }
+        for index in unmatched
+    ]
+    if missing_concepts:
+        diagnostics.append({"missing_concept_counts": missing_concepts})
+    return not diagnostics, diagnostics
+
+
+def _merge_literal_sequence_retry(
+    candidate: Dict[str, Any],
+    repaired: Any,
+    valid_pages: Sequence[int],
+    source_text: str,
+) -> Dict[str, Any]:
+    """Replace only the fallible ledger and preserve the original verdicts."""
+    if (
+        not isinstance(repaired, dict)
+        or set(repaired) != {"sequence_ledger"}
+        or not isinstance(repaired["sequence_ledger"], dict)
+        or set(repaired["sequence_ledger"]) != set(AUDIT_SEQUENCE_PHASES)
+    ):
+        raise CoverageContractError(
+            "Literal sequence retry must return every sequence phase only"
+        )
+    merged = copy.deepcopy(candidate)
+    merged["sequence_ledger"] = copy.deepcopy(repaired["sequence_ledger"])
+    for field in (
+        "existing_evidence_verdicts",
+        "sequence_evidence",
+        "citation_relevance",
+        "sequence_normalization_diagnostics",
+        "_sequence_normalization_errors",
+        "_sequence_repair_authorized_not_applicable_orders",
+    ):
+        merged.pop(field, None)
+    normalized = normalize_audit_tool_input(merged, valid_pages)
+    preserved, missing_events = _literal_retry_preserves_prior_events(
+        candidate, normalized, source_text
+    )
+    if not preserved:
+        raise CoverageContractError(
+            "Literal sequence retry omitted or collapsed prior material "
+            "events: " + json.dumps(missing_events, ensure_ascii=False)
+        )
+    authorized_orders = [
+        int(beat["order"])
+        for index, beat in enumerate(normalized.get("sequence_ledger", []))
+        if isinstance(beat, dict)
+        and beat.get("phase") in {"tag", "aftermath"}
+        and beat.get("character_knowledge")
+        == SEQUENCE_KNOWLEDGE_NOT_APPLICABLE
+        and not _sequence_actor_bound_knowledge_exists(
+            normalized["sequence_ledger"], index, source_text
+        )
+        and _SEQUENCE_EXPLICIT_KNOWLEDGE_VERB.search(" ".join(
+            str(beat.get(field, "")) for field in ("action", "result")
+        )) is None
+    ]
+    if authorized_orders:
+        normalized["_sequence_repair_authorized_not_applicable_orders"] = (
+            authorized_orders
+        )
+    return normalized
+
+
 def _sequence_knower_subject(value: str) -> str:
     clauses = _sequence_knowledge_clauses(value)
     if not clauses:
@@ -11974,6 +13517,39 @@ def _sequence_repair_source_order_is_literal(candidate: Dict[str, Any]) -> bool:
     return True
 
 
+def _sequence_repair_source_order_is_grounded(
+    candidate: Dict[str, Any],
+) -> bool:
+    """True only when every material action has a decoded source span."""
+    ledger = candidate.get("sequence_ledger")
+    if not isinstance(ledger, list):
+        return False
+    evidence = {
+        str(row.get("field_path", "")): row
+        for row in candidate.get("sequence_evidence", [])
+        if isinstance(row, dict)
+    }
+    material_orders = [
+        beat.get("order")
+        for beat in ledger
+        if isinstance(beat, dict)
+        and not _is_strict_sequence_absence_marker(beat)
+    ]
+    return bool(material_orders) and all(
+        type(order) is int
+        and any(
+            isinstance(check, dict)
+            and check.get("field") == "action"
+            and _sequence_source_span(check.get("source_anchor_id"))
+            is not None
+            for check in evidence.get(
+                f"sequence_ledger[{order}]", {}
+            ).get("checks", [])
+        )
+        for order in material_orders
+    )
+
+
 def _sequence_actor_bound_knowledge_exists(
     ledger: Sequence[Dict[str, Any]],
     ledger_index: int,
@@ -11982,7 +13558,6 @@ def _sequence_actor_bound_knowledge_exists(
     """Scan every allowed source page for actor-bound staged knowledge."""
     beat = ledger[ledger_index]
     actor_context = str(beat.get("actor", ""))
-    actor_names = _sequence_named_actors(actor_context)
     page = beat.get("page")
     if type(page) is not int:
         return True
@@ -11991,6 +13566,19 @@ def _sequence_actor_bound_knowledge_exists(
     )
     if start_page is None or end_page is None:
         return True
+    return _sequence_actor_bound_knowledge_on_pages(
+        actor_context, start_page, end_page, source_text
+    )
+
+
+def _sequence_actor_bound_knowledge_on_pages(
+    actor_context: str,
+    start_page: int,
+    end_page: int,
+    source_text: str,
+) -> bool:
+    """Scan a code-bounded page range for actor-bound staged knowledge."""
+    actor_names = _sequence_named_actors(actor_context)
     _numbers, pages = _marked_page_contents(source_text)
     for allowed_page in range(start_page, end_page + 1):
         lines = pages.get(allowed_page, "").splitlines()
@@ -12347,13 +13935,32 @@ def _apply_post_detail_sequence_repairs(
         guard["classification"] = "supported"
         guard["note"] = "Corrected sequence fields await source re-audit."
     updated["sequence_evidence"] = []
-    updated["_sequence_repair_authorized_not_applicable_orders"] = sorted({
-        int(item["order"])
-        for item in scalar_plan
-        if item["field"] == "character_knowledge"
-        and returned[str(item["slot"])]
-        == SEQUENCE_KNOWLEDGE_NOT_APPLICABLE
-    })
+    authorized_n_a_orders = {
+        int(order)
+        for order in candidate.get(
+            "_sequence_repair_authorized_not_applicable_orders", []
+        )
+        if type(order) is int
+    }
+    for item in scalar_plan:
+        if item["field"] != "character_knowledge":
+            continue
+        order = int(item["order"])
+        if (
+            returned[str(item["slot"])]
+            == SEQUENCE_KNOWLEDGE_NOT_APPLICABLE
+        ):
+            authorized_n_a_orders.add(order)
+        else:
+            authorized_n_a_orders.discard(order)
+    if authorized_n_a_orders:
+        updated["_sequence_repair_authorized_not_applicable_orders"] = sorted(
+            authorized_n_a_orders
+        )
+    else:
+        updated.pop(
+            "_sequence_repair_authorized_not_applicable_orders", None
+        )
     return updated, sorted(changed_paths)
 
 
@@ -12483,7 +14090,7 @@ def _post_detail_sequence_repair_is_protected(
                     source_cross_field
                 )
         if _reconcile_literal_sequence_claims(
-            copy.deepcopy(pre_reconciliation), coverage
+            copy.deepcopy(pre_reconciliation), coverage, source_text
         ) != normalized:
             return False
         normalized = pre_reconciliation
@@ -12522,7 +14129,16 @@ def _post_detail_sequence_repair_is_protected(
     normalized["sequence_evidence"] = copy.deepcopy(
         source.get("sequence_evidence", [])
     )
-    normalized.pop("_sequence_repair_authorized_not_applicable_orders", None)
+    if "_sequence_repair_authorized_not_applicable_orders" in source:
+        normalized[
+            "_sequence_repair_authorized_not_applicable_orders"
+        ] = copy.deepcopy(
+            source["_sequence_repair_authorized_not_applicable_orders"]
+        )
+    else:
+        normalized.pop(
+            "_sequence_repair_authorized_not_applicable_orders", None
+        )
     source_verdicts = {
         str(row.get("claim_id", "")): row
         for row in source.get("verdicts", [])
@@ -12557,19 +14173,14 @@ def _validated_sequence_repair_checkpoint(
         candidate.get("sequence_ledger", [])
         if isinstance(candidate, dict) else []
     )
-    expected_orders: List[int] = []
-    if isinstance(candidate_ledger, list):
-        for item in plan:
-            index = int(item["ledger_index"])
-            if (
-                item["field"] == "character_knowledge"
-                and index < len(candidate_ledger)
-                and isinstance(candidate_ledger[index], dict)
-                and candidate_ledger[index].get("character_knowledge")
-                == SEQUENCE_KNOWLEDGE_NOT_APPLICABLE
-            ):
-                expected_orders.append(int(item["order"]))
-    expected_orders = sorted(set(expected_orders))
+    expected_orders = sorted({
+        int(beat["order"])
+        for beat in candidate_ledger
+        if isinstance(beat, dict)
+        and type(beat.get("order")) is int
+        and beat.get("character_knowledge")
+        == SEQUENCE_KNOWLEDGE_NOT_APPLICABLE
+    }) if isinstance(candidate_ledger, list) else []
     valid = (
         payload.get("sequence_repair_contract_version")
         == SEQUENCE_REPAIR_CONTRACT_VERSION
@@ -12674,6 +14285,12 @@ def _replace_audit_details(
                 if rank.get(current, 3) > rank[worst]:
                     worst = current
                     failures.append("provider_sequence_guard")
+                if (
+                    _sequence_repair_source_order_is_grounded(updated)
+                    and not _sequence_repair_source_order_is_literal(updated)
+                ):
+                    worst = "contradicted"
+                    failures.append("literal_source_order")
             guard["classification"] = worst
             guard["note"] = (
                 "Every detailed check passed."
@@ -15279,6 +16896,38 @@ def run_coverage_v1(
                 all_slots,
             )
 
+        def _literal_sequence_retry_call(
+            route: str,
+            candidate: Dict[str, Any],
+            validation_problems: Sequence[str],
+        ) -> Dict[str, Any]:
+            repaired, _text_out, usage = call(
+                system_blocks=audit_system,
+                user_blocks=build_literal_sequence_retry_user_blocks(
+                    text,
+                    title,
+                    coverage_payload,
+                    candidate,
+                    page_reference_map,
+                    sequence_focus,
+                    validation_problems,
+                ),
+                model_key=route,
+                tool=LITERAL_SEQUENCE_TOOL,
+                thinking_budget=LITERAL_SEQUENCE_THINKING_BUDGET,
+                max_tokens=LITERAL_SEQUENCE_MAX_TOKENS,
+                proxy_url=proxy_url,
+                job_id=job_id,
+                stage="coverage_v1.literal_sequence_retry",
+                pipeline_pass="coverage_v1",
+            )
+            return _merge_literal_sequence_retry(
+                candidate,
+                repaired,
+                page_reference_map["valid_citation_pages"],
+                text,
+            )
+
         if audit_core_payload is None:
             tool_input = normalize_audit_tool_input(
                 _audit_call(audit_model_key),
@@ -15310,6 +16959,26 @@ def run_coverage_v1(
             page_reference_map,
             existing_evidence_checks,
         )
+        if (
+            audit_retry_calls_used < MAX_REPAIR_CALLS
+            and _audit_problems_need_literal_sequence_retry(
+                tool_input, problems
+            )
+        ):
+            audit_first_pass_problems = problems[:8]
+            audit_retry_calls_used += 1
+            repair_calls_used += 1
+            audit_core_repair_model = model_key
+            tool_input = _literal_sequence_retry_call(
+                model_key, tool_input, problems
+            )
+            problems = validate_audit_payload(
+                tool_input,
+                claims,
+                coverage_payload,
+                page_reference_map,
+                existing_evidence_checks,
+            )
         if _audit_problems_are_detail_only(problems):
             if audit_core_payload is None or audit_core_needs_reseal:
                 checkpoint_store.save(
@@ -15443,6 +17112,13 @@ def run_coverage_v1(
                 fact_repair_deferred_at_call_cap
             ),
         }
+        authorized_n_a_orders = tool_input.get(
+            "_sequence_repair_authorized_not_applicable_orders", []
+        )
+        if authorized_n_a_orders:
+            audit_payload[
+                "_sequence_repair_authorized_not_applicable_orders"
+            ] = copy.deepcopy(authorized_n_a_orders)
         checkpoint_store.save(
             checkpoint_key, "audit", _sealed_record(binding, audit_payload)
         )
@@ -15474,7 +17150,7 @@ def run_coverage_v1(
         existing_evidence_checks,
     )
     audit_payload = _reconcile_literal_sequence_claims(
-        audit_payload, coverage_payload
+        audit_payload, coverage_payload, text
     )
     # Detail can prove that a provider-authored ledger field is wrong without
     # having authority to rewrite it. Correct only those exact fields, then
@@ -15784,7 +17460,7 @@ def run_coverage_v1(
                         existing_evidence_checks,
                     )
                     repaired_audit = _reconcile_literal_sequence_claims(
-                        repaired_audit, coverage_payload
+                        repaired_audit, coverage_payload, text
                     )
                     final_plan, final_blockers = (
                         _post_detail_sequence_repair_plan(repaired_audit)
