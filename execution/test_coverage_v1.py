@@ -8568,6 +8568,15 @@ El público pide otra canción
         self.assertIn("official corrected result or trophy", prompt)
         self.assertNotIn("# SCREENPLAY TEXT", prompt)
 
+    def test_literal_sequence_retry_has_non_truncating_live_ceiling(self):
+        # Cosquillitas has 34 required literal stages and exhausted the old
+        # 4k response ceiling before the strict tool payload was complete.
+        self.assertGreaterEqual(cv.LITERAL_SEQUENCE_MAX_TOKENS, 8_000)
+        self.assertGreaterEqual(
+            cv.LITERAL_SEQUENCE_MAX_TOKENS,
+            cv.LITERAL_SEQUENCE_CORRECTION_MAX_TOKENS,
+        )
+
     def test_cosquillitas_correction_inventory_is_source_bound_and_ordered(self):
         inventory = cosquillitas_literal_inventory()
 

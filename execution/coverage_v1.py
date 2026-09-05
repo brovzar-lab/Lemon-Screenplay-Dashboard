@@ -84,7 +84,10 @@ COVERAGE_THINKING_BUDGET = 8_000
 # The higher ceiling prevents truncation; providers charge only tokens used.
 AUDIT_MAX_TOKENS = 8_000
 AUDIT_THINKING_BUDGET = 4_000
-LITERAL_SEQUENCE_MAX_TOKENS = 4_000
+# The 34-row Cosquillitas literal pass filled a 6k provider output envelope
+# (4k response + 2k thinking) on 2026-09-05. Match the source-bound correction
+# ceiling so the complete ordered ledger can finish; unused headroom costs zero.
+LITERAL_SEQUENCE_MAX_TOKENS = 8_000
 LITERAL_SEQUENCE_THINKING_BUDGET = 2_000
 LITERAL_SEQUENCE_CORRECTION_MAX_TOKENS = 8_000
 REPAIR_MAX_TOKENS = 4_000
