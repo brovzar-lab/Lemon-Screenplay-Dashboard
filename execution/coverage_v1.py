@@ -94,11 +94,23 @@ MIN_AUDIT_CLAIMS = 6
 MAX_DETAIL_AUDIT_ROWS = 64
 MAX_DETAIL_DIRECT_SLOTS = 42
 MAX_SEQUENCE_FIELD_REPAIR_SLOTS = 40
+MAX_POST_DETAIL_SEQUENCE_REPAIR_FIELDS = 100
 AUDIT_CORE_CONTRACT_VERSION = "coverage-v1.2-audit-core-1"
-DETAIL_AUDIT_CONTRACT_VERSION = "coverage-v1.2-detail-17"
+DETAIL_AUDIT_CONTRACT_VERSION = "coverage-v1.2-detail-18"
+SEQUENCE_REPAIR_CONTRACT_VERSION = "coverage-v1.2-sequence-repair-6"
 PARTIAL_TYPED_B_PROGRESS_VERSION = "coverage-v1.2-detail-15"
 LEGACY_FIELD_SOURCE_PROGRESS_VERSION = "coverage-v1.2-detail-16"
+SEQUENCE_RANGE_MIGRATION_VERSION = "coverage-v1.2-detail-17"
 SEQUENCE_SOURCE_NOT_LOCATED = "NOT_LOCATED"
+SEQUENCE_KNOWLEDGE_NOT_APPLICABLE = "NOT APPLICABLE"
+SEQUENCE_MATERIAL_ATOM_DISPOSITIONS = (
+    "supported", "contradicted", "not_located", "unresolved",
+)
+SEQUENCE_SOURCE_RANGE_MAX_LINES = 24
+_SEQUENCE_SOURCE_ANCHOR_ID = (
+    r"p[0-9]{3}-l[0-9]{3}(?:w[0-9]{2})?"
+    r"(?:(?:-l[0-9]{3})|(?:-p[0-9]{3}-l[0-9]{3}))?"
+)
 DETAIL_16_GROUNDED_GUIDANCE = (
     "If no allowed beat-page source ID literally proves an actor or knower, "
     "choose an engine-bound ID from an allowed beat page, put that field in "
@@ -112,7 +124,14 @@ DETAIL_17_GROUNDED_GUIDANCE = (
     "frozen beat actor or collective group. An action line may omit that "
     "subject only when the screenplay grammar unambiguously carries the same "
     "actor through the same scene; never cross a scene boundary or a compatible "
-    "intervening actor. If no allowed source proves the field, return the "
+    "intervening actor. "
+    "For a compound action or result only, a bounded range may join the first "
+    "and last listed line IDs as pNNN-lAAA-lBBB on one page or "
+    "pNNN-lAAA-pMMM-lBBB across the immediately following page. It must "
+    "contain no scene boundary and may span at most 24 source lines. "
+    "Character knowledge may use only a same-page range of at most three "
+    "wrapped source lines and must still contain an explicit knowledge verb. "
+    "If no allowed source proves the field, return the "
     f"{SEQUENCE_SOURCE_NOT_LOCATED} sentinel. Classify supported only when all "
     "fields are located, partially_supported only for a mix, and unsupported "
     "only when every field is not located. "
@@ -1024,6 +1043,35 @@ def _provider_evidence_check(check: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def _sequence_allowed_page_range(
+    sequence_ledger: Sequence[Dict[str, Any]], beat_index: int,
+) -> Tuple[Optional[int], Optional[int]]:
+    """Allow only the beat page plus an adjacent page toward each neighbor."""
+    beat = sequence_ledger[beat_index]
+    page = beat.get("page")
+    if type(page) is not int:
+        return None, None
+    previous_page = next((
+        earlier.get("page")
+        for earlier in reversed(sequence_ledger[:beat_index])
+        if isinstance(earlier, dict)
+        and earlier.get("phase") == beat.get("phase")
+        and type(earlier.get("page")) is int
+        and not _is_strict_sequence_absence_marker(earlier)
+    ), page)
+    next_page = next((
+        later.get("page")
+        for later in sequence_ledger[beat_index + 1:]
+        if isinstance(later, dict)
+        and type(later.get("page")) is int
+        and not _is_strict_sequence_absence_marker(later)
+    ), page)
+    return (
+        page - 1 if previous_page < page else page,
+        page + 1 if next_page > page else page,
+    )
+
+
 def build_detail_audit_rows(
     coverage: Dict[str, Any],
     evidence_checks: Sequence[Dict[str, Any]],
@@ -1081,6 +1129,9 @@ def build_detail_audit_rows(
             ),
             beat.get("page"),
         )
+        range_start, range_end = _sequence_allowed_page_range(
+            sequence_ledger, beat_index
+        )
         count_subject = _sequence_numbered_role_count_subject(
             beat, next_page
         )
@@ -1091,15 +1142,13 @@ def build_detail_audit_rows(
                 "subject": count_subject,
             })
         required_fields = list(GROUNDED_SEQUENCE_FIELDS)
-        if str(beat.get("character_knowledge", "")).strip().upper() == (
-            "NOT LOCATED"
-        ):
-            required_fields.remove("character_knowledge")
         rows.append({
             "kind": "sequence_evidence",
             "identifier": f"sequence_ledger[{beat.get('order')}]",
             "subject": {
                 "beat": copy.deepcopy(beat),
+                "material_claim_atoms": _sequence_material_claim_atoms(beat),
+                "source_page_range": [range_start, range_end],
                 "required_fields": required_fields,
                 "claim_sha256": canonical_json_hash({
                     field: beat.get(field)
@@ -1174,20 +1223,35 @@ def _reusable_detail_seed(
             )
             focused_valid = True
             if isinstance(subject, dict) and subject.get("focused_evidence"):
-                focused_candidate = {
-                    key: result.get(key) if isinstance(result, dict) else None
-                    for key in (
-                        "classification",
-                        "note",
-                        "reviewed_roles",
-                        "source_status",
-                        "activation_status",
+                focused_valid = bool(
+                    isinstance(result, dict)
+                    and result.get("classification") == "unsupported"
+                    and str(result.get("note", "")).startswith(
+                        "FOCUSED_EVIDENCE_CONTRADICTION:"
                     )
-                }
-                decoded, _reason = _decode_focused_detail_value(
-                    focused_candidate, subject
+                    and isinstance(
+                        result.get("classification_normalized_from"), str
+                    )
+                    and isinstance(result.get("note_normalized_from"), str)
                 )
-                focused_valid = decoded is not None
+                if not focused_valid:
+                    focused_candidate = {
+                        key: (
+                            result.get(key)
+                            if isinstance(result, dict) else None
+                        )
+                        for key in (
+                            "classification",
+                            "note",
+                            "reviewed_roles",
+                            "source_status",
+                            "activation_status",
+                        )
+                    }
+                    decoded, _reason = _decode_focused_detail_value(
+                        focused_candidate, subject
+                    )
+                    focused_valid = decoded is not None
             grounded_valid = (
                 row.get("kind") != "sequence_evidence"
                 or (
@@ -1307,8 +1371,7 @@ def build_detail_audit_tool(rows: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
                     "type": "string",
                     "pattern": (
                         rf"^(?:{SEQUENCE_SOURCE_NOT_LOCATED}|"
-                        rf"row_[0-9]{{3}}:{field}:p[0-9]{{3}}-l[0-9]{{3}}"
-                        rf"(?:w[0-9]{{2}})?)$"
+                        rf"row_[0-9]{{3}}:{field}:{_SEQUENCE_SOURCE_ANCHOR_ID})$"
                     ),
                     "description": (
                         "Use NOT_LOCATED or "
@@ -1321,8 +1384,24 @@ def build_detail_audit_tool(rows: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
                 "type": "string",
                 "enum": [status],
             },
+            "material_atom_results": {
+                "type": "array",
+                "items": {
+                    "type": "string",
+                    "description": (
+                        "<atom_id>|<disposition>|<atom-bound-source-id>"
+                    ),
+                },
+                "maxItems": 40,
+                "description": (
+                    "Required whenever action or result is NOT_LOCATED. "
+                    "Return every engine-provided material atom exactly once."
+                ),
+            },
         }
-        return properties, list(properties)
+        return properties, [
+            key for key in properties if key != "material_atom_results"
+        ]
 
     def result_array(
         group: str,
@@ -1450,6 +1529,36 @@ def _detail_overflow_slots(rows: Sequence[Dict[str, Any]]) -> List[str]:
     return [str(row["slot"]) for _index, row in ranked[:overflow_count]]
 
 
+def _sequence_source_span(
+    source_id: Any,
+) -> Optional[Tuple[int, int, int, int]]:
+    """Parse one direct or bounded same/next-page sequence source span."""
+    if not isinstance(source_id, str):
+        return None
+    point = re.fullmatch(
+        r"p(?P<page>\d{3})-l(?P<line>\d{3})(?:w\d{2})?",
+        source_id,
+    )
+    if point is not None:
+        page = int(point.group("page"))
+        line = int(point.group("line"))
+        return page, line, page, line
+    ranged = re.fullmatch(
+        r"p(?P<page>\d{3})-l(?P<start>\d{3})-"
+        r"(?:(?:p(?P<end_page>\d{3})-)?l(?P<end>\d{3}))",
+        source_id,
+    )
+    if ranged is None:
+        return None
+    page = int(ranged.group("page"))
+    return (
+        page,
+        int(ranged.group("start")),
+        int(ranged.group("end_page") or page),
+        int(ranged.group("end")),
+    )
+
+
 def _sequence_source_token_anchor(
     value: Any,
     row: Dict[str, Any],
@@ -1463,7 +1572,44 @@ def _sequence_source_token_anchor(
     prefix = f"{row.get('slot')}:{field}:"
     if not value.startswith(prefix) or not value.removeprefix(prefix):
         return None, f"{field} source token is not bound to its row and field"
-    return value.removeprefix(prefix), None
+    anchor = value.removeprefix(prefix)
+    if re.fullmatch(_SEQUENCE_SOURCE_ANCHOR_ID, anchor) is None:
+        return None, f"{field} source token has an invalid anchor"
+    span = _sequence_source_span(anchor)
+    if span is None:
+        return None, f"{field} source token has an invalid anchor"
+    is_range = re.fullmatch(
+        r"p\d{3}-l\d{3}(?:w\d{2})?", anchor
+    ) is None
+    if is_range and field not in {
+        "action", "result", "character_knowledge",
+    }:
+        return None, f"{field} cannot use a source line range"
+    if is_range and field == "character_knowledge" and (
+        span[0] != span[2] or span[3] - span[1] > 2
+    ):
+        return None, (
+            "character_knowledge can join at most three wrapped lines"
+        )
+    return anchor, None
+
+
+def _sequence_atom_source_token_anchor(
+    value: Any,
+    row: Dict[str, Any],
+    atom_id: str,
+) -> Tuple[Optional[str], Optional[str]]:
+    if value == SEQUENCE_SOURCE_NOT_LOCATED:
+        return None, None
+    if not isinstance(value, str):
+        return None, f"material atom {atom_id} source token must be a string"
+    prefix = f"{row.get('slot')}:{atom_id}:"
+    anchor = value.removeprefix(prefix)
+    if not value.startswith(prefix) or re.fullmatch(
+        _SEQUENCE_SOURCE_ANCHOR_ID, anchor
+    ) is None:
+        return None, f"material atom {atom_id} source token is not bound"
+    return anchor, None
 
 
 def _expand_detail_audit_payload(
@@ -1589,6 +1735,9 @@ def _expand_detail_audit_payload(
                         for field in required_fields
                     ),
                 }
+                has_material_atoms = "material_atom_results" in value
+                if has_material_atoms:
+                    expected_keys.add("material_atom_results")
                 legacy_field_sources = "unsupported_fields" in value
                 if legacy_field_sources:
                     expected_keys.add("unsupported_fields")
@@ -1657,6 +1806,25 @@ def _expand_detail_audit_payload(
                         for field in required_fields
                     ],
                     "note": value["note"],
+                    **(
+                        {
+                            "material_atom_results": [
+                                {
+                                    "atom_id": parts[0],
+                                    "disposition": parts[1],
+                                    "source_id": parts[2],
+                                }
+                                for raw_atom in value[
+                                    "material_atom_results"
+                                ]
+                                if isinstance(raw_atom, str)
+                                and len(
+                                    parts := raw_atom.split("|", 2)
+                                ) == 3
+                            ]
+                        }
+                        if has_material_atoms else {}
+                    ),
                 }
             elif group == "count_results":
                 if set(value) != {"instances"}:
@@ -1933,8 +2101,11 @@ _SUPPORTED_NOTE_CONTRADICTION = re.compile(
     re.IGNORECASE,
 )
 _SEQUENCE_ACTOR_STOPWORDS = frozenset(
-    "A Alongside An And Audience Characters Con El Ella He Junto Juntos Juntas "
-    "La Las Los N/A No None Not Only Present Solo Sólo The They We With Y Yo"
+    "A Alongside An And Announces Arena Audience Award Before Breaks Celebrate "
+    "Characters Con El Ella Emerges Enter Entire Final He Junto Juntos Juntas "
+    "La Las Los Moment N/A No None Not One Only Perform Peso Present Public "
+    "Rises Screenplay Solo Sólo Steps Surveillance The They Total Touches We "
+    "With Y Yo"
     .casefold()
     .split()
 )
@@ -2386,6 +2557,24 @@ def _sequence_named_actors(value: str) -> List[str]:
     ))
 
 
+def _sequence_primary_actor_names(value: str) -> List[str]:
+    """Ignore cast/context parentheticals and possessors in an actor label."""
+    primary = value.split("(", 1)[0].strip()
+    if re.match(
+        r"^[A-ZÁÉÍÓÚÜÑ][A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+['’]s\b", primary
+    ):
+        return []
+    primary = re.split(r"\s+(?:de|from|of)\s+", primary, maxsplit=1)[0]
+    if _fold_evidence_text(primary).startswith(("unknown ", "unidentified ")):
+        return []
+    return [
+        name for name in _sequence_named_actors(primary)
+        if _fold_evidence_text(name) not in {
+            "announcer", "conductor", "host", "presenter",
+        }
+    ]
+
+
 def _sequence_claimed_knowers(value: str) -> List[str]:
     """Extract explicit knowers from every structurally separate clause."""
     return list(dict.fromkeys(
@@ -2404,7 +2593,8 @@ _SEQUENCE_EXPLICIT_KNOWLEDGE_VERB = re.compile(
     r"(?:[a-záéíóúüñ-]+\s+and\s+)?(?:un)?aware|"
     r"sabe[n]?|conoce[n]?|aprende[n]?|descubre[n]?|entiende[n]?|ve[n]?|oye[n]?|"
     r"escucha[n]?|presencia[n]?|cree[n]?|reconoce[n]?|observa[n]?|"
-    r"nota[n]?|se\s+entera[n]?|se\s+vuelve[n]?\s+consciente[s]?|"
+    r"nota[n]?|se\s+da[n]?\s+cuenta|se\s+entera[n]?|"
+    r"se\s+vuelve[n]?\s+consciente[s]?|"
     r"est[aá](?:n)?\s+(?:in)?consciente[s]?)\b",
     re.IGNORECASE,
 )
@@ -2415,7 +2605,8 @@ _SEQUENCE_KNOWLEDGE_SUBJECT_PREDICATE = re.compile(
     r"finds?\s+out|becomes?\s+aware|is|are|was|were|"
     r"sabe[n]?|conoce[n]?|aprende[n]?|descubre[n]?|entiende[n]?|ve[n]?|oye[n]?|"
     r"escucha[n]?|presencia[n]?|cree[n]?|reconoce[n]?|observa[n]?|"
-    r"nota[n]?|se\s+entera[n]?|se\s+vuelve[n]?\s+consciente[s]?|"
+    r"nota[n]?|se\s+da[n]?\s+cuenta|se\s+entera[n]?|"
+    r"se\s+vuelve[n]?\s+consciente[s]?|"
     r"est[aá](?:n)?)\b",
     re.IGNORECASE,
 )
@@ -2431,10 +2622,13 @@ _SEQUENCE_KNOWLEDGE_COORDINATED_BREAK = re.compile(
     r"(?=\s+(?:[A-Za-zÁÉÍÓÚÜÑáéíóúüñ']+\s+){1,5}"
     r"(?:knows?|learns?|discovers?|realizes?|understands?|sees?|hears?|"
     r"witnesses?|believes?|thinks?|recognizes?|observes?|notices?|"
-    r"finds?\s+out|becomes?\s+aware|is\s+aware|are\s+aware|"
+    r"finds?\s+out|becomes?\s+aware|(?:is|are|was|were)\s+"
+    r"(?:[a-záéíóúüñ-]+\s+and\s+)?(?:un)?aware|"
     r"sabe[n]?|conoce[n]?|aprende[n]?|descubre[n]?|entiende[n]?|ve[n]?|oye[n]?|"
     r"escucha[n]?|presencia[n]?|cree[n]?|reconoce[n]?|observa[n]?|"
-    r"nota[n]?|se\s+entera[n]?)\b)",
+    r"nota[n]?|se\s+da[n]?\s+cuenta|se\s+entera[n]?|"
+    r"se\s+vuelve[n]?\s+consciente[s]?|"
+    r"est[aá](?:n)?\s+(?:in)?consciente[s]?)\b)",
     re.IGNORECASE,
 )
 
@@ -2456,9 +2650,22 @@ def _sequence_knowledge_clauses(value: str) -> List[str]:
 
 
 def _has_exactly_one_knowledge_claim(value: str) -> bool:
+    if len(_sequence_knowledge_clauses(value)) != 1:
+        return False
+    predicates = list(_SEQUENCE_EXPLICIT_KNOWLEDGE_VERB.finditer(value))
+    if len(predicates) == 1:
+        return True
+    if len(predicates) != 2:
+        return False
+    between = value[predicates[0].end():predicates[1].start()]
+    if between.count(",") % 2:
+        return False
     return (
-        len(_sequence_knowledge_clauses(value)) == 1
-        and len(_SEQUENCE_EXPLICIT_KNOWLEDGE_VERB.findall(value)) == 1
+        re.search(r"\b(?:that|que)\b[^();]*$", between, re.IGNORECASE)
+        is not None
+        and re.search(
+            r"\b(?:and|but|yet|y|pero)\b", between, re.IGNORECASE
+        ) is None
     )
 
 
@@ -2589,7 +2796,11 @@ def _source_anchor_catalog(source_text: str) -> Dict[str, Dict[str, Any]]:
             if _PRINTED_PAGE_LINE.fullmatch(line):
                 continue
             words = line.split()
-            if len(words) < COUNT_EVIDENCE_MIN_WORDS:
+            short_screenplay_cue = bool(
+                1 <= len(words) < COUNT_EVIDENCE_MIN_WORDS
+                and line.strip().isupper()
+            )
+            if len(words) < COUNT_EVIDENCE_MIN_WORDS and not short_screenplay_cue:
                 continue
             window_starts = [0]
             if len(words) > 12:
@@ -2625,6 +2836,55 @@ def _source_anchor_catalog(source_text: str) -> Dict[str, Dict[str, Any]]:
                     ),
                 }
     return catalog
+
+
+def _sequence_source_anchor(
+    source_text: str,
+    source_id: str,
+) -> Optional[Dict[str, Any]]:
+    """Resolve one listed line or a bounded same/next-page event range."""
+    direct = _source_anchor_catalog(source_text).get(source_id)
+    if direct is not None:
+        return direct
+    span = _sequence_source_span(source_id)
+    if span is None or re.fullmatch(
+        r"p\d{3}-l\d{3}(?:w\d{2})?", source_id
+    ):
+        return None
+    page, start, end_page, end = span
+    if end_page not in {page, page + 1} or (
+        end_page == page and start > end
+    ):
+        return None
+    _numbers, pages = _marked_page_contents(source_text)
+    start_lines = pages.get(page, "").splitlines()
+    end_lines = pages.get(end_page, "").splitlines()
+    if (
+        start < 1
+        or start > len(start_lines)
+        or end < 1
+        or end > len(end_lines)
+    ):
+        return None
+    selected = (
+        start_lines[start - 1:end]
+        if page == end_page
+        else [*start_lines[start - 1:], *end_lines[:end]]
+    )
+    selected = [line for line in selected if not _PRINTED_PAGE_LINE.fullmatch(line)]
+    if len(selected) > SEQUENCE_SOURCE_RANGE_MAX_LINES:
+        return None
+    if any(SCENE_HEADING_PATTERN.match(line) for line in selected):
+        return None
+    excerpt = " ".join(" ".join(line.split()) for line in selected).strip()
+    if not excerpt:
+        return None
+    return {
+        "page": page,
+        "excerpt": excerpt,
+        "span": (page, start, end_page, end),
+        "line_range": (page, start, end_page, end),
+    }
 
 
 def _sequence_role_roster_matches(claim: str, excerpt: str) -> bool:
@@ -2668,7 +2928,7 @@ def _sequence_anchor_actor_reason(
 ) -> Optional[str]:
     """Fail closed unless a positive field anchor identifies the beat actor."""
     actor = str(beat.get("actor", ""))
-    names = _sequence_named_actors(actor)
+    names = _sequence_primary_actor_names(actor)
     folded_excerpt = _fold_evidence_text(excerpt)
     if field in {"actor", "action"} and not _sequence_role_roster_matches(
         actor, excerpt
@@ -2722,7 +2982,10 @@ def _sequence_anchor_actor_reason(
 def _sequence_actor_leads_clause(actor: str, excerpt: str) -> bool:
     """Require the claimed action actor before another clause predicate."""
     folded_excerpt = _fold_evidence_text(excerpt)
-    names = [_fold_evidence_text(name) for name in _sequence_named_actors(actor)]
+    names = [
+        _fold_evidence_text(name)
+        for name in _sequence_primary_actor_names(actor)
+    ]
     actor_words = set(re.findall(r"[a-záéíóúüñ]+", _fold_evidence_text(actor)))
     aliases = {
         _fold_evidence_text(alias)
@@ -2739,19 +3002,22 @@ def _sequence_actor_leads_clause(actor: str, excerpt: str) -> bool:
         for alias in (role, _SEQUENCE_NUMBERED_HUMAN_ROLE_GROUPS[role][1])
     }
     for identity in (*names, *sorted(aliases)):
-        match = re.search(rf"(?<!\w){re.escape(identity)}(?!\w)", folded_excerpt)
-        if match is None:
-            continue
-        clause_prefix = re.split(r"[.!?;,:]", folded_excerpt[:match.start()])[-1]
-        if re.search(
-            r"\b(?:alongside|con|junto(?:s|as)?|with)\s*$", clause_prefix
+        for match in re.finditer(
+            rf"(?<!\w){re.escape(identity)}(?!\w)", folded_excerpt
         ):
-            continue
-        if not any(
-            word not in _SEQUENCE_ROLE_STOPWORDS
-            for word in re.findall(r"[a-záéíóúüñ]+", clause_prefix)
-        ):
-            return True
+            clause_prefix = re.split(
+                r"[.!?;,:]", folded_excerpt[:match.start()]
+            )[-1]
+            if re.search(
+                r"\b(?:alongside|con|junto(?:s|as)?|with)\s*$",
+                clause_prefix,
+            ):
+                continue
+            if not any(
+                word not in _SEQUENCE_ROLE_STOPWORDS
+                for word in re.findall(r"[a-záéíóúüñ]+", clause_prefix)
+            ):
+                return True
     return False
 
 
@@ -2766,7 +3032,8 @@ def _sequence_check_line_range(
     coordinates = []
     for check in (actor_check, field_check):
         match = re.fullmatch(
-            r"p(?P<page>\d{3})-l(?P<line>\d{3})(?:w\d{2})?",
+            r"p(?P<page>\d{3})-l(?P<line>\d{3})(?:w\d{2})?"
+            r"(?:-l\d{3})?",
             str(check.get("source_anchor_id", "")),
         )
         if match is None:
@@ -2790,25 +3057,54 @@ def _sequence_anchor_line_distance(
     second_check: Dict[str, Any],
     page_text: str,
 ) -> Optional[int]:
+    first_source = first_check.get("source_anchor_id")
+    if (
+        first_source == second_check.get("source_anchor_id")
+        and _sequence_source_span(first_source) is not None
+    ):
+        return 0
+    first_span = _sequence_source_span(first_source)
+    second_span = _sequence_source_span(
+        second_check.get("source_anchor_id")
+    )
+    if first_span is not None and second_span is not None:
+        first_start = first_span[:2]
+        first_end = first_span[2:]
+        second_start = second_span[:2]
+        second_end = second_span[2:]
+        if first_start <= second_end and second_start <= first_end:
+            return 0
     coordinates = []
     for check in (first_check, second_check):
         match = re.fullmatch(
-            r"p(?P<page>\d{3})-l(?P<line>\d{3})(?:w\d{2})?",
+            r"p(?P<page>\d{3})-l(?P<start>\d{3})(?:w\d{2})?"
+            r"(?:-l(?P<end>\d{3}))?",
             str(check.get("source_anchor_id", "")),
         )
         if match is None:
             return None
-        coordinates.append((int(match.group("page")), int(match.group("line"))))
+        start = int(match.group("start"))
+        coordinates.append((
+            int(match.group("page")),
+            start,
+            int(match.group("end") or start),
+        ))
     if coordinates[0][0] != coordinates[1][0]:
         return None
-    first_line, second_line = coordinates[0][1], coordinates[1][1]
+    first_start, first_end = coordinates[0][1:]
+    second_start, second_end = coordinates[1][1:]
     lines = page_text.splitlines()
-    if max(first_line, second_line) > len(lines) or any(
+    if max(first_end, second_end) > len(lines) or any(
         SCENE_HEADING_PATTERN.match(line)
-        for line in lines[min(first_line, second_line):max(first_line, second_line) - 1]
+        for line in lines[
+            min(first_start, second_start) - 1:max(first_end, second_end)
+        ]
     ):
         return None
-    return abs(first_line - second_line)
+    return max(
+        0,
+        max(first_start, second_start) - min(first_end, second_end),
+    )
 
 
 def _sequence_actor_number(actor: str) -> str:
@@ -2933,6 +3229,15 @@ def _sequence_content_terms(value: str, actor: str) -> set[str]:
 
 
 _SEQUENCE_SEMANTIC_EQUIVALENTS = {
+    "announce": re.compile(
+        r"\b(?:announc\w*|anuncia\w*|declara\w*|se\s+llama)\b"
+    ),
+    "bribe": re.compile(
+        r"\b(?:brib(?:e|es|ed|ing)|soborn\w*)\b"
+    ),
+    "award": re.compile(
+        r"\b(?:award\w*|entrega\w*|otorga\w*|premio\w*)\b"
+    ),
     "buy": re.compile(
         r"\b(?:adquiere|adquirio|adquirir|bought|buy|buying|buys|compra|"
         r"compran|comprar|compro|purchased?|purchases?|purchasing)\b"
@@ -2942,6 +3247,10 @@ _SEQUENCE_SEMANTIC_EQUIVALENTS = {
         r"cerro|cierra|cierran|cerrar|clos(?:e|es|ed|ing)|shut(?:s|ting)?)\b"
     ),
     "collapse": re.compile(r"\b(?:collaps\w*|desplom\w*)\b"),
+    "cure": re.compile(
+        r"\b(?:cura\w*|cure\w*|gonorrea|gonorrhea|pastilla\w*|"
+        r"sifilis|syphilis)\b"
+    ),
     "cheat": re.compile(
         r"\b(?:cheat(?:s|ed|ing)?|hace[n]?\s+trampa|hacer\s+trampa|"
         r"hizo\s+trampa)\b"
@@ -2970,6 +3279,51 @@ _SEQUENCE_SEMANTIC_EQUIVALENTS = {
         r"sali|salia|salian|salida|salidas|salieron|salimos|salio|salir)\b"
     ),
     "home": re.compile(r"\b(?:casa|casas|hogar|hogares|homes?|houses?)\b"),
+    "gift": re.compile(r"\b(?:gifts?|regal\w*)\b"),
+    "detain": re.compile(
+        r"\b(?:aprehend\w*|arrest\w*|atrapa\w*|captur\w*|"
+        r"detain\w*|seguridad|security)\b"
+    ),
+    "celebrate": re.compile(
+        r"\b(?:celebrat\w*|deliri\w*|felic\w*|festej\w*|"
+        r"se\s+vuelve\s+loco)\b"
+    ),
+    "end": re.compile(
+        r"\b(?:conclu\w*|ends?|finaliza\w*|termina\w*|y\s+ya)\b"
+    ),
+    "perform": re.compile(
+        r"\b(?:canta\w*|interpret\w*|perform\w*|sings?|sang)\b"
+    ),
+    "father": re.compile(r"\b(?:father\w*|padre\w*|papa)\b"),
+    "fabricate": re.compile(
+        r"\b(?:fabricat\w*|falso\w*|fake\w*|incrimina\w*)\b"
+    ),
+    "kiss": re.compile(r"\b(?:besa\w*|beso\w*|kiss\w*)\b"),
+    "love": re.compile(
+        r"\b(?:ama\w*|amor\w*|enamora\w*|love\w*|quererte|"
+        r"romantic\w*)\b"
+    ),
+    "peace": re.compile(
+        r"\b(?:guerra\s+ha\s+terminado|paz\s+mundial|"
+        r"world\s+peace)\b"
+    ),
+    "pregnancy": re.compile(
+        r"\b(?:embaraz\w*|pregnan\w*|prueba\s+positiva|vas\s+a\s+ser\s+papa)\b"
+    ),
+    "reconcile": re.compile(
+        r"\b(?:enmenda\w*|reconcil\w*|reencuentr\w*)\b"
+    ),
+    "retract": re.compile(
+        r"\b(?:corrijo|lei\s+mal|no\s+es\s+un\s+hecho|retract\w*)\b"
+    ),
+    "request": re.compile(
+        r"\b(?:asks?|demand\w*|pide\w*|pidieron|request\w*)\b"
+    ),
+    "score": re.compile(
+        r"\b(?:calificaci\w*|paleta\w*|score\w*)\b"
+    ),
+    "trophy": re.compile(r"\b(?:trofeo\w*|troph\w*)\b"),
+    "video": re.compile(r"\b(?:pantalla\w*|video\w*)\b"),
     "open": re.compile(
         r"\b(?:abre|abren|abria|abrian|abierta|abiertas|abierto|abiertos|"
         r"abrieron|abrio|abrir|open(?:s|ed|ing)?)\b"
@@ -2977,6 +3331,10 @@ _SEQUENCE_SEMANTIC_EQUIVALENTS = {
     "vehicle": re.compile(
         r"\b(?:automobile|automobiles|automovil|automoviles|auto|autos|cars?|"
         r"carro|carros|coche|coches)\b"
+    ),
+    "wig": re.compile(r"\b(?:peluca\w*|wig\w*)\b"),
+    "currency": re.compile(
+        r"\b(?:currency|currencies|dolar\w*|dollar\w*|peso\w*)\b"
     ),
     "venue": re.compile(r"\b(?:arena|arenas|estadio|estadios|stadiums?)\b"),
     "win": re.compile(
@@ -3020,6 +3378,127 @@ def _sequence_semantic_terms(value: str, actor: str) -> set[str]:
         if pattern.search(folded)
     )
     return terms
+
+
+_SEQUENCE_MATERIAL_ATOM_BOUNDARY = re.compile(
+    r"(?:\s*[;:]\s*|(?<=[.!?])\s+|"
+    r"\s+(?=(?:as\s+per|beyond|so\s+that|throughout|with)\b)|"
+    r"\s*(?:,(?!\s*\d)|\b(?:and\s+then|but|then|while|"
+    r"y\s+luego|and|luego|mientras|pero|y)\b)\s*)",
+    re.IGNORECASE,
+)
+_SEQUENCE_MATERIAL_ATOM_PREDICATE = re.compile(
+    r"\b(?:am|are|be|been|being|declares?|does?|gives?|has|have|is|"
+    r"makes?|passes?|says?|sings?|starts?|stops?|takes?|was|were)\b",
+    re.IGNORECASE,
+)
+
+
+def _sequence_has_material_predicate(value: str) -> bool:
+    folded = _fold_evidence_text(value)
+    return bool(
+        _SEQUENCE_MATERIAL_ATOM_PREDICATE.search(folded)
+        or _SEQUENCE_EXPLICIT_KNOWLEDGE_VERB.search(folded)
+        or any(
+            pattern.search(folded)
+            for pattern in _SEQUENCE_SEMANTIC_EQUIVALENTS.values()
+        )
+    )
+
+
+def _sequence_material_boundary_is_nested(value: str, position: int) -> bool:
+    """Ignore punctuation/conjunctions inside quoted or parenthetical text."""
+    parenthesis_depth = 0
+    quote: Optional[str] = None
+    closing = {'“': '”', '‘': '’' }
+    for index, character in enumerate(value[:position]):
+        if quote is not None:
+            if character == quote:
+                quote = None
+            continue
+        if character in {'"', '“', '‘'}:
+            quote = closing.get(character, character)
+        elif character == "'" and not (
+            index > 0
+            and index + 1 < len(value)
+            and value[index - 1].isalnum()
+            and value[index + 1].isalnum()
+        ):
+            quote = "'"
+        elif character == "(":
+            parenthesis_depth += 1
+        elif character == ")" and parenthesis_depth:
+            parenthesis_depth -= 1
+    return parenthesis_depth > 0 or quote is not None
+
+
+def _sequence_material_claim_atoms(
+    beat: Dict[str, Any],
+) -> List[Dict[str, Any]]:
+    """Split material fields into byte-bound clauses for surgical correction."""
+    atoms: List[Dict[str, Any]] = []
+    for field in ("action", "result"):
+        scalar = str(beat.get(field, ""))
+        boundaries = [
+            boundary
+            for boundary in _SEQUENCE_MATERIAL_ATOM_BOUNDARY.finditer(scalar)
+            if not _sequence_material_boundary_is_nested(
+                scalar, boundary.start()
+            )
+        ]
+        start = 0
+        spans: List[Tuple[int, int]] = []
+        for boundary in boundaries:
+            left = scalar[start:boundary.start()]
+            right = scalar[boundary.end():]
+            strong_boundary = bool(
+                boundary.group().strip() in {";", ":"}
+                or (
+                    boundary.start() > 0
+                    and scalar[boundary.start() - 1] in ".!?"
+                )
+                or re.match(
+                    r"(?:as\s+per|beyond|so\s+that|throughout|with)\b",
+                    right,
+                    re.IGNORECASE,
+                )
+            )
+            if not strong_boundary and not (
+                _sequence_has_material_predicate(left)
+                and _sequence_has_material_predicate(right)
+            ):
+                continue
+            spans.append((start, boundary.start()))
+            start = boundary.end()
+        spans.append((start, len(scalar)))
+        atom_index = 0
+        for raw_start, raw_end in spans:
+            leading = len(scalar[raw_start:raw_end]) - len(
+                scalar[raw_start:raw_end].lstrip()
+            )
+            trailing = len(scalar[raw_start:raw_end]) - len(
+                scalar[raw_start:raw_end].rstrip()
+            )
+            atom_start = raw_start + leading
+            atom_end = raw_end - trailing
+            while atom_end > atom_start and scalar[atom_end - 1] in ",;:":
+                atom_end -= 1
+            if atom_start >= atom_end:
+                continue
+            atom_index += 1
+            text = scalar[atom_start:atom_end]
+            claim = {
+                "field": field,
+                "start": atom_start,
+                "end": atom_end,
+                "text": text,
+            }
+            atoms.append({
+                "atom_id": f"{field}_{atom_index:03d}",
+                **claim,
+                "claim_sha256": canonical_json_hash(claim),
+            })
+    return atoms
 
 
 _SEQUENCE_AUDIENCE_GENERIC_TERMS = frozenset(
@@ -3116,6 +3595,51 @@ def _sequence_has_gross_content_conflict(
         and claim_tail != source_tail
         and claim_tail not in source_raw
         and source_tail not in claim_raw
+    )
+
+
+def _sequence_compound_range_matches(
+    beat: Dict[str, Any], field: str, excerpt: str
+) -> bool:
+    """Bind an immutable compound event to a bounded bilingual source range."""
+    if field not in {"action", "result"}:
+        return False
+    claim = str(beat.get(field, ""))
+    shared_terms = (
+        _sequence_field_content_terms(beat, field, claim)
+        & _sequence_field_content_terms(beat, field, excerpt)
+    )
+    identity_terms = {
+        _fold_evidence_text(name)
+        for value in (str(beat.get("actor", "")), claim, excerpt)
+        for name in _sequence_named_actors(value)
+    }
+    compound_semantics = {
+        "announce", "bribe", "celebrate", "end", "gift", "perform",
+        "request",
+    }
+    claim_semantics = {
+        canonical
+        for canonical, pattern in _SEQUENCE_SEMANTIC_EQUIVALENTS.items()
+        if canonical in compound_semantics
+        and pattern.search(_fold_evidence_text(claim))
+    }
+    source_semantics = {
+        canonical
+        for canonical, pattern in _SEQUENCE_SEMANTIC_EQUIVALENTS.items()
+        if canonical in compound_semantics
+        and pattern.search(_fold_evidence_text(excerpt))
+    }
+    return bool(
+        (shared_terms - identity_terms or claim_semantics)
+        and claim_semantics.issubset(source_semantics)
+        and not _sequence_omits_claimed_participant(
+            str(beat.get("actor", "")), claim, excerpt
+        )
+        and _sequence_numeric_claim_matches(claim, excerpt)
+        and _sequence_negation_matches(claim, excerpt)
+        and not _sequence_has_opposite_action(claim, excerpt)
+        and not _sequence_has_role_relation_swap(claim, excerpt)
     )
 
 
@@ -3378,6 +3902,198 @@ def _sequence_has_shared_relation_predicate(
         if canonical in _SEQUENCE_ACTION_GENERIC_TERMS
         and pattern.search(_fold_evidence_text(excerpt))
     })
+
+
+def _sequence_repair_numeric_signature(
+    value: str,
+) -> Tuple[Tuple[str, int], ...]:
+    """Erase only source-auditable quantities; freeze every other number."""
+    folded = _fold_evidence_text(value)
+    offsets_are_stable = all(
+        len(_fold_evidence_text(character)) == 1 for character in value
+    )
+    quantity_spans = (
+        [match.span() for match in _COUNT_MEASUREMENT.finditer(folded)]
+        if offsets_are_stable else []
+    )
+    working = folded
+    if offsets_are_stable:
+        while details := _first_material_count_claim_details(working):
+            start, end = details["_count_span"]
+            if not 0 <= start < end <= len(working):
+                raise CoverageContractError(
+                    "Count parser returned an invalid span"
+                )
+            quantity_spans.append((start, end))
+            working = working[:start] + " " * (end - start) + working[end:]
+
+    numeric_words = {
+        **_SEQUENCE_NUMBER_WORDS,
+        **_SEQUENCE_ORDINAL_WORDS,
+        "once": 11,
+    }
+    numeric_word_pattern = "|".join(
+        sorted(map(re.escape, numeric_words), key=len, reverse=True)
+    )
+    number_pattern = re.compile(
+        rf"(?<!\w)(?:(?P<digit>\d+)"
+        rf"(?P<suffix>{_SEQUENCE_NUMERIC_ORDINAL_SUFFIX})|"
+        rf"(?P<word>{numeric_word_pattern}))(?!\w)"
+    )
+    numbers = list(number_pattern.finditer(folded))
+    literal_spans = [
+        match.span()
+        for opening, closing in (
+            ("'", "'"), ('"', '"'), ("‘", "’"), ("“", "”"),
+            ("[", "]"), ("(", ")"), ("{", "}"), ("<", ">"),
+            ("«", "»"), ("`", "`"),
+        )
+        for match in re.finditer(
+            re.escape(opening) + r"[^\n]*?" + re.escape(closing),
+            folded,
+        )
+    ]
+
+    signature: List[Tuple[str, int]] = [
+        (f"token:{match.group()}", 0)
+        for match in re.finditer(
+            r"(?<!\w)(?=[a-z0-9_]*[a-z])(?=[a-z0-9_]*\d)"
+            r"[a-z0-9_]+(?!\w)",
+            folded,
+        )
+    ]
+    for number in numbers:
+        word = number.group("word")
+        suffix = number.group("suffix") or ""
+        kind = (
+            "ordinal"
+            if suffix or word in _SEQUENCE_ORDINAL_WORDS
+            else "cardinal"
+        )
+        is_quantity = any(
+            start <= number.start() and number.end() <= end
+            for start, end in quantity_spans
+        )
+        is_literal = any(
+            start < number.start() and number.end() < end
+            for start, end in literal_spans
+        )
+        proper_label = re.match(
+            r"(?:\s+|[-\u2010-\u2015\u2212\ufe58\ufe63\uff0d]\s*)"
+            r"[A-ZÁÉÍÓÚÜÑ]",
+            value[number.end():],
+        ) if offsets_are_stable else None
+        if is_quantity and not is_literal and proper_label is None:
+            signature.append((f"quantity:{kind}", 0))
+            continue
+        numeric_value = (
+            int(number.group("digit"))
+            if number.group("digit") is not None
+            else numeric_words[str(word)]
+        )
+        signature.append((kind, numeric_value))
+    return tuple(signature)
+
+
+def _sequence_repair_event_identity(
+    value: str,
+) -> Tuple[
+    frozenset[str],
+    frozenset[str],
+    Tuple[Tuple[str, int], ...],
+    Tuple[Tuple[str, int], ...],
+]:
+    """Freeze participants and non-correctable content across atom repair."""
+    identities = frozenset(
+        identity
+        for _start, _end, identity in _sequence_relation_identity_mentions(
+            value
+        )
+    )
+    numbered_roles = tuple(
+        (_fold_evidence_text(role), identity)
+        for role, identity, _start, _end
+        in _sequence_action_role_identity_mentions(value)
+    )
+    ignored = {
+        "am", "are", "be", "been", "being", "did", "do", "doe", "does",
+        "has", "have", "is", "not", "was", "were",
+        *(_sequence_stem_word(word) for word in _SEQUENCE_NUMBER_WORDS),
+        *(_sequence_stem_word(word) for word in _SEQUENCE_ORDINAL_WORDS),
+    }
+    for identity in identities:
+        ignored.update(
+            _sequence_stem_word(word)
+            for word in re.findall(r"[a-záéíóúüñ]+", identity.partition(":")[2])
+        )
+    folded = _fold_evidence_text(value)
+    for canonical, pattern in _SEQUENCE_SEMANTIC_EQUIVALENTS.items():
+        if canonical not in _SEQUENCE_ACTION_GENERIC_TERMS:
+            continue
+        for match in pattern.finditer(folded):
+            ignored.update(
+                _sequence_stem_word(word)
+                for word in re.findall(r"[a-záéíóúüñ]+", match.group())
+            )
+    return (
+        identities,
+        frozenset(_sequence_content_terms(value, "") - ignored),
+        numbered_roles,
+        _sequence_repair_numeric_signature(value),
+    )
+
+
+def _sequence_repair_event_skeleton(value: str) -> Tuple[str, ...]:
+    """Keep ordered event multiplicity while erasing only correction axes."""
+    folded = _SEQUENCE_NON_NEGATING_PRIVATIVE.sub(
+        "", _fold_evidence_text(value)
+    )
+    folded = _SEQUENCE_NONCOMPLETION.sub(
+        lambda match: match.group("predicate"), folded
+    )
+    folded = _SEQUENCE_NEGATION.sub("", folded)
+    for marker, (left, right) in zip(
+        ("oppositea", "oppositeb", "oppositec"),
+        _SEQUENCE_OPPOSITE_ACTIONS,
+    ):
+        folded = left.sub(f" {marker} ", folded)
+        folded = right.sub(f" {marker} ", folded)
+    ignored = {
+        "am", "are", "be", "been", "being", "did", "do", "does",
+        "has", "have", "is", "was", "were",
+        *_SEQUENCE_NUMBER_WORDS,
+        *_SEQUENCE_ORDINAL_WORDS,
+    }
+    return tuple(
+        _sequence_stem_word(token)
+        for token in re.findall(
+            r"\d+|[a-záéíóúüñ]+|[^\w\s]", folded
+        )
+        if not token.isdigit() and token not in ignored
+    )
+
+
+def _sequence_same_repair_event(claim: str, replacement: str) -> bool:
+    """Permit a correction dimension, never a different event."""
+    if any(
+        len(_sequence_material_claim_atoms({"action": value})) != 1
+        for value in (claim, replacement)
+    ):
+        return False
+    claim_identity = _sequence_repair_event_identity(claim)
+    replacement_identity = _sequence_repair_event_identity(replacement)
+    if (
+        claim_identity != replacement_identity
+        or _sequence_has_role_relation_swap(claim, replacement)
+        or _sequence_repair_event_skeleton(claim)
+        != _sequence_repair_event_skeleton(replacement)
+    ):
+        return False
+    return bool(
+        not _sequence_numeric_claim_matches(claim, replacement)
+        or not _sequence_negation_matches(claim, replacement)
+        or _sequence_has_opposite_action(claim, replacement)
+    )
 
 
 def _sequence_literal_fragment_matches(claim: str, excerpt: str) -> bool:
@@ -3860,7 +4576,9 @@ def _sequence_action_can_inherit_actor(
             rf"(?<!\w){re.escape(_fold_evidence_text(actor))}(?!\w)",
             folded_action,
         )
-        for actor in _sequence_named_actors(str(beat.get("actor", "")))
+        for actor in _sequence_primary_actor_names(
+            str(beat.get("actor", ""))
+        )
     ):
         return False
     action_number = _sequence_leading_verb_number(
@@ -3920,6 +4638,154 @@ def _sequence_field_can_inherit_actor(
     )
 
 
+def _decode_sequence_material_atom_results(
+    candidate: Dict[str, Any],
+    row: Dict[str, Any],
+    source_text: str,
+    checks_by_field: Dict[str, Dict[str, Any]],
+) -> Tuple[Optional[List[Dict[str, Any]]], Optional[str]]:
+    subject = row.get("subject")
+    if not isinstance(subject, dict):
+        return None, "material atom subject is malformed"
+    expected = subject.get("material_claim_atoms")
+    if not isinstance(expected, list):
+        if candidate.get("material_atom_results") is None:
+            return [], None
+        return None, "material atom contract is missing"
+    raw = candidate.get("material_atom_results")
+    failed_material = {
+        field for field in ("action", "result")
+        if checks_by_field.get(field, {}).get("supports") is False
+    }
+    required_reaudit = subject.get("required_material_atom_reaudit") is True
+    if raw is None:
+        if failed_material or required_reaudit:
+            return None, "failed material field requires atomic provenance"
+        return [], None
+    if not isinstance(raw, list) or len(raw) != len(expected):
+        return None, "material atom results must cover every atom exactly once"
+    expected_by_id = {
+        str(atom.get("atom_id", "")): atom
+        for atom in expected if isinstance(atom, dict)
+    }
+    if len(expected_by_id) != len(expected):
+        return None, "material atom contract is malformed"
+    returned: Dict[str, Dict[str, Any]] = {}
+    for result in raw:
+        if not isinstance(result, dict) or set(result) != {
+            "atom_id", "disposition", "source_id",
+        }:
+            return None, "material atom result fields are invalid"
+        atom_id = result.get("atom_id")
+        disposition = result.get("disposition")
+        if (
+            not isinstance(atom_id, str)
+            or atom_id in returned
+            or atom_id not in expected_by_id
+            or disposition not in SEQUENCE_MATERIAL_ATOM_DISPOSITIONS
+        ):
+            return None, "material atom result identity is invalid"
+        returned[atom_id] = result
+    if set(returned) != set(expected_by_id):
+        return None, "material atom results do not match the frozen contract"
+
+    beat = subject.get("beat")
+    if not isinstance(beat, dict):
+        return None, "material atom beat is malformed"
+    raw_page_range = subject.get("source_page_range")
+    allowed_pages = {beat.get("page")}
+    if (
+        isinstance(raw_page_range, list)
+        and len(raw_page_range) == 2
+        and all(type(page) is int for page in raw_page_range)
+    ):
+        allowed_pages.update(range(raw_page_range[0], raw_page_range[1] + 1))
+
+    normalized: List[Dict[str, Any]] = []
+    dispositions_by_field: Dict[str, List[str]] = {
+        "action": [], "result": [],
+    }
+    for atom in expected:
+        atom_id = str(atom["atom_id"])
+        field = str(atom["field"])
+        result = returned[atom_id]
+        disposition = str(result["disposition"])
+        source_id, token_error = _sequence_atom_source_token_anchor(
+            result.get("source_id"), row, atom_id
+        )
+        if token_error:
+            return None, token_error
+        if disposition in {"not_located", "unresolved"}:
+            if result.get("source_id") != SEQUENCE_SOURCE_NOT_LOCATED:
+                return None, (
+                    f"material atom {atom_id} {disposition} must use "
+                    f"{SEQUENCE_SOURCE_NOT_LOCATED}"
+                )
+            normalized.append({
+                **copy.deepcopy(atom),
+                "disposition": disposition,
+            })
+            dispositions_by_field[field].append(disposition)
+            continue
+        if source_id is None:
+            return None, f"material atom {atom_id} requires source evidence"
+        anchor = _sequence_source_anchor(source_text, source_id)
+        if anchor is None or anchor.get("page") not in allowed_pages:
+            return None, f"material atom {atom_id} source is invalid"
+        claim = str(atom.get("text", ""))
+        excerpt = str(anchor.get("excerpt", ""))
+        synthetic = {**beat, field: claim}
+        relevant = bool(
+            _sequence_atomic_fact_matches(claim, excerpt)
+            or _sequence_compound_range_matches(synthetic, field, excerpt)
+            or _sequence_field_relevance_terms(synthetic, field, excerpt)
+        )
+        supported = bool(
+            relevant
+            and _sequence_numeric_claim_matches(claim, excerpt)
+            and _sequence_negation_matches(claim, excerpt)
+            and not _sequence_has_opposite_action(claim, excerpt)
+            and not _sequence_has_role_relation_swap(claim, excerpt)
+            and not _sequence_omits_claimed_participant(
+                str(beat.get("actor", "")), claim, excerpt
+            )
+        )
+        if disposition == "supported" and not supported:
+            return None, f"material atom {atom_id} source does not support it"
+        if disposition == "contradicted" and (
+            supported
+            or not relevant
+            or not (
+                not _sequence_numeric_claim_matches(claim, excerpt)
+                or not _sequence_negation_matches(claim, excerpt)
+                or _sequence_has_opposite_action(claim, excerpt)
+                or _sequence_has_role_relation_swap(claim, excerpt)
+            )
+        ):
+            return None, f"material atom {atom_id} lacks contrary evidence"
+        normalized.append({
+            **copy.deepcopy(atom),
+            "disposition": disposition,
+            "page": anchor["page"],
+            "excerpt": excerpt,
+            "source_anchor_id": source_id,
+        })
+        dispositions_by_field[field].append(disposition)
+
+    for field in ("action", "result"):
+        field_dispositions = dispositions_by_field[field]
+        field_supported = checks_by_field.get(field, {}).get("supports") is True
+        if field_supported and any(
+            disposition != "supported" for disposition in field_dispositions
+        ):
+            return None, f"supported {field} contains a failed material atom"
+        if required_reaudit and any(
+            disposition != "supported" for disposition in field_dispositions
+        ):
+            return None, "repaired material field still has an unresolved atom"
+    return normalized, None
+
+
 def _decode_grounded_detail_value(
     value: Any,
     row: Dict[str, Any],
@@ -3934,6 +4800,9 @@ def _decode_grounded_detail_value(
             return None, "result is not a JSON object"
     kind = row.get("kind")
     required_result_fields = {"classification", "checks", "note"}
+    material_result_fields = {
+        *required_result_fields, "material_atom_results",
+    }
     legacy_observed_people = bool(
         kind == "sequence_evidence"
         and isinstance(candidate, dict)
@@ -3942,7 +4811,7 @@ def _decode_grounded_detail_value(
         }
     )
     if not isinstance(candidate, dict) or (
-        set(candidate) != required_result_fields
+        set(candidate) not in (required_result_fields, material_result_fields)
         and not legacy_observed_people
     ):
         return None, "result does not contain the exact grounded fields"
@@ -4016,7 +4885,11 @@ def _decode_grounded_detail_value(
         if source_anchor_id is not None:
             if not isinstance(source_anchor_id, str):
                 return None, f"check {index + 1} source_id is invalid"
-            source_anchor = source_anchors.get(source_anchor_id)
+            source_anchor = (
+                _sequence_source_anchor(source_text, source_anchor_id)
+                if kind == "sequence_evidence"
+                else source_anchors.get(source_anchor_id)
+            )
             if source_anchor is None:
                 return None, f"check {index + 1} source_id is unknown"
             page = source_anchor["page"]
@@ -4034,8 +4907,21 @@ def _decode_grounded_detail_value(
         if type(page) is not int or page not in pages:
             return None, f"check {index + 1} page is invalid"
         excerpt_words = len(excerpt.split())
+        is_sequence_range = bool(
+            kind == "sequence_evidence"
+            and isinstance(source_anchor_id, str)
+            and _sequence_source_span(source_anchor_id) is not None
+            and re.fullmatch(
+                r"p\d{3}-l\d{3}(?:w\d{2})?", source_anchor_id
+            ) is None
+        )
+        minimum_source_words = (
+            1 if kind == "sequence_evidence" and field == "actor"
+            else COUNT_EVIDENCE_MIN_WORDS
+        )
         if source_anchor_id is not None and not (
-            COUNT_EVIDENCE_MIN_WORDS <= excerpt_words <= 12
+            minimum_source_words <= excerpt_words
+            and (is_sequence_range or excerpt_words <= 12)
         ):
             return None, f"check {index + 1} source_id binding is too short"
         if source_anchor_id is None and not (
@@ -4064,7 +4950,17 @@ def _decode_grounded_detail_value(
             beat = subject.get("beat")
             if not isinstance(beat, dict):
                 return None, "sequence beat is malformed"
+            raw_source_page_range = subject.get("source_page_range")
             allowed_pages = {beat.get("page")}
+            if (
+                isinstance(raw_source_page_range, list)
+                and len(raw_source_page_range) == 2
+                and all(type(value) is int for value in raw_source_page_range)
+                and raw_source_page_range[0] <= raw_source_page_range[1]
+            ):
+                allowed_pages.update(range(
+                    raw_source_page_range[0], raw_source_page_range[1] + 1
+                ))
             span_source = beat.get("action", "") if field == "actor" else beat.get(
                 field, ""
             )
@@ -4084,7 +4980,7 @@ def _decode_grounded_detail_value(
                 if actor_reason:
                     return None, actor_reason
             if field == "actor" and supports:
-                named_actors = _sequence_named_actors(
+                named_actors = _sequence_primary_actor_names(
                     str(beat.get("actor", ""))
                 )
                 folded_page = _fold_evidence_text(pages[page])
@@ -4114,6 +5010,10 @@ def _decode_grounded_detail_value(
         beat = subject["beat"]
         actor_context = str(beat.get("action", ""))
         allow_sentinel = _is_strict_sequence_absence_marker(beat)
+        knowledge_not_applicable = (
+            str(beat.get("character_knowledge", "")).strip()
+            == SEQUENCE_KNOWLEDGE_NOT_APPLICABLE
+        )
         actor_check = checks_by_field.get("actor", {})
         action_check = checks_by_field.get("action", {})
         action_page_text = pages.get(action_check.get("page"), "")
@@ -4227,62 +5127,82 @@ def _decode_grounded_detail_value(
                         _fold_evidence_text(name)
                         for name in _sequence_named_actors(excerpt)
                     }
-                    if (
-                        not _sequence_audience_source_predicate(excerpt)
-                        or not event_terms
-                        or not claim_names.issubset(
-                            actor_names | excerpt_names
-                        )
-                    ):
-                        return None, (
-                            "audience_knowledge source excerpt does not link "
-                            "to the actor-action event"
-                        )
-                    claim_event = _sequence_audience_event_fact(claim)
-                    source_event = _sequence_audience_event_fact(excerpt)
-                    reception_summary = bool(
-                        _SEQUENCE_AUDIENCE_RECEPTION_CLAIM.search(claim)
-                        and not _sequence_relation_agents(claim_event)
+                    audience_reaction = bool(
+                        _sequence_audience_source_predicate(claim)
+                        or _sequence_audience_source_predicate(excerpt)
+                        or _SEQUENCE_AUDIENCE_RECEPTION_CLAIM.search(claim)
                     )
-                    repeated_request = bool(
-                        _SEQUENCE_AUDIENCE_REQUEST_PREDICATE.search(claim)
-                        and _sequence_is_repeated_call(excerpt)
-                    )
-                    if (
-                        not reception_summary
-                        and not repeated_request
-                        and (
-                            not _sequence_atomic_fact_matches(
-                                claim_event, source_event
+                    if audience_reaction:
+                        if (
+                            not _sequence_audience_source_predicate(excerpt)
+                            or not event_terms
+                            or not claim_names.issubset(
+                                actor_names | excerpt_names
                             )
-                            or not any(
-                                _sequence_atomic_fact_matches(
-                                    source_event, event_excerpt
-                                )
-                                for event_excerpt in (
-                                    str(action_check.get("excerpt", "")),
-                                    str(checks_by_field.get("result", {}).get(
-                                        "excerpt", ""
-                                    )),
-                                )
-                                if event_excerpt
+                        ):
+                            return None, (
+                                "audience_knowledge source excerpt does not link "
+                                "to the actor-action event"
                             )
+                        claim_event = _sequence_audience_event_fact(claim)
+                        source_event = _sequence_audience_event_fact(excerpt)
+                        reception_summary = bool(
+                            _SEQUENCE_AUDIENCE_RECEPTION_CLAIM.search(claim)
+                            and not _sequence_relation_agents(claim_event)
                         )
-                    ):
-                        return None, (
-                            "audience_knowledge source excerpt does not prove "
-                            "its atomic event"
+                        repeated_request = bool(
+                            _SEQUENCE_AUDIENCE_REQUEST_PREDICATE.search(claim)
+                            and _sequence_is_repeated_call(excerpt)
                         )
+                        if (
+                            not reception_summary
+                            and not repeated_request
+                            and (
+                                not _sequence_atomic_fact_matches(
+                                    claim_event, source_event
+                                )
+                                or not any(
+                                    _sequence_atomic_fact_matches(
+                                        source_event, event_excerpt
+                                    )
+                                    for event_excerpt in (
+                                        str(action_check.get("excerpt", "")),
+                                        str(checks_by_field.get("result", {}).get(
+                                            "excerpt", ""
+                                        )),
+                                    )
+                                    if event_excerpt
+                                )
+                            )
+                        ):
+                            return None, (
+                                "audience_knowledge source excerpt does not prove "
+                                "its atomic event"
+                            )
                 if not _sequence_negation_matches(claim, excerpt):
                     return None, f"{field} source excerpt reverses claim polarity"
                 if not _sequence_numeric_claim_matches(claim, excerpt):
                     return None, f"{field} source excerpt changes a numeric fact"
                 if _sequence_has_opposite_action(claim, excerpt):
                     return None, f"{field} source excerpt states the opposite action"
+                compound_range_match = bool(
+                    isinstance(field_check.get("source_anchor_id"), str)
+                    and _sequence_source_span(
+                        field_check["source_anchor_id"]
+                    ) is not None
+                    and re.fullmatch(
+                        r"p\d{3}-l\d{3}(?:w\d{2})?",
+                        str(field_check["source_anchor_id"]),
+                    ) is None
+                    and _sequence_compound_range_matches(
+                        beat, field, excerpt
+                    )
+                )
                 if (
                     field != "actor"
                     and _sequence_requires_literal_event_binding(claim, excerpt)
                     and not _sequence_literal_fragment_matches(claim, excerpt)
+                    and not compound_range_match
                 ):
                     return None, (
                         f"{field} source excerpt changes a compound event"
@@ -4306,12 +5226,14 @@ def _decode_grounded_detail_value(
                         claim, excerpt
                     )
                     and not _sequence_literal_fragment_matches(claim, excerpt)
+                    and not compound_range_match
                 ):
                     return None, (
                         f"{field} source excerpt does not share the claim predicate"
                     )
                 if (
                     _sequence_has_gross_content_conflict(beat, field, excerpt)
+                    and not compound_range_match
                     and not (
                         (
                             field == "result"
@@ -4388,91 +5310,121 @@ def _decode_grounded_detail_value(
                 str(beat.get("actor", "")),
                 actor_context,
                 allow_sentinel=allow_sentinel,
+            ) and not _sequence_action_can_inherit_actor(
+                beat,
+                checks_by_field["actor"],
+                checks_by_field.get("action", {}),
+                pages.get(checks_by_field.get("action", {}).get("page"), ""),
+                source_text,
             ):
                 return None, "actor roles are absent from the claimed action"
         if checks_by_field.get("character_knowledge", {}).get("supports") is True:
             knowledge = str(beat.get("character_knowledge", ""))
             knowledge_check = checks_by_field["character_knowledge"]
             knowledge_excerpt = str(knowledge_check.get("excerpt", ""))
-            if _SEQUENCE_EXPLICIT_KNOWLEDGE_VERB.search(
+            if knowledge_not_applicable:
+                page_text = pages.get(knowledge_check.get("page"), "")
+                distance = _sequence_anchor_line_distance(
+                    action_check, knowledge_check, page_text
+                )
+                if (
+                    action_check.get("supports") is not True
+                    or distance is None
+                    or distance > 1
+                ):
+                    return None, (
+                        "not-applicable character knowledge must be checked "
+                        "against the bound action event"
+                    )
+            elif _SEQUENCE_EXPLICIT_KNOWLEDGE_VERB.search(
                 knowledge_excerpt
             ) is None:
                 return None, (
                     "character knowledge is not staged in the source excerpt"
                 )
-            if not allow_sentinel and not _has_exactly_one_knowledge_claim(
+            if (
+                not knowledge_not_applicable
+                and not allow_sentinel
+                and not _has_exactly_one_knowledge_claim(
                 knowledge
+                )
             ):
                 return None, (
                     "character_knowledge must contain exactly one checked clause"
                 )
-            claim_subject = _sequence_role_subject(knowledge, knowledge=True)
-            source_subject = _sequence_role_subject(
-                knowledge_excerpt, knowledge=True
-            )
-            claimed_knowers = {
-                _fold_evidence_text(name)
-                for name in _sequence_named_actors(claim_subject)
-            }
-            source_knowers = {
-                _fold_evidence_text(name)
-                for name in _sequence_named_actors(source_subject)
-            }
-            claimed_fact_names = {
-                _fold_evidence_text(name)
-                for name in _sequence_named_actors(
-                    _sequence_knowledge_fact(knowledge)
+            if not knowledge_not_applicable:
+                claim_subject = _sequence_role_subject(
+                    knowledge, knowledge=True
                 )
-            }
-            source_fact_names = {
-                _fold_evidence_text(name)
-                for name in _sequence_named_actors(
-                    _sequence_knowledge_fact(knowledge_excerpt)
+                source_subject = _sequence_role_subject(
+                    knowledge_excerpt, knowledge=True
                 )
-            }
-            claim_fact = _sequence_knowledge_fact(knowledge)
-            source_fact = _sequence_knowledge_fact(knowledge_excerpt)
-            if (
-                not _sequence_negation_matches(knowledge, knowledge_excerpt)
-                or _sequence_has_opposite_action(knowledge, knowledge_excerpt)
-                or not _sequence_role_roster_matches(
-                    claim_subject, source_subject
-                )
-                or not claimed_knowers.issubset(source_knowers)
-                or not claimed_fact_names.issubset(source_fact_names)
-                or _sequence_omits_claimed_participant(
-                    claim_subject, knowledge, knowledge_excerpt
-                )
-                or _sequence_has_role_relation_swap(
-                    knowledge, knowledge_excerpt
-                )
-                or _sequence_has_gross_content_conflict(
-                    beat, "character_knowledge", knowledge_excerpt
-                )
-                or not _sequence_atomic_fact_matches(
-                    claim_fact, source_fact
-                )
-            ):
-                return None, (
-                    "character knowledge source excerpt does not prove its "
-                    "atomic fact"
-                )
-            if not _sequence_subject_matches_context(
-                knowledge,
-                str(beat.get("actor", "")) + " " + actor_context,
-                knowledge=True,
-                allow_sentinel=allow_sentinel,
-            ):
-                return None, "knower roles are absent from the claimed beat"
+                claimed_knowers = {
+                    _fold_evidence_text(name)
+                    for name in _sequence_named_actors(claim_subject)
+                }
+                source_knowers = {
+                    _fold_evidence_text(name)
+                    for name in _sequence_named_actors(source_subject)
+                }
+                claimed_fact_names = {
+                    _fold_evidence_text(name)
+                    for name in _sequence_named_actors(
+                        _sequence_knowledge_fact(knowledge)
+                    )
+                }
+                source_fact_names = {
+                    _fold_evidence_text(name)
+                    for name in _sequence_named_actors(
+                        _sequence_knowledge_fact(knowledge_excerpt)
+                    )
+                }
+                claim_fact = _sequence_knowledge_fact(knowledge)
+                source_fact = _sequence_knowledge_fact(knowledge_excerpt)
+                if (
+                    not _sequence_negation_matches(knowledge, knowledge_excerpt)
+                    or _sequence_has_opposite_action(
+                        knowledge, knowledge_excerpt
+                    )
+                    or not _sequence_role_roster_matches(
+                        claim_subject, source_subject
+                    )
+                    or not claimed_knowers.issubset(source_knowers)
+                    or not claimed_fact_names.issubset(source_fact_names)
+                    or _sequence_omits_claimed_participant(
+                        claim_subject, knowledge, knowledge_excerpt
+                    )
+                    or _sequence_has_role_relation_swap(
+                        knowledge, knowledge_excerpt
+                    )
+                    or _sequence_has_gross_content_conflict(
+                        beat, "character_knowledge", knowledge_excerpt
+                    )
+                    or not _sequence_atomic_fact_matches(
+                        claim_fact, source_fact
+                    )
+                ):
+                    return None, (
+                        "character knowledge source excerpt does not prove its "
+                        "atomic fact"
+                    )
+                if not _sequence_subject_matches_context(
+                    knowledge,
+                    str(beat.get("actor", "")) + " " + actor_context,
+                    knowledge=True,
+                    allow_sentinel=allow_sentinel,
+                ):
+                    return None, "knower roles are absent from the claimed beat"
         if not legacy_observed_people:
             if checks_by_field.get("actor", {}).get("supports") is True:
                 actor_excerpt = str(
                     checks_by_field["actor"].get("excerpt", "")
                 )
+                primary_actor_names = _sequence_primary_actor_names(
+                    str(beat.get("actor", ""))
+                )
                 missing_actor_names = [
-                    actor for actor in _sequence_named_actors(
-                        str(beat.get("actor", ""))
-                    )
+                    actor for actor in primary_actor_names
                     if re.search(
                         rf"(?<!\w){re.escape(_fold_evidence_text(actor))}(?!\w)",
                         _fold_evidence_text(actor_excerpt),
@@ -4483,7 +5435,7 @@ def _decode_grounded_detail_value(
                         "actor names are absent from the source excerpt: "
                         + ", ".join(missing_actor_names)
                     )
-                if not _sequence_subject_matches_context(
+                if not primary_actor_names and not _sequence_subject_matches_context(
                     str(beat.get("actor", "")),
                     actor_excerpt,
                     allow_sentinel=allow_sentinel,
@@ -4492,6 +5444,7 @@ def _decode_grounded_detail_value(
             if (
                 checks_by_field.get("character_knowledge", {}).get("supports")
                 is True
+                and not knowledge_not_applicable
             ):
                 knowledge_excerpt = str(
                     checks_by_field["character_knowledge"].get("excerpt", "")
@@ -4509,6 +5462,45 @@ def _decode_grounded_detail_value(
                     allow_sentinel=allow_sentinel,
                 ):
                     return None, "knower roles are absent from the source excerpt"
+    normalized_material_atoms: List[Dict[str, Any]] = []
+    if kind == "sequence_evidence":
+        normalized_material_atoms, atom_error = (
+            _decode_sequence_material_atom_results(
+                candidate, row, source_text, checks_by_field
+            )
+        )
+        if atom_error:
+            return None, atom_error
+        if subject.get("required_material_atom_reaudit") is True:
+            for field in ("action", "result"):
+                field_atoms = [
+                    atom for atom in normalized_material_atoms
+                    if atom.get("field") == field
+                ]
+                if not field_atoms or any(
+                    atom.get("disposition") != "supported"
+                    for atom in field_atoms
+                ):
+                    continue
+                anchored = [
+                    atom for atom in field_atoms
+                    if isinstance(atom.get("source_anchor_id"), str)
+                ]
+                if not anchored:
+                    return None, f"repaired {field} has no atomic source"
+                first = min(
+                    anchored,
+                    key=lambda atom: _sequence_source_span(
+                        str(atom["source_anchor_id"])
+                    ) or (10**9, 10**9, 10**9, 10**9),
+                )
+                check = checks_by_field[field]
+                check.update({
+                    "supports": True,
+                    "page": first["page"],
+                    "excerpt": first["excerpt"],
+                    "source_anchor_id": first["source_anchor_id"],
+                })
     supported_fields = [check["supports"] for check in normalized_checks]
     if classification == "supported" and not all(supported_fields):
         return None, "a supported row contains a failed field check"
@@ -4527,6 +5519,10 @@ def _decode_grounded_detail_value(
         "checks": normalized_checks,
         "claim_sha256": str(subject.get("claim_sha256", "")),
         "grounding_valid": True,
+        **(
+            {"material_atom_results": normalized_material_atoms}
+            if normalized_material_atoms else {}
+        ),
     }
     if kind == "sequence_evidence" and legacy_observed_people:
         beat = subject["beat"]
@@ -6224,11 +7220,13 @@ _COUNT_EXCLUSIVE_MAXIMUM = re.compile(
 _MATERIAL_COUNT_ENTITIES = frozenset(
     """
     ammunition balas bullets characters deaths disparos events eventos
-    contestants concursantes intentos items judge judges juez jueces
+    contestants concursantes guard guards guardia guardias intentos items
+    judge judges juez jueces
     chistes joke jokes kills laugh laughs members miembros muertes
     municiones panel panelists payoff payoffs personajes reveals revelaciones
     resolution resolutions resolución resoluciones risa ritual rituals rituales
-    risas rounds runner runners times tiros vez veces victim victims víctima víctimas
+    risas rounds runner runners times tiros trofeo trofeos trophies trophy
+    vez veces victim victims víctima víctimas
     """.split()
 )
 _COUNT_SCORE_WORDS = frozenset(
@@ -6996,6 +7994,18 @@ _SOURCE_ABSENCE_ASSERTION = re.compile(
     r"no (?:hay|existe) (?:una? )?fuente|sin (?:una? )?fuente)\b",
     re.IGNORECASE,
 )
+_NEGATED_NEW_SOURCE_DIRECTIVE = re.compile(
+    r"\b(?:do\s+not|does\s+not|don't|doesn't|no\s+hay\s+que|"
+    r"no\s+se\s+debe|sin|without)\b[^,;.!?]{0,80}\b(?:add|create|"
+    r"demand|introduce|"
+    r"need|plant|require|request|agregar|crear|exigir|introducir|necesitar|"
+    r"pedir|plantar)\w*\b[^,;.!?]{0,60}\b"
+    r"(?:(?:a|an|the|una?|el|la)\s+)?"
+    r"(?:new|additional|another|nuev[oa]|adicional|otr[oa])?\s*"
+    r"(?:camera|recording(?:\s+device)?|source|"
+    r"c[aá]mara|dispositivo\s+de\s+grabaci[oó]n|fuente)\b",
+    re.IGNORECASE,
+)
 _REVEAL_TRACE_TERMS = (
     "camera", "camara", "grab", "filma", "video", "videos",
     "footage", "pantalla", "screen", "soborn", "brib", "billete",
@@ -7061,6 +8071,7 @@ def _captured_content_terms(claim: str) -> Tuple[str, ...]:
 
 
 def _asserts_new_or_missing_source(value: str) -> bool:
+    value = _NEGATED_NEW_SOURCE_DIRECTIVE.sub("", value)
     if _SOURCE_ABSENCE_ASSERTION.search(value) or _EXPLICIT_NEW_SOURCE.search(
         value
     ):
@@ -8068,7 +9079,14 @@ def build_detail_audit_user_blocks(
                 "and authoritative source ID exactly as "
                 "`<slot>:<field>:<source_id>`; for example, "
                 "`row_034:actor:p088-l024w01`. If no listed line proves the "
-                f"field, return `{SEQUENCE_SOURCE_NOT_LOCATED}`. The engine "
+                "complete compound action or result, you may join its first "
+                "and last listed line on the same page as a bounded range, for "
+                "example `row_034:action:p097-l008-l024`. Never use a range "
+                "for actor or audience knowledge, cross a scene boundary, or "
+                f"span more than {SEQUENCE_SOURCE_RANGE_MAX_LINES} lines. "
+                "Character knowledge may join only three wrapped same-page "
+                "lines. If no allowed "
+                f"source proves the field, return `{SEQUENCE_SOURCE_NOT_LOCATED}`. The engine "
                 "derives every supports value from that single decision. Set "
                 "character_knowledge_status "
                 "to `checked` only for sequence_knowledge_results and to "
@@ -8082,7 +9100,11 @@ def build_detail_audit_user_blocks(
                 "knower and prove the atomic fact they learn. Never expand a "
                 "collective label into an inferred member roster. If a frozen "
                 "field is wrong, return the not-located sentinel so the canonical "
-                "repair pass can correct it. "
+                "repair pass can correct it. When character_knowledge is the "
+                f"exact engine value `{SEQUENCE_KNOWLEDGE_NOT_APPLICABLE}`, "
+                "independently confirm that the beat makes no separate material "
+                "knowledge claim, then bind that check to the same action event; "
+                "never use this state merely because evidence was not found. "
                 + DETAIL_17_GROUNDED_GUIDANCE
                 + "Dialogue proves only that its speaker said "
                 "something. If named characters did not witness or learn it, "
@@ -9017,6 +10039,18 @@ def validate_audit_payload(
     problems: List[str] = []
     if not isinstance(payload, dict):
         return ["audit payload is not an object"]
+    raw_authorized_n_a = payload.get(
+        "_sequence_repair_authorized_not_applicable_orders", []
+    )
+    authorized_n_a_orders = (
+        set(raw_authorized_n_a)
+        if isinstance(raw_authorized_n_a, list)
+        and all(type(order) is int for order in raw_authorized_n_a)
+        and len(raw_authorized_n_a) == len(set(raw_authorized_n_a))
+        else set()
+    )
+    if raw_authorized_n_a and not authorized_n_a_orders:
+        problems.append("sequence not-applicable authorization is malformed")
     normalization_errors = payload.get("_sequence_normalization_errors", [])
     if isinstance(normalization_errors, list):
         problems.extend(
@@ -9096,6 +10130,7 @@ def validate_audit_payload(
         orders: List[int] = []
         phases: List[str] = []
         pages: List[int] = []
+        material_events: set[Tuple[str, str, str]] = set()
         phase_sizes = {
             phase: sum(
                 1 for candidate in ledger
@@ -9121,6 +10156,23 @@ def validate_audit_payload(
             strict_absence = _is_strict_sequence_absence_marker(
                 beat, phase_size=phase_sizes.get(phase, 0)
             )
+            if not strict_absence:
+                material_event = (
+                    repr(beat.get("page")),
+                    " ".join(re.findall(
+                        r"[a-záéíóúüñ0-9]+",
+                        _fold_evidence_text(str(beat.get("action", ""))),
+                    )),
+                    " ".join(re.findall(
+                        r"[a-záéíóúüñ0-9]+",
+                        _fold_evidence_text(str(beat.get("result", ""))),
+                    )),
+                )
+                if material_event in material_events:
+                    problems.append(
+                        f"sequence_ledger[{index}] duplicates a material beat"
+                    )
+                material_events.add(material_event)
             if any(
                 isinstance(beat.get(field), str)
                 and str(beat.get(field)).strip().upper() == "NOT PRESENT"
@@ -9161,7 +10213,18 @@ def validate_audit_payload(
                 elif (
                     field == "character_knowledge"
                     and not strict_absence
+                    and value == SEQUENCE_KNOWLEDGE_NOT_APPLICABLE
+                    and order not in authorized_n_a_orders
+                ):
+                    problems.append(
+                        f"sequence_ledger[{index}].character_knowledge uses "
+                        "an unauthorized NOT APPLICABLE sentinel"
+                    )
+                elif (
+                    field == "character_knowledge"
+                    and not strict_absence
                     and value.upper() != "NOT LOCATED"
+                    and value != SEQUENCE_KNOWLEDGE_NOT_APPLICABLE
                     and not _has_exactly_one_knowledge_claim(value)
                 ):
                     problems.append(
@@ -9202,6 +10265,34 @@ def validate_audit_payload(
     sequence_rows = validate_rows(
         "sequence_evidence", "field_path", list(sequence_subjects)
     )
+    sequence_beats = {
+        beat.get("order"): beat
+        for beat in (ledger if isinstance(ledger, list) else [])
+        if isinstance(beat, dict) and type(beat.get("order")) is int
+    }
+    action_spans: List[Tuple[int, int, int, int]] = []
+    for index, row in enumerate(sequence_rows):
+        match = _MATERIAL_SEQUENCE_PATH.fullmatch(
+            str(row.get("field_path", ""))
+        )
+        beat = sequence_beats.get(int(match.group(1))) if match else None
+        action_check = next((
+            check for check in row.get("checks", [])
+            if isinstance(check, dict) and check.get("field") == "action"
+        ), None)
+        span = _sequence_source_span(
+            (action_check or {}).get("source_anchor_id")
+        )
+        if isinstance(beat, dict) and span is not None:
+            if any(
+                prior_span[:2] <= span[2:]
+                and span[:2] <= prior_span[2:]
+                for prior_span in action_spans
+            ):
+                problems.append(
+                    f"sequence_evidence[{index}] overlaps an action source span"
+                )
+            action_spans.append(span)
     for field, rows, subjects in (
         (
             "citation_relevance",
@@ -10044,6 +11135,1360 @@ def _merge_rejected_sequence_field_repairs(
     return updated
 
 
+_MATERIAL_SEQUENCE_PATH = re.compile(r"^sequence_ledger\[(\d+)\]$")
+_SEQUENCE_COUNT_PATH = re.compile(
+    r"^sequence_ledger\[(\d+)\]\.action#numbered_role_count$"
+)
+
+
+def _post_detail_sequence_repair_plan(
+    audit_payload: Dict[str, Any],
+) -> Tuple[List[Dict[str, Any]], List[str]]:
+    """Target only failed sequence fields and unresolved knowledge sentinels."""
+    ledger = audit_payload.get("sequence_ledger")
+    if not isinstance(ledger, list):
+        return [], ["sequence ledger is malformed"]
+    by_order = {
+        beat.get("order"): (index, beat)
+        for index, beat in enumerate(ledger)
+        if isinstance(beat, dict) and type(beat.get("order")) is int
+    }
+    phase_sizes = {
+        phase: sum(
+            1 for beat in ledger
+            if isinstance(beat, dict) and beat.get("phase") == phase
+        )
+        for phase in {"tag", "aftermath"}
+    }
+    material = {
+        order: (index, beat)
+        for order, (index, beat) in by_order.items()
+        if not _is_strict_sequence_absence_marker(
+            beat,
+            phase_size=phase_sizes.get(str(beat.get("phase", "")), 0),
+        )
+    }
+    targets: Dict[Tuple[int, str], set[str]] = {}
+    source_bindings: Dict[int, Dict[str, str]] = {}
+    action_spans: Dict[int, Tuple[int, int, int, int]] = {}
+    source_not_located_fields: set[Tuple[int, str]] = set()
+    atom_targets: List[Dict[str, Any]] = []
+    blockers: List[str] = []
+
+    def add(order: int, field: str, reason: str) -> None:
+        row = material.get(order)
+        if row is None or field not in GROUNDED_SEQUENCE_FIELDS:
+            blockers.append(f"invalid sequence repair target {order}.{field}")
+            return
+        targets.setdefault((row[0], field), set()).add(reason)
+
+    seen_orders: set[int] = set()
+    for result in audit_payload.get("sequence_evidence", []):
+        if not isinstance(result, dict):
+            blockers.append("sequence evidence row is malformed")
+            continue
+        if _SEQUENCE_COUNT_PATH.fullmatch(
+            str(result.get("field_path", ""))
+        ):
+            continue
+        match = _MATERIAL_SEQUENCE_PATH.fullmatch(
+            str(result.get("field_path", ""))
+        )
+        if match is None:
+            blockers.append("sequence evidence path is malformed")
+            continue
+        order = int(match.group(1))
+        if order not in material or order in seen_orders:
+            blockers.append(f"sequence evidence order {order} is invalid")
+            continue
+        seen_orders.add(order)
+        source_bindings[order] = {
+            "source_claim_sha256": str(result.get("claim_sha256", "")),
+            "source_row_identity": str(
+                result.get("row_identity")
+                or canonical_json_hash({
+                    "field_path": result.get("field_path"),
+                    "claim_sha256": result.get("claim_sha256"),
+                })
+            ),
+        }
+        checks = result.get("checks")
+        action_check = next((
+            check for check in checks
+            if isinstance(check, dict)
+            and check.get("field") == "action"
+            and check.get("supports") is True
+        ), None) if isinstance(checks, list) else None
+        action_span = _sequence_source_span(
+            (action_check or {}).get("source_anchor_id")
+        )
+        if action_span is not None:
+            action_spans[order] = action_span
+        if (
+            result.get("classification") == "unclassified"
+            or result.get("grounding_valid") is not True
+        ):
+            blockers.append(f"sequence evidence order {order} is unresolved")
+            continue
+        if result.get("classification") == "supported":
+            continue
+        if not isinstance(checks, list):
+            blockers.append(f"sequence evidence order {order} has no field checks")
+            continue
+        failed = [
+            str(check.get("field", ""))
+            for check in checks
+            if isinstance(check, dict) and check.get("supports") is False
+        ]
+        if not failed:
+            blockers.append(f"sequence evidence order {order} has no failed field")
+            continue
+        ungrounded_material = sorted(
+            set(failed) & {"action", "result"}
+        )
+        if ungrounded_material:
+            raw_atoms = result.get("material_atom_results")
+            atoms = raw_atoms if isinstance(raw_atoms, list) else []
+            supported_context = [
+                str(atom.get("text", ""))
+                for atom in atoms
+                if isinstance(atom, dict)
+                and atom.get("field") in {"action", "result"}
+                and atom.get("disposition") == "supported"
+            ]
+            if not atoms or not supported_context:
+                blockers.append(
+                    f"sequence material event order {order} has ungrounded "
+                    + "/".join(ungrounded_material)
+                    + "; atomic provenance is incomplete"
+                )
+            for field in ungrounded_material:
+                field_atoms = [
+                    atom for atom in atoms
+                    if isinstance(atom, dict) and atom.get("field") == field
+                ]
+                if not field_atoms:
+                    blockers.append(
+                        f"sequence material event order {order}.{field} "
+                        "has no atomic provenance"
+                    )
+                    continue
+                unresolved = [
+                    str(atom.get("atom_id", ""))
+                    for atom in field_atoms
+                    if atom.get("disposition") == "unresolved"
+                ]
+                if unresolved:
+                    blockers.append(
+                        f"sequence material event order {order}.{field} "
+                        "has unresolved atom(s): " + ", ".join(unresolved)
+                    )
+                not_located = [
+                    str(atom.get("atom_id", ""))
+                    for atom in field_atoms
+                    if atom.get("disposition") == "not_located"
+                ]
+                if not_located:
+                    blockers.append(
+                        f"sequence material event order {order}.{field} "
+                        "has NOT_LOCATED atom(s) requiring human review: "
+                        + ", ".join(not_located)
+                    )
+                for atom in field_atoms:
+                    if atom.get("disposition") != "contradicted":
+                        continue
+                    contradiction_source_id = atom.get("source_anchor_id")
+                    contradiction_excerpt = atom.get("excerpt")
+                    if (
+                        not isinstance(contradiction_source_id, str)
+                        or not isinstance(contradiction_excerpt, str)
+                        or not contradiction_excerpt.strip()
+                    ):
+                        blockers.append(
+                            f"sequence material event order {order}.{field} "
+                            f"atom {atom.get('atom_id')} lacks explicit "
+                            "contradiction provenance"
+                        )
+                        continue
+                    atom_claim = str(atom.get("text", ""))
+                    if _sequence_has_role_relation_swap(
+                        atom_claim, contradiction_excerpt
+                    ):
+                        blockers.append(
+                            f"sequence material event order {order}.{field} "
+                            f"atom {atom.get('atom_id')} changes participant "
+                            "roles and requires human review"
+                        )
+                        continue
+                    if not (
+                        not _sequence_numeric_claim_matches(
+                            atom_claim, contradiction_excerpt
+                        )
+                        or not _sequence_negation_matches(
+                            atom_claim, contradiction_excerpt
+                        )
+                        or _sequence_has_opposite_action(
+                            atom_claim, contradiction_excerpt
+                        )
+                    ):
+                        blockers.append(
+                            f"sequence material event order {order}.{field} "
+                            f"atom {atom.get('atom_id')} changes event roles "
+                            "or content and requires human review"
+                        )
+                        continue
+                    if not _sequence_same_repair_event(
+                        atom_claim.rstrip(" .!?"),
+                        contradiction_excerpt.rstrip(" .!?"),
+                    ):
+                        blockers.append(
+                            f"sequence material event order {order}.{field} "
+                            f"atom {atom.get('atom_id')} contradiction does "
+                            "not preserve one event and requires human review"
+                        )
+                        continue
+                    atom_targets.append({
+                        "repair_kind": "atom_patch",
+                        "slot": (
+                            f"sequence_{order:03d}_{field}_"
+                            f"atom_{int(str(atom['atom_id']).rsplit('_', 1)[1]):03d}"
+                        ),
+                        "ledger_index": material[order][0],
+                        "order": order,
+                        "field": field,
+                        "field_path": (
+                            f"sequence_ledger[order={order}].{field}"
+                            f"[atom={atom['atom_id']}]"
+                        ),
+                        "source_scalar": str(material[order][1].get(field, "")),
+                        "atom_id": str(atom["atom_id"]),
+                        "atom_start": int(atom["start"]),
+                        "atom_end": int(atom["end"]),
+                        "prior_value": str(atom["text"]),
+                        "disposition": str(atom["disposition"]),
+                        "atom_claim_sha256": str(atom["claim_sha256"]),
+                        "contradiction_source_anchor_id": (
+                            contradiction_source_id
+                        ),
+                        "contradiction_source_sha256": canonical_json_hash({
+                            "source_anchor_id": contradiction_source_id,
+                            "excerpt": contradiction_excerpt,
+                        }),
+                        "supported_event_context": supported_context,
+                        "reasons": ["failed atomic source-grounding check"],
+                        **source_bindings.get(order, {}),
+                    })
+        for field in failed:
+            if field in {"action", "result"}:
+                continue
+            add(order, field, "failed source-grounding check")
+            failed_check = next(
+                check for check in checks
+                if isinstance(check, dict) and check.get("field") == field
+            )
+            if (
+                field == "character_knowledge"
+                and "source_anchor_id" not in failed_check
+                and "page" not in failed_check
+                and "excerpt" not in failed_check
+            ):
+                source_not_located_fields.add((material[order][0], field))
+
+    missing_orders = sorted(set(material) - seen_orders)
+    if missing_orders:
+        blockers.append(
+            "sequence evidence is missing material order(s): "
+            + ", ".join(map(str, missing_orders))
+        )
+
+    position_rows = [
+        (index, order, beat, action_spans[order])
+        for order, (index, beat) in material.items()
+        if order in action_spans
+    ]
+    groups: Dict[Tuple[str, int], List[
+        Tuple[int, int, Dict[str, Any], Tuple[int, int, int, int]]
+    ]] = {}
+    for row in position_rows:
+        beat = row[2]
+        if type(beat.get("page")) is int:
+            groups.setdefault(
+                (str(beat.get("phase", "")), int(beat["page"])), []
+            ).append(row)
+    for rows in groups.values():
+        literal = sorted(rows, key=lambda row: row[3])
+        for current, expected in zip(rows, literal):
+            if current[1] == expected[1]:
+                continue
+            blockers.append(
+                "sequence source order inversion requires a new atomic audit: "
+                f"{current[1]} vs {expected[1]}"
+            )
+    for previous, current in zip(position_rows, position_rows[1:]):
+        if current[3] >= previous[3]:
+            continue
+        previous_group = (
+            str(previous[2].get("phase", "")), previous[2].get("page")
+        )
+        current_group = (
+            str(current[2].get("phase", "")), current[2].get("page")
+        )
+        if previous_group != current_group:
+            blockers.append(
+                "sequence source order inversion crosses frozen phase or page"
+            )
+
+    for order, (_index, beat) in material.items():
+        if str(beat.get("character_knowledge", "")).strip().upper() == (
+            "NOT LOCATED"
+        ):
+            add(order, "character_knowledge", "material knowledge not located")
+
+    seen_count_paths: set[str] = set()
+    for result in [
+        *audit_payload.get("existing_evidence_verdicts", []),
+        *audit_payload.get("sequence_evidence", []),
+    ]:
+        if not isinstance(result, dict):
+            continue
+        path = str(result.get("field_path", ""))
+        match = _SEQUENCE_COUNT_PATH.fullmatch(path)
+        if match is None:
+            continue
+        if path in seen_count_paths:
+            blockers.append(f"sequence count path {path} is duplicated")
+            continue
+        seen_count_paths.add(path)
+        order = int(match.group(1))
+        ledger_result = result.get("count_ledger")
+        if (
+            result.get("classification") == "unclassified"
+            or result.get("grounding_valid") is not True
+            or not isinstance(ledger_result, dict)
+            or ledger_result.get("valid") is not True
+        ):
+            blockers.append(f"sequence count order {order} is unresolved")
+        elif result.get("classification") != "supported":
+            blockers.append(
+                f"sequence count order {order} contradicts its material event"
+            )
+
+    field_order = {field: index for index, field in enumerate(
+        GROUNDED_SEQUENCE_FIELDS
+    )}
+    plan = []
+    for (index, field), reasons in sorted(
+        targets.items(), key=lambda item: (item[0][0], field_order[item[0][1]])
+    ):
+        beat = ledger[index]
+        order = int(beat["order"])
+        plan.append({
+            "repair_kind": "scalar",
+            "slot": f"sequence_{order:03d}_{field}",
+            "ledger_index": index,
+            "order": order,
+            "field": field,
+            "field_path": f"sequence_ledger[order={order}].{field}",
+            "prior_value": beat.get(field),
+            "reasons": sorted(reasons),
+            **(
+                {"prior_grounding_not_located": True}
+                if (index, field) in source_not_located_fields else {}
+            ),
+            **source_bindings.get(order, {}),
+        })
+    plan.extend(sorted(
+        atom_targets,
+        key=lambda item: (
+            int(item["ledger_index"]),
+            field_order[str(item["field"])],
+            int(item["atom_start"]),
+        ),
+    ))
+    if len(plan) > MAX_POST_DETAIL_SEQUENCE_REPAIR_FIELDS:
+        blockers.append(
+            "sequence repair exceeds the bounded field limit: "
+            f"{len(plan)} > {MAX_POST_DETAIL_SEQUENCE_REPAIR_FIELDS}"
+        )
+    return plan, sorted(set(blockers))
+
+
+def build_post_detail_sequence_repair_tool(
+    plan: Sequence[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Expose whole-scalar repairs separately from byte-bound atom patches."""
+    scalar_slots = [
+        str(item.get("slot", "")) for item in plan
+        if item.get("repair_kind", "scalar") == "scalar"
+    ]
+    atom_slots = [
+        str(item.get("slot", "")) for item in plan
+        if item.get("repair_kind") == "atom_patch"
+    ]
+    slots = [*scalar_slots, *atom_slots]
+    if (
+        not slots
+        or len(slots) > MAX_POST_DETAIL_SEQUENCE_REPAIR_FIELDS
+        or len(slots) != len(set(slots))
+        or any(not re.fullmatch(
+            r"sequence_\d{3}_(?:actor|action|result|character_knowledge|"
+            r"audience_knowledge)", slot
+        ) for slot in scalar_slots)
+        or any(not re.fullmatch(
+            r"sequence_\d{3}_(?:action|result)_atom_\d{3}", slot
+        ) for slot in atom_slots)
+        or any(
+            item.get("repair_kind", "scalar") not in {"scalar", "atom_patch"}
+            for item in plan
+        )
+    ):
+        raise CoverageContractError("Post-detail sequence repair plan is invalid")
+    properties: Dict[str, Any] = {}
+    required: List[str] = []
+    if scalar_slots:
+        properties["repairs"] = {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "slot": {"type": "string", "enum": scalar_slots},
+                    "corrected_value": {"type": "string"},
+                },
+                "required": ["slot", "corrected_value"],
+            },
+            "minItems": len(scalar_slots),
+            "maxItems": len(scalar_slots),
+        }
+        required.append("repairs")
+    if atom_slots:
+        properties["atom_repairs"] = {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "slot": {"type": "string", "enum": atom_slots},
+                    "old_fragment": {"type": "string"},
+                    "replacement": {"type": "string"},
+                    "source_id": {
+                        "type": "string",
+                        "pattern": (
+                            r"^sequence_[0-9]{3}_(?:action|result)_atom_"
+                            r"[0-9]{3}:replacement:" + _SEQUENCE_SOURCE_ANCHOR_ID
+                            + r"$"
+                        ),
+                    },
+                },
+                "required": [
+                    "slot", "old_fragment", "replacement", "source_id",
+                ],
+            },
+            "minItems": len(atom_slots),
+            "maxItems": len(atom_slots),
+        }
+        required.append("atom_repairs")
+    tool = {
+        "name": "submit_post_detail_sequence_repairs_v1_2",
+        "description": (
+            "Return every engine-selected scalar repair and exact atom patch. "
+            "Atom patches may replace only the byte-exact failed fragment; "
+            "all surrounding material remains frozen in code."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": properties,
+            "required": required,
+        },
+    }
+    stats = strict_schema_complexity(tool["input_schema"])
+    for metric, ceiling in STRICT_BUDGET.items():
+        if stats[metric] > ceiling:
+            raise CoverageContractError(
+                f"{tool['name']} exceeds strict budget: "
+                f"{metric}={stats[metric]} > {ceiling}"
+            )
+    return tool
+
+
+def build_post_detail_sequence_repair_user_blocks(
+    text: str,
+    title: str,
+    candidate: Dict[str, Any],
+    page_reference_map: PageReferenceMap,
+    sequence_focus: Dict[str, Any],
+    plan: Sequence[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    """Give the bounded repair only the literal ending pages and failed rows."""
+    source_blocks = build_sequence_retry_user_blocks(
+        text,
+        title,
+        candidate,
+        page_reference_map,
+        sequence_focus,
+        [],
+    )[:3]
+    failed_orders = {int(item["order"]) for item in plan}
+    failed_details = [
+        row for row in candidate.get("sequence_evidence", [])
+        if isinstance(row, dict)
+        and (
+            (match := _MATERIAL_SEQUENCE_PATH.fullmatch(
+                str(row.get("field_path", ""))
+            )) is not None
+            and int(match.group(1)) in failed_orders
+        )
+    ]
+    return [
+        *source_blocks,
+        {
+            "type": "text",
+            "text": (
+                "# FROZEN ORDERED SEQUENCE LEDGER\n\n"
+                + json.dumps(
+                    candidate.get("sequence_ledger", []),
+                    ensure_ascii=False,
+                    indent=1,
+                )
+                + "\n\n# FAILED SOURCE CHECKS\n\n"
+                + json.dumps(failed_details, ensure_ascii=False, indent=1)
+            ),
+        },
+        {
+            "type": "text",
+            "text": (
+                f"# POST-DETAIL SEQUENCE CORRECTION — {title}\n\n"
+                "Return every requested slot exactly once. For `repairs`, "
+                "correct only the named whole scalar. For `atom_repairs`, copy "
+                "`old_fragment` byte-for-byte from the plan and replace only "
+                "that exact fragment with one source-grounded correction. Bind "
+                "the correction as <slot>:replacement:<source-id>. Beat count, "
+                "order, phase, printed page, connectors, punctuation, supported "
+                "atoms, all unlisted fields, and all verdicts are frozen by "
+                "code. Never use a different true event from the same page as "
+                "a replacement. Do not include page citations inside corrected "
+                "values. Never delete, duplicate, merge, split, move, or change "
+                "an event or the event count. An unresolved atom is not "
+                "repairable in this pass and remains needs_review. "
+                "Preserve every distinct stage of the climax and the literal "
+                "order of relationship payoffs, revelations, detentions, "
+                "awards, ending, final scene, tag, and aftermath when present. "
+                "Do not invent the agent, mechanism, or activation of a reveal. "
+                "For character_knowledge, return one context-bound knower plus "
+                "one atomic knowledge predicate, or the exact value "
+                f"`{SEQUENCE_KNOWLEDGE_NOT_APPLICABLE}` only when that beat "
+                "makes no separate material knowledge assertion and the prior "
+                "full-page source audit found no source for that exact field. "
+                "Never return NOT LOCATED, NOT PRESENT, N/A, a synonym, a "
+                "second fact clause, or numeric shorthand.\n\n"
+                "REQUIRED FIELD PLAN:\n"
+                + json.dumps(list(plan), ensure_ascii=False, indent=1)
+            ),
+        },
+    ]
+
+
+def _sequence_material_event_inventory(
+    payload: Dict[str, Any],
+) -> List[Dict[str, Any]]:
+    """Freeze action/result events while allowing same-page bundle reorder."""
+    ledger = payload.get("sequence_ledger")
+    if not isinstance(ledger, list):
+        return []
+    inventory = [
+        {
+            "phase": beat.get("phase"),
+            "page": beat.get("page"),
+            "action": " ".join(str(beat.get("action", "")).split()),
+            "result": " ".join(str(beat.get("result", "")).split()),
+        }
+        for index, beat in enumerate(ledger)
+        if isinstance(beat, dict)
+        and not all(
+            str(beat.get(field, "")).strip().upper() == "NOT PRESENT"
+            for field in GROUNDED_SEQUENCE_FIELDS
+        )
+    ]
+    return sorted(
+        inventory,
+        key=lambda item: (
+            str(item["phase"]),
+            int(item["page"]) if type(item["page"]) is int else -1,
+            str(item["action"]),
+            str(item["result"]),
+        ),
+    )
+
+
+def _sequence_protected_event_inventory(
+    payload: Dict[str, Any],
+    plan: Sequence[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    """Mask only authorized atom spans; bind every other byte and event order."""
+    ledger = payload.get("sequence_ledger")
+    if not isinstance(ledger, list):
+        return []
+    grouped: Dict[Tuple[int, str], List[Dict[str, Any]]] = {}
+    for item in plan:
+        if item.get("repair_kind") != "atom_patch":
+            continue
+        try:
+            key = (int(item["ledger_index"]), str(item["field"]))
+        except (KeyError, TypeError, ValueError):
+            return [{"invalid_atom_plan": canonical_json_hash(list(plan))}]
+        grouped.setdefault(key, []).append(item)
+
+    def protected_scalar(
+        value: Any, items: Sequence[Dict[str, Any]],
+    ) -> str:
+        if not isinstance(value, str) or not items:
+            return str(value)
+        source_values = {str(item.get("source_scalar", "")) for item in items}
+        if len(source_values) != 1:
+            return "<INVALID_ATOM_PLAN>" + value
+        source = next(iter(source_values))
+        ordered = sorted(items, key=lambda item: int(item.get("atom_start", -1)))
+        cursor = 0
+        pattern: List[str] = [r"\A"]
+        masked: List[str] = []
+        for item in ordered:
+            try:
+                start = int(item["atom_start"])
+                end = int(item["atom_end"])
+            except (KeyError, TypeError, ValueError):
+                return "<INVALID_ATOM_PLAN>" + value
+            prior = str(item.get("prior_value", ""))
+            claim = {
+                "field": item.get("field"),
+                "start": start,
+                "end": end,
+                "text": prior,
+            }
+            if (
+                start < cursor
+                or start >= end
+                or source[start:end] != prior
+                or item.get("atom_claim_sha256") != canonical_json_hash(claim)
+            ):
+                return "<INVALID_ATOM_PLAN>" + value
+            immutable = source[cursor:start]
+            pattern.extend((re.escape(immutable), r"(.+?)"))
+            masked.extend((
+                immutable,
+                f"<ATOM:{item.get('slot')}:{item.get('atom_claim_sha256')}>",
+            ))
+            cursor = end
+        pattern.extend((re.escape(source[cursor:]), r"\Z"))
+        match = re.fullmatch("".join(pattern), value, flags=re.DOTALL)
+        if match is None or any(
+            not fragment.strip()
+            or fragment != " ".join(fragment.split())
+            for fragment in match.groups()
+        ):
+            return "<INVALID_ATOM_PATCH>" + value
+        masked.append(source[cursor:])
+        return "".join(masked)
+
+    inventory: List[Dict[str, Any]] = []
+    for index, beat in enumerate(ledger):
+        if not isinstance(beat, dict) or all(
+            str(beat.get(field, "")).strip().upper() == "NOT PRESENT"
+            for field in GROUNDED_SEQUENCE_FIELDS
+        ):
+            continue
+        inventory.append({
+            "order": beat.get("order"),
+            "phase": beat.get("phase"),
+            "page": beat.get("page"),
+            "action": protected_scalar(
+                beat.get("action", ""), grouped.get((index, "action"), [])
+            ),
+            "result": protected_scalar(
+                beat.get("result", ""), grouped.get((index, "result"), [])
+            ),
+        })
+    return inventory
+
+
+def _sequence_repair_source_order_is_literal(candidate: Dict[str, Any]) -> bool:
+    """Require corrected same-page actions to follow their bound source lines."""
+    ledger = candidate.get("sequence_ledger")
+    if not isinstance(ledger, list):
+        return False
+    evidence = {
+        str(row.get("field_path", "")): row
+        for row in candidate.get("sequence_evidence", [])
+        if isinstance(row, dict)
+    }
+    prior = (0, 0)
+    action_spans: List[Tuple[int, int, int, int]] = []
+    for index, beat in enumerate(ledger):
+        if not isinstance(beat, dict) or all(
+            str(beat.get(field, "")).strip().upper() == "NOT PRESENT"
+            for field in GROUNDED_SEQUENCE_FIELDS
+        ):
+            continue
+        order = beat.get("order")
+        page = beat.get("page")
+        phase = beat.get("phase")
+        if type(order) is not int or type(page) is not int or not isinstance(phase, str):
+            return False
+        row = evidence.get(f"sequence_ledger[{order}]")
+        action_check = next((
+            check for check in row.get("checks", [])
+            if isinstance(check, dict) and check.get("field") == "action"
+        ), None) if isinstance(row, dict) else None
+        span = _sequence_source_span(
+            (action_check or {}).get("source_anchor_id")
+        )
+        if span is None:
+            return False
+        if any(
+            prior_span[:2] <= span[2:]
+            and span[:2] <= prior_span[2:]
+            for prior_span in action_spans
+        ):
+            return False
+        action_spans.append(span)
+        source_page, source_line, _end_page, _end_line = span
+        range_start, range_end = _sequence_allowed_page_range(ledger, index)
+        if (
+            range_start is None
+            or range_end is None
+            or not (range_start <= source_page <= range_end)
+        ):
+            return False
+        source_position = (source_page, source_line)
+        if source_position < prior:
+            return False
+        prior = source_position
+    return True
+
+
+def _sequence_actor_bound_knowledge_exists(
+    ledger: Sequence[Dict[str, Any]],
+    ledger_index: int,
+    source_text: str,
+) -> bool:
+    """Scan every allowed source page for actor-bound staged knowledge."""
+    beat = ledger[ledger_index]
+    actor_context = str(beat.get("actor", ""))
+    actor_names = _sequence_named_actors(actor_context)
+    page = beat.get("page")
+    if type(page) is not int:
+        return True
+    start_page, end_page = _sequence_allowed_page_range(
+        ledger, ledger_index
+    )
+    if start_page is None or end_page is None:
+        return True
+    _numbers, pages = _marked_page_contents(source_text)
+    for allowed_page in range(start_page, end_page + 1):
+        lines = pages.get(allowed_page, "").splitlines()
+        for index in range(len(lines)):
+            start = max(0, index - 2)
+            window = lines[start:index + 1]
+            last_heading = next((
+                offset for offset, line in reversed(list(enumerate(window)))
+                if SCENE_HEADING_PATTERN.match(line)
+            ), None)
+            if last_heading is not None:
+                window = window[last_heading + 1:]
+            excerpt = " ".join(" ".join(line.split()) for line in window)
+            for clause in _sequence_knowledge_clauses(excerpt):
+                if not _SEQUENCE_EXPLICIT_KNOWLEDGE_VERB.search(clause):
+                    continue
+                subject = _sequence_knower_subject(clause)
+                fact = _sequence_knowledge_fact(clause).strip(" .,:;!?")
+                subject_words = set(re.findall(
+                    r"[a-záéíóúüñ]+", _fold_evidence_text(subject)
+                ))
+                anaphoric_subject = bool(
+                    not subject_words
+                    or subject_words.issubset(_SEQUENCE_DIALOGUE_PRONOUNS)
+                )
+                actor_named_in_window = any(
+                    re.search(
+                        rf"(?<!\w){re.escape(_fold_evidence_text(name))}(?!\w)",
+                        _fold_evidence_text(excerpt),
+                    )
+                    for name in actor_names
+                )
+                if fact and anaphoric_subject and actor_named_in_window:
+                    return True
+                if subject and fact and (
+                    _sequence_subject_matches_context(
+                        actor_context, subject, knowledge=True
+                    )
+                    or any(
+                        _sequence_subject_matches_context(
+                            name, subject, knowledge=True
+                        )
+                        for name in actor_names
+                    )
+                ):
+                    return True
+    return False
+
+
+def _apply_post_detail_sequence_repairs(
+    candidate: Dict[str, Any],
+    repaired: Any,
+    plan: Sequence[Dict[str, Any]],
+    *,
+    source_text: Optional[str] = None,
+) -> Tuple[Dict[str, Any], List[str]]:
+    """Apply whole scalars or exact atom spans while freezing all other bytes."""
+    if not isinstance(repaired, dict):
+        raise CoverageContractError("Post-detail sequence repair is malformed")
+    scalar_plan = [
+        item for item in plan
+        if item.get("repair_kind", "scalar") == "scalar"
+    ]
+    atom_plan = [
+        item for item in plan if item.get("repair_kind") == "atom_patch"
+    ]
+    expected_keys = {
+        *( ["repairs"] if scalar_plan else []),
+        *( ["atom_repairs"] if atom_plan else []),
+    }
+    if set(repaired) != expected_keys:
+        raise CoverageContractError(
+            "Post-detail sequence repair contains the wrong repair groups"
+        )
+
+    expected = {str(item["slot"]): item for item in scalar_plan}
+    returned: Dict[str, str] = {}
+    values = repaired.get("repairs", [])
+    if not isinstance(values, list):
+        raise CoverageContractError("Post-detail scalar repairs are malformed")
+    for item in values:
+        if not isinstance(item, dict) or set(item) != {
+            "slot", "corrected_value",
+        }:
+            raise CoverageContractError(
+                "Post-detail sequence repair item has invalid fields"
+            )
+        slot = item.get("slot")
+        value = item.get("corrected_value")
+        if (
+            not isinstance(slot, str)
+            or slot in returned
+            or not isinstance(value, str)
+        ):
+            raise CoverageContractError(
+                "Post-detail sequence repair contains a duplicate or invalid slot"
+            )
+        returned[slot] = value
+    if set(returned) != set(expected):
+        raise CoverageContractError(
+            "Post-detail sequence repair did not return every required field"
+        )
+
+    expected_atoms = {str(item["slot"]): item for item in atom_plan}
+    returned_atoms: Dict[str, Dict[str, str]] = {}
+    atom_values = repaired.get("atom_repairs", [])
+    if not isinstance(atom_values, list):
+        raise CoverageContractError("Post-detail atom repairs are malformed")
+    for item in atom_values:
+        if not isinstance(item, dict) or set(item) != {
+            "slot", "old_fragment", "replacement", "source_id",
+        }:
+            raise CoverageContractError(
+                "Post-detail atom repair item has invalid fields"
+            )
+        if not all(isinstance(item.get(key), str) for key in item):
+            raise CoverageContractError(
+                "Post-detail atom repair values must be strings"
+            )
+        slot = str(item["slot"])
+        if slot in returned_atoms:
+            raise CoverageContractError(
+                "Post-detail atom repair contains a duplicate slot"
+            )
+        returned_atoms[slot] = item
+    if set(returned_atoms) != set(expected_atoms):
+        raise CoverageContractError(
+            "Post-detail atom repair did not return every required fragment"
+        )
+
+    ledger = candidate.get("sequence_ledger")
+    if not isinstance(ledger, list):
+        raise CoverageContractError("Post-detail sequence ledger is malformed")
+    updated = copy.deepcopy(candidate)
+    changed_paths: List[str] = []
+    targeted = {
+        (int(item["ledger_index"]), str(item["field"])) for item in plan
+    }
+    for slot, item in expected.items():
+        index = int(item["ledger_index"])
+        field = str(item["field"])
+        if (
+            index >= len(ledger)
+            or not isinstance(ledger[index], dict)
+            or field not in GROUNDED_SEQUENCE_FIELDS
+        ):
+            raise CoverageContractError(
+                "Post-detail sequence repair target is malformed"
+            )
+        value = returned[slot]
+        if not value.strip() or value != " ".join(value.split()):
+            raise CoverageContractError(
+                "Post-detail sequence repair values must be one normalized line"
+            )
+        upper = value.upper()
+        if upper in {"NOT LOCATED", "NOT PRESENT"}:
+            raise CoverageContractError(
+                "Post-detail sequence repair left an unresolved sentinel"
+            )
+        if (
+            value != item.get("prior_value")
+            and (
+                _prose_page_spans(value)
+                or _sequence_action_page_spans(value)
+            )
+        ):
+            raise CoverageContractError(
+                "Post-detail sequence repair values cannot move the frozen page"
+            )
+        if field == "character_knowledge":
+            if value == SEQUENCE_KNOWLEDGE_NOT_APPLICABLE:
+                corrected_beat = updated["sequence_ledger"][index]
+                material_context = " ".join(
+                    str(corrected_beat.get(key, ""))
+                    for key in ("action", "result")
+                )
+                if (
+                    item.get("prior_grounding_not_located") is not True
+                    or source_text is None
+                    or _sequence_actor_bound_knowledge_exists(
+                        updated["sequence_ledger"], index, source_text
+                    )
+                    or _SEQUENCE_EXPLICIT_KNOWLEDGE_VERB.search(
+                        material_context
+                    )
+                ):
+                    raise CoverageContractError(
+                        "NOT APPLICABLE cannot erase stated or staged "
+                        "character knowledge"
+                    )
+            elif not _has_exactly_one_knowledge_claim(value):
+                raise CoverageContractError(
+                    "Post-detail character knowledge must be one atomic claim "
+                    "or the exact not-applicable sentinel"
+                )
+        elif upper == SEQUENCE_KNOWLEDGE_NOT_APPLICABLE:
+            raise CoverageContractError(
+                "NOT APPLICABLE is valid only for character knowledge"
+            )
+        updated["sequence_ledger"][index][field] = value
+        changed_paths.append(str(item["field_path"]))
+
+    atom_groups: Dict[Tuple[int, str], List[Tuple[Dict[str, Any], str]]] = {}
+    for slot, item in expected_atoms.items():
+        index = int(item["ledger_index"])
+        field = str(item["field"])
+        response = returned_atoms[slot]
+        old_fragment = response["old_fragment"]
+        replacement = response["replacement"]
+        if (
+            index >= len(ledger)
+            or not isinstance(ledger[index], dict)
+            or field not in {"action", "result"}
+            or ledger[index].get(field) != item.get("source_scalar")
+            or old_fragment != item.get("prior_value")
+        ):
+            raise CoverageContractError(
+                "Post-detail atom repair changed its frozen source fragment"
+            )
+        if (
+            not replacement.strip()
+            or replacement != " ".join(replacement.split())
+            or replacement == old_fragment
+            or _prose_page_spans(replacement)
+            or _sequence_action_page_spans(replacement)
+        ):
+            raise CoverageContractError(
+                "Post-detail atom replacement must be one changed normalized line"
+            )
+        if source_text is None:
+            raise CoverageContractError(
+                "Post-detail atom replacement requires screenplay source"
+            )
+        prefix = f"{slot}:replacement:"
+        source_id = response["source_id"]
+        anchor_id = source_id.removeprefix(prefix)
+        if (
+            not source_id.startswith(prefix)
+            or re.fullmatch(_SEQUENCE_SOURCE_ANCHOR_ID, anchor_id) is None
+        ):
+            raise CoverageContractError(
+                "Post-detail atom replacement source is not slot-bound"
+            )
+        anchor = _sequence_source_anchor(source_text, anchor_id)
+        beat = ledger[index]
+        range_start, range_end = _sequence_allowed_page_range(ledger, index)
+        if (
+            anchor is None
+            or range_start is None
+            or range_end is None
+            or not (range_start <= int(anchor["page"]) <= range_end)
+        ):
+            raise CoverageContractError(
+                "Post-detail atom replacement source is outside its beat pages"
+            )
+        excerpt = str(anchor["excerpt"])
+        if (
+            item.get("disposition") != "contradicted"
+            or anchor_id != item.get("contradiction_source_anchor_id")
+            or item.get("contradiction_source_sha256")
+            != canonical_json_hash({
+                "source_anchor_id": anchor_id,
+                "excerpt": excerpt,
+            })
+        ):
+            raise CoverageContractError(
+                "Post-detail atom replacement changed its contradiction source"
+            )
+        synthetic = {**beat, field: replacement}
+        source_supported = bool(
+            (
+                _sequence_atomic_fact_matches(replacement, excerpt)
+                or _sequence_compound_range_matches(
+                    synthetic, field, excerpt
+                )
+                or _sequence_field_relevance_terms(
+                    synthetic, field, excerpt
+                )
+            )
+            and _sequence_numeric_claim_matches(replacement, excerpt)
+            and _sequence_negation_matches(replacement, excerpt)
+            and not _sequence_has_opposite_action(replacement, excerpt)
+            and not _sequence_has_role_relation_swap(replacement, excerpt)
+            and not _sequence_omits_claimed_participant(
+                str(beat.get("actor", "")), replacement, excerpt
+            )
+        )
+        same_event = _sequence_same_repair_event(
+            old_fragment, replacement
+        )
+        if not source_supported or not same_event:
+            raise CoverageContractError(
+                "Post-detail atom replacement is not the same source-grounded event"
+            )
+        atom_groups.setdefault((index, field), []).append((item, replacement))
+        changed_paths.append(str(item["field_path"]))
+
+    for (index, field), patches in atom_groups.items():
+        source_scalar = str(ledger[index].get(field, ""))
+        corrected = source_scalar
+        cursor = len(source_scalar)
+        for item, replacement in sorted(
+            patches, key=lambda pair: int(pair[0]["atom_start"]), reverse=True
+        ):
+            start = int(item["atom_start"])
+            end = int(item["atom_end"])
+            claim = {
+                "field": field,
+                "start": start,
+                "end": end,
+                "text": item["prior_value"],
+            }
+            if (
+                start < 0
+                or start >= end
+                or end > cursor
+                or source_scalar[start:end] != item["prior_value"]
+                or item.get("atom_claim_sha256") != canonical_json_hash(claim)
+            ):
+                raise CoverageContractError(
+                    "Post-detail atom repair span is invalid or overlaps"
+                )
+            corrected = corrected[:start] + replacement + corrected[end:]
+            cursor = start
+        updated["sequence_ledger"][index][field] = corrected
+
+    for index, (before, after) in enumerate(zip(
+        ledger, updated["sequence_ledger"]
+    )):
+        if not isinstance(before, dict) or not isinstance(after, dict):
+            raise CoverageContractError("Post-detail sequence ledger is malformed")
+        for key in set(before) | set(after):
+            if (index, key) not in targeted and before.get(key) != after.get(key):
+                raise CoverageContractError(
+                    f"Post-detail sequence repair changed protected field {index}.{key}"
+                )
+    if len(ledger) != len(updated["sequence_ledger"]):
+        raise CoverageContractError(
+            "Post-detail sequence repair changed the ledger length"
+        )
+    if _sequence_protected_event_inventory(candidate, plan) != (
+        _sequence_protected_event_inventory(updated, plan)
+    ):
+        raise CoverageContractError(
+            "Post-detail sequence repair changed a protected material event"
+        )
+    verdicts = {
+        str(row.get("claim_id", "")): row
+        for row in updated.get("verdicts", [])
+        if isinstance(row, dict)
+    }
+    guard = verdicts.get("guard.sequence_integrity")
+    if guard is not None:
+        guard["classification"] = "supported"
+        guard["note"] = "Corrected sequence fields await source re-audit."
+    updated["sequence_evidence"] = []
+    updated["_sequence_repair_authorized_not_applicable_orders"] = sorted({
+        int(item["order"])
+        for item in scalar_plan
+        if item["field"] == "character_knowledge"
+        and returned[str(item["slot"])]
+        == SEQUENCE_KNOWLEDGE_NOT_APPLICABLE
+    })
+    return updated, sorted(changed_paths)
+
+
+def _post_detail_sequence_repair_rows(
+    coverage: Dict[str, Any],
+    evidence_checks: Sequence[Dict[str, Any]],
+    source_audit: Dict[str, Any],
+    candidate: Dict[str, Any],
+    plan: Sequence[Dict[str, Any]],
+) -> Tuple[
+    List[Dict[str, Any]],
+    List[Dict[str, Any]],
+    List[Dict[str, str]],
+    List[Dict[str, Any]],
+]:
+    """Re-audit changed whole beats and their derived count rows only."""
+    all_rows = build_detail_audit_rows(
+        coverage, evidence_checks, candidate.get("sequence_ledger", [])
+    )
+    changed_orders = {int(item["order"]) for item in plan}
+    atom_orders = {
+        int(item["order"])
+        for item in plan if item.get("repair_kind") == "atom_patch"
+    }
+    material_reaudit_orders = set(atom_orders)
+    for result in source_audit.get("sequence_evidence", []):
+        if not isinstance(result, dict):
+            continue
+        match = _MATERIAL_SEQUENCE_PATH.fullmatch(
+            str(result.get("field_path", ""))
+        )
+        if match is None or int(match.group(1)) not in changed_orders:
+            continue
+        checks = result.get("checks")
+        if isinstance(checks, list) and any(
+            isinstance(check, dict)
+            and check.get("field") in {"action", "result"}
+            and check.get("supports") is False
+            for check in checks
+        ):
+            material_reaudit_orders.add(int(match.group(1)))
+    for row in all_rows:
+        match = _MATERIAL_SEQUENCE_PATH.fullmatch(
+            str(row.get("identifier", ""))
+        )
+        subject = row.get("subject")
+        if (
+            match is not None
+            and int(match.group(1)) in material_reaudit_orders
+            and isinstance(subject, dict)
+            and isinstance(subject.get("beat"), dict)
+        ):
+            subject["required_material_atom_reaudit"] = True
+            subject["material_claim_atoms"] = _sequence_material_claim_atoms(
+                subject["beat"]
+            )
+    evidence, citations, pending = _reusable_detail_seed(
+        coverage, evidence_checks, source_audit, all_rows
+    )
+
+    def row_order(row: Dict[str, Any]) -> Optional[int]:
+        identifier = str(row.get("identifier", ""))
+        match = _MATERIAL_SEQUENCE_PATH.fullmatch(identifier)
+        if match is None:
+            match = _SEQUENCE_COUNT_PATH.fullmatch(identifier)
+        return int(match.group(1)) if match is not None else None
+
+    pending_orders = {row_order(row) for row in pending}
+    if (
+        None in pending_orders
+        or not pending_orders.issubset(changed_orders)
+        or any(
+            not (
+                row.get("kind") == "sequence_evidence"
+                or (
+                    row.get("kind") == "existing_evidence"
+                    and _SEQUENCE_COUNT_PATH.fullmatch(
+                        str(row.get("identifier", ""))
+                    )
+                )
+            )
+            for row in pending
+        )
+        or not changed_orders.issubset({
+            row_order(row)
+            for row in pending
+            if row.get("kind") == "sequence_evidence"
+        })
+    ):
+        raise CoverageContractError(
+            "Post-detail sequence repair changed an unplanned detail row"
+        )
+    return all_rows, evidence, citations, pending
+
+
+def _post_detail_sequence_repair_is_protected(
+    source: Dict[str, Any],
+    candidate: Dict[str, Any],
+    plan: Sequence[Dict[str, Any]],
+    coverage: Optional[Dict[str, Any]] = None,
+    source_text: Optional[str] = None,
+) -> bool:
+    """Confirm every non-derived value stayed byte-for-byte frozen."""
+    normalized = copy.deepcopy(candidate)
+    if coverage is not None:
+        pre_reconciliation = copy.deepcopy(normalized)
+        for key in (
+            "deterministic_sequence_mismatches",
+            "sequence_normalization_diagnostics",
+        ):
+            if key in source:
+                pre_reconciliation[key] = copy.deepcopy(source[key])
+            else:
+                pre_reconciliation.pop(key, None)
+        source_cross_field = next((
+            row for row in source.get("verdicts", [])
+            if isinstance(row, dict)
+            and row.get("claim_id") == "guard.cross_field_consistency"
+        ), None)
+        for index, row in enumerate(pre_reconciliation.get("verdicts", [])):
+            if (
+                isinstance(row, dict)
+                and row.get("claim_id") == "guard.cross_field_consistency"
+                and source_cross_field is not None
+            ):
+                pre_reconciliation["verdicts"][index] = copy.deepcopy(
+                    source_cross_field
+                )
+        if _reconcile_literal_sequence_claims(
+            copy.deepcopy(pre_reconciliation), coverage
+        ) != normalized:
+            return False
+        normalized = pre_reconciliation
+    ledger = normalized.get("sequence_ledger")
+    source_ledger = source.get("sequence_ledger")
+    if not isinstance(ledger, list) or not isinstance(source_ledger, list):
+        return False
+    if len(ledger) != len(source_ledger):
+        return False
+    if _sequence_protected_event_inventory(source, plan) != (
+        _sequence_protected_event_inventory(candidate, plan)
+    ):
+        return False
+    if coverage is not None and not _sequence_repair_source_order_is_literal(
+        candidate
+    ):
+        return False
+    restored_fields: set[Tuple[int, str]] = set()
+    for item in plan:
+        index = int(item["ledger_index"])
+        field = str(item["field"])
+        source_value = (
+            item.get("source_scalar")
+            if item.get("repair_kind") == "atom_patch"
+            else item.get("prior_value")
+        )
+        if (
+            index >= len(ledger)
+            or ledger[index].get("order") != item.get("order")
+            or source_ledger[index].get(field) != source_value
+        ):
+            return False
+        if (index, field) not in restored_fields:
+            ledger[index][field] = source_ledger[index].get(field)
+            restored_fields.add((index, field))
+    normalized["sequence_evidence"] = copy.deepcopy(
+        source.get("sequence_evidence", [])
+    )
+    normalized.pop("_sequence_repair_authorized_not_applicable_orders", None)
+    source_verdicts = {
+        str(row.get("claim_id", "")): row
+        for row in source.get("verdicts", [])
+        if isinstance(row, dict)
+    }
+    for index, row in enumerate(normalized.get("verdicts", [])):
+        if (
+            isinstance(row, dict)
+            and row.get("claim_id") == "guard.sequence_integrity"
+            and "guard.sequence_integrity" in source_verdicts
+        ):
+            normalized["verdicts"][index] = copy.deepcopy(
+                source_verdicts["guard.sequence_integrity"]
+            )
+    return normalized == source
+
+
+def _validated_sequence_repair_checkpoint(
+    payload: Optional[Dict[str, Any]],
+    source_audit_sha256: str,
+    material_event_inventory_sha256: str,
+    plan: Sequence[Dict[str, Any]],
+    *,
+    final: bool,
+) -> Optional[Dict[str, Any]]:
+    """Fail closed if a sequence-repair checkpoint loses any binding."""
+    if payload is None:
+        return None
+    candidate = payload.get("audit")
+    expected_paths = sorted(str(item["field_path"]) for item in plan)
+    candidate_ledger = (
+        candidate.get("sequence_ledger", [])
+        if isinstance(candidate, dict) else []
+    )
+    expected_orders: List[int] = []
+    if isinstance(candidate_ledger, list):
+        for item in plan:
+            index = int(item["ledger_index"])
+            if (
+                item["field"] == "character_knowledge"
+                and index < len(candidate_ledger)
+                and isinstance(candidate_ledger[index], dict)
+                and candidate_ledger[index].get("character_knowledge")
+                == SEQUENCE_KNOWLEDGE_NOT_APPLICABLE
+            ):
+                expected_orders.append(int(item["order"]))
+    expected_orders = sorted(set(expected_orders))
+    valid = (
+        payload.get("sequence_repair_contract_version")
+        == SEQUENCE_REPAIR_CONTRACT_VERSION
+        and payload.get("source_audit_sha256") == source_audit_sha256
+        and payload.get("material_event_inventory_sha256")
+        == material_event_inventory_sha256
+        and payload.get("plan") == list(plan)
+        and payload.get("plan_sha256") == canonical_json_hash(list(plan))
+        and isinstance(candidate, dict)
+        and payload.get("audit_sha256") == canonical_json_hash(candidate)
+        and payload.get("corrected_ledger_sha256")
+        == canonical_json_hash(candidate.get("sequence_ledger", []))
+        and canonical_json_hash(
+            _sequence_protected_event_inventory(candidate, plan)
+        )
+        == material_event_inventory_sha256
+        and payload.get("changed_paths") == expected_paths
+        and payload.get("authorized_not_applicable_orders") == expected_orders
+        and candidate.get(
+            "_sequence_repair_authorized_not_applicable_orders", []
+        ) == expected_orders
+        and bool(payload.get("details_verified")) is final
+    )
+    if not valid:
+        raise CheckpointTamperedError(
+            "Sequence repair checkpoint binding is malformed"
+        )
+    return payload
+
+
 def _replace_audit_details(
     payload: Dict[str, Any],
     evidence_rows: Sequence[Dict[str, str]],
@@ -10422,6 +12867,29 @@ def _legacy_detail_16_user_blocks(
         if not isinstance(block_text, str):
             continue
         prior = block_text
+        detail_marker = "\n\nUse the typed tool arrays."
+        if (
+            block_text.startswith("# REQUIRED DETAIL ROWS")
+            and detail_marker in block_text
+        ):
+            heading_and_rows, instructions = block_text.split(
+                detail_marker, 1
+            )
+            heading, serialized_rows = heading_and_rows.split("\n\n", 1)
+            detail_rows = json.loads(serialized_rows)
+            for row in detail_rows:
+                subject = row.get("subject")
+                if isinstance(subject, dict):
+                    subject.pop("source_page_range", None)
+                    subject.pop("material_claim_atoms", None)
+                    subject.pop("required_material_atom_reaudit", None)
+            block_text = (
+                heading
+                + "\n\n"
+                + json.dumps(detail_rows, ensure_ascii=False, indent=1)
+                + detail_marker
+                + instructions
+            )
         block_text = block_text.replace(
             "Use each ID only as the suffix of its row-and-field-bound token. "
             "The engine owns its printed page and text.",
@@ -10457,6 +12925,7 @@ def _legacy_detail_tool(tool: Any) -> Optional[Dict[str, Any]]:
         )
         if not isinstance(item_properties, dict):
             continue
+        item_properties.pop("material_atom_results", None)
         source_keys = [
             key for key in item_properties if key.endswith("_source_id")
         ]
@@ -11253,19 +13722,52 @@ def run_coverage_v1(
         coverage_sha256 = canonical_json_hash(candidate_coverage)
         candidate_sha256 = canonical_json_hash(candidate)
         rows_sha256 = canonical_json_hash(all_rows)
+        sequence_range_prior_rows = copy.deepcopy(all_rows)
+        for row in sequence_range_prior_rows:
+            subject = row.get("subject")
+            if row.get("kind") != "sequence_evidence" or not isinstance(
+                subject, dict
+            ):
+                continue
+            subject.pop("source_page_range", None)
+            subject.pop("material_claim_atoms", None)
+            subject.pop("required_material_atom_reaudit", None)
+            beat = subject.get("beat")
+            required_fields = subject.get("required_fields")
+            if (
+                isinstance(beat, dict)
+                and isinstance(required_fields, list)
+                and str(beat.get("character_knowledge", "")).strip().upper()
+                == "NOT LOCATED"
+            ):
+                subject["required_fields"] = [
+                    field for field in required_fields
+                    if field != "character_knowledge"
+                ]
+        sequence_range_prior_rows_sha256 = canonical_json_hash(
+            sequence_range_prior_rows
+        )
         progress = _verified_payload(
             checkpoint_store.load(checkpoint_key, progress_stage),
             binding,
             progress_stage,
         )
         source_anchor_prior_rows: List[Dict[str, Any]] = []
+        sequence_range_migration = False
         if progress is not None:
             progress_version = progress.get("detail_contract_version")
+            sequence_range_migration = bool(
+                progress_version == SEQUENCE_RANGE_MIGRATION_VERSION
+                and sequence_range_prior_rows_sha256 != rows_sha256
+                and progress.get("rows_sha256")
+                == sequence_range_prior_rows_sha256
+            )
             source_anchor_migration = (
                 progress_version in {
                     SOURCE_ANCHOR_MIGRATION_VERSION,
                     LEGACY_FIELD_SOURCE_PROGRESS_VERSION,
                 }
+                or sequence_range_migration
             )
             if progress_version == SOURCE_ANCHOR_MIGRATION_VERSION:
                 source_anchor_prior_rows = build_detail_audit_rows(
@@ -11277,6 +13779,8 @@ def run_coverage_v1(
                     ),
                     candidate.get("sequence_ledger", []),
                 )
+            elif sequence_range_migration:
+                source_anchor_prior_rows = sequence_range_prior_rows
             elif source_anchor_migration:
                 source_anchor_prior_rows = all_rows
             if (
@@ -11286,6 +13790,7 @@ def run_coverage_v1(
                     LEGACY_DETAIL_PROGRESS_VERSION,
                     SOURCE_ANCHOR_MIGRATION_VERSION,
                     LEGACY_FIELD_SOURCE_PROGRESS_VERSION,
+                    SEQUENCE_RANGE_MIGRATION_VERSION,
                 }
                 or progress.get("coverage_sha256") != coverage_sha256
                 or progress.get("candidate_sha256") != candidate_sha256
@@ -11306,11 +13811,14 @@ def run_coverage_v1(
         )
         source_anchor_progress = bool(
             progress is not None
-            and progress.get("detail_contract_version")
-            in {
-                SOURCE_ANCHOR_MIGRATION_VERSION,
-                LEGACY_FIELD_SOURCE_PROGRESS_VERSION,
-            }
+            and (
+                progress.get("detail_contract_version")
+                in {
+                    SOURCE_ANCHOR_MIGRATION_VERSION,
+                    LEGACY_FIELD_SOURCE_PROGRESS_VERSION,
+                }
+                or sequence_range_migration
+            )
         )
         partial_typed_b_progress = bool(
             progress is not None
@@ -11998,9 +14506,9 @@ def run_coverage_v1(
         save_progress()
 
         if (
-            not typed_b_plan
-            and guard.in_flight is None
+            guard.in_flight is None
             and guard.calls_started < guard.max_calls
+            and guard.max_calls > fact_repair_deferred_at_call_cap
         ):
             unclassified_identifiers = {
                 str(row.get(identifier_field, ""))
@@ -12018,6 +14526,14 @@ def run_coverage_v1(
                 in unclassified_identifiers
             ]
             if retry_rows:
+                retry_slots = {
+                    *typed_b_plan,
+                    *(str(row["slot"]) for row in retry_rows),
+                }
+                retry_rows = [
+                    row for row in all_rows
+                    if str(row["slot"]) in retry_slots
+                ]
                 reservation = _request_cost_ceiling_microusd(
                     typed_b_call_kwargs(retry_rows)
                 )
@@ -12845,6 +15361,382 @@ def run_coverage_v1(
     audit_payload = _reconcile_literal_sequence_claims(
         audit_payload, coverage_payload
     )
+    # Detail can prove that a provider-authored ledger field is wrong without
+    # having authority to rewrite it. Correct only those exact fields, then
+    # independently ground every changed whole beat before exposing it.
+    source_sequence_audit = copy.deepcopy(audit_payload)
+    source_sequence_audit_sha256 = canonical_json_hash(source_sequence_audit)
+    sequence_repair_plan, sequence_repair_blockers = (
+        _post_detail_sequence_repair_plan(source_sequence_audit)
+    )
+    material_event_inventory_sha256 = canonical_json_hash(
+        _sequence_protected_event_inventory(
+            source_sequence_audit, sequence_repair_plan
+        )
+    )
+    sequence_repair_pending = bool(
+        sequence_repair_plan or sequence_repair_blockers
+    )
+    sequence_repair_info: Dict[str, Any] = {
+        "attempted": False,
+        "applied": False,
+        "plan_sha256": canonical_json_hash(sequence_repair_plan),
+        "targeted_fields": len(sequence_repair_plan),
+        "blockers": sequence_repair_blockers,
+    }
+    if sequence_repair_plan and not sequence_repair_blockers:
+        final_repair = _validated_sequence_repair_checkpoint(
+            _verified_payload(
+                checkpoint_store.load(checkpoint_key, "sequence_repair"),
+                binding,
+                "sequence_repair",
+            ),
+            source_sequence_audit_sha256,
+            material_event_inventory_sha256,
+            sequence_repair_plan,
+            final=True,
+        )
+        if final_repair is not None:
+            audit_payload = copy.deepcopy(final_repair["audit"])
+            (
+                replay_detail_rows,
+                _replay_evidence,
+                _replay_citations,
+                replay_pending_rows,
+            ) = _post_detail_sequence_repair_rows(
+                coverage_payload,
+                existing_evidence_checks,
+                source_sequence_audit,
+                audit_payload,
+                sequence_repair_plan,
+            )
+            replay_plan, replay_blockers = _post_detail_sequence_repair_plan(
+                audit_payload
+            )
+            replay_problems = validate_audit_payload(
+                audit_payload,
+                claims,
+                coverage_payload,
+                page_reference_map,
+                existing_evidence_checks,
+            )
+            if (
+                final_repair.get("detail_rows_sha256")
+                != canonical_json_hash(replay_detail_rows)
+                or final_repair.get("pending_rows_sha256")
+                != canonical_json_hash(replay_pending_rows)
+                or final_repair.get("pending_identifiers")
+                != [str(row["identifier"]) for row in replay_pending_rows]
+                or replay_plan
+                or replay_blockers
+                or replay_problems
+                or not _post_detail_sequence_repair_is_protected(
+                    source_sequence_audit,
+                    audit_payload,
+                    sequence_repair_plan,
+                    coverage_payload,
+                    text,
+                )
+            ):
+                raise CheckpointTamperedError(
+                    "Sequence repair checkpoint failed deterministic replay"
+                )
+            sequence_repair_info.update({
+                "attempted": True,
+                "applied": True,
+                "replayed": True,
+                "changed_paths": final_repair["changed_paths"],
+                "authorized_not_applicable_orders": final_repair[
+                    "authorized_not_applicable_orders"
+                ],
+            })
+            sequence_repair_pending = False
+        else:
+            candidate_record = _validated_sequence_repair_checkpoint(
+                _verified_payload(
+                    checkpoint_store.load(
+                        checkpoint_key, "sequence_repair_candidate"
+                    ),
+                    binding,
+                    "sequence_repair_candidate",
+                ),
+                source_sequence_audit_sha256,
+                material_event_inventory_sha256,
+                sequence_repair_plan,
+                final=False,
+            )
+            repair_candidate = (
+                copy.deepcopy(candidate_record["audit"])
+                if candidate_record is not None else None
+            )
+            changed_paths = (
+                list(candidate_record["changed_paths"])
+                if candidate_record is not None else []
+            )
+            if repair_candidate is None:
+                repair_kwargs = {
+                    "system_blocks": audit_system,
+                    "user_blocks": build_post_detail_sequence_repair_user_blocks(
+                        text,
+                        title,
+                        source_sequence_audit,
+                        page_reference_map,
+                        sequence_focus,
+                        sequence_repair_plan,
+                    ),
+                    "model_key": model_key,
+                    "tool": build_post_detail_sequence_repair_tool(
+                        sequence_repair_plan
+                    ),
+                    "thinking_budget": AUDIT_THINKING_BUDGET,
+                    "max_tokens": AUDIT_MAX_TOKENS,
+                    "proxy_url": proxy_url,
+                    "job_id": job_id,
+                    "stage": "coverage_v1.sequence_repair",
+                    "pipeline_pass": "coverage_v1",
+                }
+                reservation = _request_cost_ceiling_microusd(repair_kwargs)
+                if guard.capacity_exhausted_for(reservation):
+                    sequence_repair_info["deferred_stage"] = (
+                        "coverage_v1.sequence_repair"
+                    )
+                else:
+                    repaired, _text_out, _usage = call(**repair_kwargs)
+                    repair_candidate, changed_paths = (
+                        _apply_post_detail_sequence_repairs(
+                            source_sequence_audit,
+                            repaired,
+                            sequence_repair_plan,
+                            source_text=text,
+                        )
+                    )
+                    candidate_problems = validate_audit_payload(
+                        repair_candidate,
+                        claims,
+                        coverage_payload,
+                        page_reference_map,
+                        existing_evidence_checks,
+                    )
+                    if (
+                        not _audit_problems_are_detail_only(candidate_problems)
+                        or not _post_detail_sequence_repair_is_protected(
+                            source_sequence_audit,
+                            repair_candidate,
+                            sequence_repair_plan,
+                            source_text=text,
+                        )
+                    ):
+                        raise CoverageContractError(
+                            "Post-detail sequence repair changed protected "
+                            "data or failed structural validation: "
+                            + "; ".join(candidate_problems[:4])
+                        )
+                    candidate_record = {
+                        "sequence_repair_contract_version": (
+                            SEQUENCE_REPAIR_CONTRACT_VERSION
+                        ),
+                        "source_audit_sha256": (
+                            source_sequence_audit_sha256
+                        ),
+                        "material_event_inventory_sha256": (
+                            material_event_inventory_sha256
+                        ),
+                        "plan": sequence_repair_plan,
+                        "plan_sha256": canonical_json_hash(
+                            sequence_repair_plan
+                        ),
+                        "audit": repair_candidate,
+                        "audit_sha256": canonical_json_hash(
+                            repair_candidate
+                        ),
+                        "corrected_ledger_sha256": canonical_json_hash(
+                            repair_candidate.get("sequence_ledger", [])
+                        ),
+                        "changed_paths": changed_paths,
+                        "authorized_not_applicable_orders": (
+                            repair_candidate.get(
+                                "_sequence_repair_authorized_"
+                                "not_applicable_orders",
+                                [],
+                            )
+                        ),
+                        "details_verified": False,
+                    }
+                    checkpoint_store.save(
+                        checkpoint_key,
+                        "sequence_repair_candidate",
+                        _sealed_record(binding, candidate_record),
+                    )
+                    sequence_repair_info["attempted"] = True
+            elif not _post_detail_sequence_repair_is_protected(
+                source_sequence_audit,
+                repair_candidate,
+                sequence_repair_plan,
+                source_text=text,
+            ):
+                raise CheckpointTamperedError(
+                    "Sequence repair candidate changed protected audit data"
+                )
+
+            if repair_candidate is not None:
+                (
+                    detail_rows,
+                    seeded_evidence,
+                    seeded_citations,
+                    pending_rows,
+                ) = _post_detail_sequence_repair_rows(
+                    coverage_payload,
+                    existing_evidence_checks,
+                    source_sequence_audit,
+                    repair_candidate,
+                    sequence_repair_plan,
+                )
+                detail_kwargs = {
+                    "system_blocks": audit_system,
+                    "user_blocks": build_detail_audit_user_blocks(
+                        _grounded_detail_source_packet(text, pending_rows),
+                        title,
+                        coverage_payload,
+                        page_reference_map,
+                        pending_rows,
+                    ),
+                    "model_key": audit_model_effective,
+                    "tool": build_detail_audit_tool(pending_rows),
+                    "thinking_budget": AUDIT_THINKING_BUDGET,
+                    "max_tokens": AUDIT_MAX_TOKENS,
+                    "proxy_url": proxy_url,
+                    "job_id": job_id,
+                    "stage": "coverage_v1.sequence_repair_details",
+                    "pipeline_pass": "coverage_v1",
+                }
+                reservation = _request_cost_ceiling_microusd(detail_kwargs)
+                if guard.capacity_exhausted_for(reservation):
+                    sequence_repair_info.update({
+                        "attempted": True,
+                        "deferred_stage": (
+                            "coverage_v1.sequence_repair_details"
+                        ),
+                        "changed_paths": changed_paths,
+                    })
+                else:
+                    detailed_input, _text_out, _usage = call(**detail_kwargs)
+                    new_evidence, new_citations = decode_detail_audit_payload(
+                        detailed_input, pending_rows, text
+                    )
+                    evidence_by_id = {
+                        str(row.get("field_path", "")): row
+                        for row in [*seeded_evidence, *new_evidence]
+                    }
+                    citations_by_id = {
+                        str(row.get("owner", "")): row
+                        for row in [*seeded_citations, *new_citations]
+                    }
+                    expected_evidence = [
+                        str(row["identifier"])
+                        for row in detail_rows
+                        if row.get("kind") in {
+                            "existing_evidence", "sequence_evidence",
+                        }
+                    ]
+                    expected_citations = [
+                        str(row["identifier"])
+                        for row in detail_rows
+                        if row.get("kind") == "citation_relevance"
+                    ]
+                    if (
+                        set(evidence_by_id) != set(expected_evidence)
+                        or set(citations_by_id) != set(expected_citations)
+                    ):
+                        raise CoverageContractError(
+                            "Sequence repair detail merge lost a canonical row"
+                        )
+                    merged_evidence = [
+                        evidence_by_id[identifier]
+                        for identifier in expected_evidence
+                    ]
+                    merged_citations = _reconcile_citation_relevance_with_evidence(
+                        [
+                            citations_by_id[identifier]
+                            for identifier in expected_citations
+                        ],
+                        merged_evidence,
+                        detail_rows,
+                    )
+                    repaired_audit = _replace_audit_details(
+                        repair_candidate,
+                        merged_evidence,
+                        merged_citations,
+                        existing_evidence_checks,
+                    )
+                    repaired_audit = _reconcile_literal_sequence_claims(
+                        repaired_audit, coverage_payload
+                    )
+                    final_plan, final_blockers = (
+                        _post_detail_sequence_repair_plan(repaired_audit)
+                    )
+                    final_problems = validate_audit_payload(
+                        repaired_audit,
+                        claims,
+                        coverage_payload,
+                        page_reference_map,
+                        existing_evidence_checks,
+                    )
+                    if (
+                        final_plan
+                        or final_blockers
+                        or final_problems
+                        or not _post_detail_sequence_repair_is_protected(
+                            source_sequence_audit,
+                            repaired_audit,
+                            sequence_repair_plan,
+                            coverage_payload,
+                            text,
+                        )
+                    ):
+                        raise CoverageContractError(
+                            "Corrected sequence did not pass its independent "
+                            "detail audit: "
+                            + "; ".join([
+                                *final_blockers,
+                                *final_problems,
+                            ][:4])
+                        )
+                    final_record = {
+                        **candidate_record,
+                        "audit": repaired_audit,
+                        "audit_sha256": canonical_json_hash(repaired_audit),
+                        "corrected_ledger_sha256": canonical_json_hash(
+                            repaired_audit.get("sequence_ledger", [])
+                        ),
+                        "details_verified": True,
+                        "detail_rows_sha256": canonical_json_hash(
+                            detail_rows
+                        ),
+                        "pending_rows_sha256": canonical_json_hash(
+                            pending_rows
+                        ),
+                        "pending_identifiers": [
+                            str(row["identifier"]) for row in pending_rows
+                        ],
+                    }
+                    checkpoint_store.save(
+                        checkpoint_key,
+                        "sequence_repair",
+                        _sealed_record(binding, final_record),
+                    )
+                    audit_payload = repaired_audit
+                    sequence_repair_pending = False
+                    sequence_repair_info.update({
+                        "attempted": True,
+                        "applied": True,
+                        "changed_paths": changed_paths,
+                        "authorized_not_applicable_orders": final_record[
+                            "authorized_not_applicable_orders"
+                        ],
+                        "pending_identifiers": final_record[
+                            "pending_identifiers"
+                        ],
+                    })
 
     # ── Adjudication (pure code) ────────────────────────────────────────────
     by_claim, central_failures, central_partials, unclassified, support_rate = (
@@ -12864,6 +15756,11 @@ def run_coverage_v1(
     authoritative_sequence_diagnostics = copy.deepcopy(
         audit_payload.get("sequence_normalization_diagnostics", [])
     )
+    authoritative_sequence_not_applicable_orders = copy.deepcopy(
+        audit_payload.get(
+            "_sequence_repair_authorized_not_applicable_orders", []
+        )
+    )
 
     # ── Stage 3: fact repair (brief #3, defect 6) ───────────────────────────
     # A document sealing with a factual dispute and its proof intact is worse
@@ -12877,24 +15774,55 @@ def run_coverage_v1(
     fact_repair_deferred_at_call_cap = int(
         audit_payload.get("fact_repair_deferred_at_call_cap", 0) or 0
     )
+    audit_payload_sha256 = canonical_json_hash(audit_payload)
+    stored_fact_repair = _verified_payload(
+        checkpoint_store.load(checkpoint_key, "fact_repair"),
+        binding,
+        "fact_repair",
+    )
+    if (
+        stored_fact_repair is not None
+        and stored_fact_repair.get("detail_contract_version")
+        != DETAIL_AUDIT_CONTRACT_VERSION
+    ):
+        stored_fact_repair = None
+    stored_fact_repair_candidate = _verified_payload(
+        checkpoint_store.load(checkpoint_key, "fact_repair_candidate"),
+        binding,
+        "fact_repair_candidate",
+    )
+    if (
+        stored_fact_repair_candidate is not None
+        and (
+            stored_fact_repair_candidate.get("detail_contract_version")
+            != DETAIL_AUDIT_CONTRACT_VERSION
+            or stored_fact_repair_candidate.get("repair_targets")
+            != repair_targets
+            or stored_fact_repair_candidate.get("audit_payload_sha256")
+            != audit_payload_sha256
+        )
+    ):
+        stored_fact_repair_candidate = None
+    fact_repair_has_checkpoint = bool(
+        stored_fact_repair is not None
+        or stored_fact_repair_candidate is not None
+    )
+    fact_repair_has_completion_capacity = bool(
+        fact_repair_has_checkpoint
+        or guard.max_calls - guard.calls_started >= 3
+    )
     if (
         repair_targets
         and not unrepairable_central_failures
+        and not sequence_repair_pending
         and guard.in_flight is None
-        and guard.calls_started < guard.max_calls
-        and guard.max_calls > fact_repair_deferred_at_call_cap
-    ):
-        stage3 = _verified_payload(
-            checkpoint_store.load(checkpoint_key, "fact_repair"),
-            binding,
-            "fact_repair",
+        and fact_repair_has_completion_capacity
+        and (
+            fact_repair_has_checkpoint
+            or guard.max_calls > fact_repair_deferred_at_call_cap
         )
-        if (
-            stage3 is not None
-            and stage3.get("detail_contract_version")
-            != DETAIL_AUDIT_CONTRACT_VERSION
-        ):
-            stage3 = None
+    ):
+        stage3 = stored_fact_repair
         if stage3 is not None:
             coverage_payload = stage3["coverage"]
             citation_summary = stage3["citation_summary"]
@@ -12935,26 +15863,7 @@ def run_coverage_v1(
                 "reaudited": False,
                 "outcome": "",
             }
-            audit_payload_sha256 = canonical_json_hash(audit_payload)
-            repair_candidate = _verified_payload(
-                checkpoint_store.load(
-                    checkpoint_key, "fact_repair_candidate"
-                ),
-                binding,
-                "fact_repair_candidate",
-            )
-            if (
-                repair_candidate is not None
-                and (
-                    repair_candidate.get("detail_contract_version")
-                    != DETAIL_AUDIT_CONTRACT_VERSION
-                    or repair_candidate.get("repair_targets")
-                    != repair_targets
-                    or repair_candidate.get("audit_payload_sha256")
-                    != audit_payload_sha256
-                )
-            ):
-                repair_candidate = None
+            repair_candidate = stored_fact_repair_candidate
             if repair_candidate is None:
                 statements = {c["claim_id"]: c["statement"] for c in claims}
                 target_lines = "\n\n".join(
@@ -13048,7 +15957,14 @@ def run_coverage_v1(
                 if not structural_problems
                 else []
             )
-            if scope_problems and not scope_repair_attempted:
+            scope_retry_has_completion_capacity = (
+                guard.max_calls - guard.calls_started >= 3
+            )
+            if (
+                scope_problems
+                and not scope_repair_attempted
+                and scope_retry_has_completion_capacity
+            ):
                 checkpoint_store.save(
                     checkpoint_key,
                     "fact_repair_candidate",
@@ -13122,6 +16038,10 @@ def run_coverage_v1(
                     _fact_repair_citation_scope_problems(corrected_coverage)
                     if not structural_problems
                     else []
+                )
+            elif scope_problems and not scope_repair_attempted:
+                fact_repair_info["scope_repair_deferred_at_call_cap"] = (
+                    guard.max_calls
                 )
             structural_problems.extend(scope_problems)
             fact_repair_info["scope_repair_attempted"] = (
@@ -13251,6 +16171,11 @@ def run_coverage_v1(
                 reaudit_input["sequence_normalization_diagnostics"] = (
                     copy.deepcopy(authoritative_sequence_diagnostics)
                 )
+                reaudit_input[
+                    "_sequence_repair_authorized_not_applicable_orders"
+                ] = copy.deepcopy(
+                    authoritative_sequence_not_applicable_orders
+                )
                 reaudit_input.pop("_sequence_normalization_errors", None)
                 reaudit_problems = validate_audit_payload(
                     reaudit_input,
@@ -13364,6 +16289,9 @@ def run_coverage_v1(
                         sequence_ledger=authoritative_sequence_ledger,
                         sequence_normalization_diagnostics=(
                             authoritative_sequence_diagnostics
+                        ),
+                        _sequence_repair_authorized_not_applicable_orders=(
+                            authoritative_sequence_not_applicable_orders
                         ),
                         citation_relevance=reaudit_input[
                             "citation_relevance"
@@ -13482,6 +16410,21 @@ def run_coverage_v1(
         )
     if partial_claims:
         status = "needs_review"
+    if sequence_repair_pending:
+        status = "needs_review"
+        if sequence_repair_blockers:
+            review_reasons.append(
+                "sequence correction requires human review: "
+                f"{len(sequence_repair_blockers)} blocker(s); "
+                + "; ".join(sequence_repair_blockers[:3])
+            )
+        elif sequence_repair_info.get("deferred_stage"):
+            review_reasons.append(
+                "sequence correction deferred at the paid-call cap: "
+                + str(sequence_repair_info["deferred_stage"])
+            )
+        else:
+            review_reasons.append("sequence correction remains pending")
     if writer_directive_summary["unreported"]:
         status = "needs_review"
         review_reasons.append(
@@ -13705,6 +16648,7 @@ def run_coverage_v1(
         "diagnostics": {
             "coverage_first_pass_problems": coverage_first_pass_problems,
             "audit_first_pass_problems": audit_first_pass_problems,
+            "sequence_repair": sequence_repair_info,
             "fact_repair": fact_repair_info,
             "canonical_fact_registry": canonical_fact_registry,
             "existing_evidence_checks": existing_evidence_checks,

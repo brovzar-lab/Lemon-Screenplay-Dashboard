@@ -311,7 +311,10 @@ def supported_audit(coverage: dict) -> dict:
                 "order": 1,
                 "phase": "climax",
                 "actor": "Diego",
-                "action": coverage["story_spine"]["climax"],
+                "action": (
+                    "Diego detiene el último penal de la final y se desploma "
+                    "sobre el pasto."
+                ),
                 "result": "Diego se desploma sobre el pasto.",
                 "character_knowledge": "Diego understands the physical risk.",
                 "audience_knowledge": (
@@ -335,11 +338,13 @@ def supported_audit(coverage: dict) -> dict:
                 "order": 3,
                 "phase": "final_scene",
                 "actor": "Diego",
-                "action": "Diego sobrevive y se queda como entrenador.",
-                "result": "Diego sobrevive y se queda como entrenador.",
-                "character_knowledge": "Diego knows the result.",
+                "action": "Diego survives and stays as coach.",
+                "result": "Diego survives and stays as coach.",
+                "character_knowledge": (
+                    "Diego knows that the result is final."
+                ),
                 "audience_knowledge": (
-                    "El público ve que Diego sobrevive y se queda como entrenador."
+                    "The audience sees Diego survive and stay as coach."
                 ),
                 "page": last_page,
             },
@@ -357,12 +362,10 @@ def supported_audit(coverage: dict) -> dict:
                 "order": 5,
                 "phase": "aftermath",
                 "actor": "Diego",
-                "action": "Diego sobrevive y se queda como entrenador.",
-                "result": "Diego sobrevive y se queda como entrenador.",
-                "character_knowledge": "Diego knows the result.",
-                "audience_knowledge": (
-                    "El público ve que Diego sobrevive y se queda como entrenador."
-                ),
+                "action": "Diego understands the physical risk.",
+                "result": "Diego understands the physical risk.",
+                "character_knowledge": "Diego understands the physical risk.",
+                "audience_knowledge": "Diego understands the physical risk.",
                 "page": last_page,
             },
         ],
@@ -502,6 +505,19 @@ def sequence_source_token(
                     if score == best
                 ]
     elif field == "character_knowledge":
+        if beat.get(field) == cv.SEQUENCE_KNOWLEDGE_NOT_APPLICABLE:
+            action_token = sequence_source_token(
+                {**check, "excerpt": beat.get("action", "")},
+                row,
+                "action",
+                text,
+            )
+            if action_token == cv.SEQUENCE_SOURCE_NOT_LOCATED:
+                return action_token
+            return (
+                f"{row['slot']}:{field}:"
+                + action_token.rsplit(":", 1)[-1]
+            )
         candidates = [
             candidate for candidate in candidates
             if cv._SEQUENCE_EXPLICIT_KNOWLEDGE_VERB.search(candidate[1])
@@ -515,10 +531,17 @@ def sequence_source_token(
         ]
     else:
         if field == "audience_knowledge":
-            candidates = [
+            observed_candidates = [
                 candidate for candidate in candidates
                 if cv._sequence_audience_source_predicate(candidate[1])
             ]
+            staged_candidates = [
+                candidate for candidate in candidates
+                if cv._sequence_literal_fragment_matches(
+                    str(beat.get(field, "")), candidate[1]
+                )
+            ]
+            candidates = staged_candidates or observed_candidates or candidates
         else:
             direct_candidates = [
                 candidate for candidate in candidates
@@ -555,7 +578,14 @@ def sequence_source_token(
             (
                 len(cv._sequence_field_relevance_terms(
                     beat, field, excerpt
-                )),
+                ))
+                + (
+                    100
+                    if cv._fold_evidence_text(
+                        str(beat.get(field, ""))
+                    ).strip(" .,:;!?") == excerpt.strip(" .,:;!?")
+                    else 0
+                ),
                 source_id,
                 excerpt,
             )
@@ -639,6 +669,31 @@ def grounded_detail_value(row: dict, text: str = SCREENPLAY_TEXT) -> str:
                 "source_id": source_id,
                 "supports": source_id != cv.SEQUENCE_SOURCE_NOT_LOCATED,
             })
+        by_field = {check["field"]: check for check in checks}
+        action_span = cv._sequence_source_span(
+            str(by_field.get("action", {}).get("source_id", "")).rsplit(
+                ":", 1
+            )[-1]
+        )
+        audience_span = cv._sequence_source_span(
+            str(by_field.get("audience_knowledge", {}).get(
+                "source_id", ""
+            )).rsplit(":", 1)[-1]
+        )
+        if (
+            action_span is not None
+            and audience_span is not None
+            and action_span[0] == audience_span[0]
+            and audience_span[1] > action_span[3] + 1
+        ):
+            range_id = (
+                f"p{action_span[0]:03d}-l{action_span[1]:03d}-"
+                f"l{audience_span[1] - 1:03d}"
+            )
+            if cv._sequence_source_anchor(text, range_id) is not None:
+                by_field["action"]["source_id"] = (
+                    f"{row['slot']}:action:{range_id}"
+                )
     located = [check["supports"] for check in checks]
     value = {
         "classification": (
@@ -653,6 +708,43 @@ def grounded_detail_value(row: dict, text: str = SCREENPLAY_TEXT) -> str:
         _decoded, reason = cv._decode_grounded_detail_value(
             value, row, text
         )
+        if reason is not None:
+            beat = row["subject"]["beat"]
+            fallback_checks = []
+            for field in row["subject"]["required_fields"]:
+                source_id = sequence_source_token(
+                    {
+                        "page": beat["page"],
+                        "excerpt": str(beat.get(field, "")),
+                        "supports": True,
+                    },
+                    row,
+                    field,
+                    text,
+                )
+                fallback_checks.append({
+                    "field": field,
+                    "source_id": source_id,
+                    "supports": source_id != cv.SEQUENCE_SOURCE_NOT_LOCATED,
+                })
+            fallback_support = [
+                check["supports"] for check in fallback_checks
+            ]
+            fallback = {
+                "classification": (
+                    "supported" if all(fallback_support)
+                    else "partially_supported" if any(fallback_support)
+                    else "unsupported"
+                ),
+                "checks": fallback_checks,
+                "note": "Each decision is bound to a field-local source result.",
+            }
+            _decoded, fallback_reason = cv._decode_grounded_detail_value(
+                fallback, row, text
+            )
+            if fallback_reason is None:
+                value = fallback
+                reason = None
         if reason is not None:
             value = {
                 "classification": "unsupported",
@@ -4248,6 +4340,30 @@ El público pide otra canción
                     )),
                 )
 
+    def test_actor_anchor_uses_primary_identity_not_parenthetical_context(self):
+        for actor, excerpt in (
+            (
+                "Los Chavos (Tony, Rony, Richie-ony, Mony, Cony)",
+                "Los Chavos toman sus lugares y comienza el musical.",
+            ),
+            (
+                "Lucyfer (Juanito's wife)",
+                "Lucyfer levanta la prueba positiva de embarazo.",
+            ),
+            (
+                "Richie (from Los Chavos)",
+                "Richie se lanza sobre Lucesita.",
+            ),
+            (
+                "Juanito",
+                "Es el turno de Juanito. Juanito está paralizado.",
+            ),
+        ):
+            with self.subTest(actor=actor):
+                self.assertIsNone(cv._sequence_anchor_actor_reason(
+                    {"actor": actor}, "action", excerpt
+                ))
+
     def test_sequence_classification_matches_field_decisions(self):
         source = "[PAGE 1]\nDiego opens the vault door.\n"
         row = {
@@ -5587,8 +5703,8 @@ El público pide otra canción
         ])
         self.assertEqual(stats, {
             "object_count": 8,
-            "property_count": 40,
-            "optional_parameter_count": 0,
+            "property_count": 42,
+            "optional_parameter_count": 2,
             "union_parameter_count": 0,
             "maximum_depth": 5,
         })
@@ -5881,13 +5997,13 @@ El público pide otra canción
             transport,
             text=source,
             max_cost_usd=5.0,
-            max_calls=7,
+            max_calls=4,
         )
 
         self.assertEqual(len(rows), 59)
         self.assertEqual(report["status"], "needs_review")
         self.assertIn(
-            "guard.sequence_integrity",
+            "guard.existing_evidence",
             report["fact_audit"]["central_failures"],
         )
         self.assertEqual(report["cost"]["call_count"], 4)
@@ -6750,7 +6866,21 @@ El público pide otra canción
             knowledge="Richie knows he received the wig.",
             audience="The audience sees Richie receive the wig.",
         )
-        audit["sequence_ledger"]["ending"].append(copy.deepcopy(expose))
+        coda = copy.deepcopy(expose)
+        ground_sequence_row_for_test(
+            coda,
+            page=6,
+            actor="Diego and the winners",
+            action=(
+                "Diego and the winners begin their post-climax celebration."
+            ),
+            knowledge="Diego knows the contest is over.",
+            audience=(
+                "The audience sees Diego and the winners begin their "
+                "post-climax celebration."
+            ),
+        )
+        audit["sequence_ledger"]["ending"].append(coda)
         normalized_audit = cv.normalize_audit_tool_input(
             copy.deepcopy(audit), range(1, 7)
         )
@@ -6973,6 +7103,30 @@ El público pide otra canción
         ))
         self.assertTrue(cv._has_exactly_one_knowledge_claim(
             "Anita learns that her father returned and is seeking reconciliation"
+        ))
+        self.assertTrue(cv._has_exactly_one_knowledge_claim(
+            "Lucesita se da cuenta que Richie no le cree del todo."
+        ))
+        self.assertTrue(cv._has_exactly_one_knowledge_claim(
+            "Carlos knows that Anita realizes the fraud."
+        ))
+        self.assertTrue(cv._has_exactly_one_knowledge_claim(
+            "Carlos knows that Anita, after the delay, realizes the fraud."
+        ))
+        self.assertFalse(cv._has_exactly_one_knowledge_claim(
+            "Lucesita se da cuenta del engaño y Richie cree que ganó."
+        ))
+        self.assertFalse(cv._has_exactly_one_knowledge_claim(
+            "Lucesita sabe que el plan falla y Tony se da cuenta del engaño."
+        ))
+        self.assertFalse(cv._has_exactly_one_knowledge_claim(
+            "Carlos knows that the plan failed and Anita was aware of the fraud."
+        ))
+        self.assertFalse(cv._has_exactly_one_knowledge_claim(
+            "Lucesita sabe que el plan falla, Tony se da cuenta del engaño."
+        ))
+        self.assertFalse(cv._has_exactly_one_knowledge_claim(
+            "Carlos knows that the plan failed, Anita was aware of the fraud."
         ))
         self.assertFalse(cv._has_exactly_one_knowledge_claim(
             "Cosquillitas are terrified by the crowd"
@@ -8112,7 +8266,9 @@ class TestVerdictRules(unittest.TestCase):
             ),
         ])
 
-        report, _usage = run_engine(new_store(), transport)
+        report, _usage = run_engine(
+            new_store(), transport, max_calls=3
+        )
 
         self.assertEqual(report["status"], "needs_review")
         self.assertEqual(report["confidence"], "medium")
@@ -8305,6 +8461,164 @@ class TestCheckpointsAndResume(unittest.TestCase):
             source,
         )[0]
         self.assertEqual(migrated_again, accepted)
+
+    def test_detail_17_range_migration_reuses_only_exact_unchanged_rows(self):
+        class FailAuditSave(cv.LocalCheckpointStore):
+            def save(self, key, stage, record):
+                if stage == "audit":
+                    raise RuntimeError("stop before final audit checkpoint")
+                super().save(key, stage, record)
+
+        def prepare(rows_hash_mutator=None):
+            coverage = valid_coverage()
+            audit = provider_audit_core(coverage)
+            normalized = cv.normalize_audit_tool_input(
+                copy.deepcopy(audit), range(1, 7)
+            )
+            fixture_rows = cv.build_detail_audit_rows(
+                coverage,
+                cv.build_existing_evidence_checks(
+                    coverage, SCREENPLAY_TEXT
+                ),
+                normalized["sequence_ledger"],
+            )
+            store = FailAuditSave(Path(tempfile.mkdtemp()) / "cv1")
+            observed_rows = []
+            original_builder = cv.build_detail_audit_rows
+
+            def recording_builder(*args, **kwargs):
+                rows = original_builder(*args, **kwargs)
+                observed_rows.append(copy.deepcopy(rows))
+                return rows
+
+            with self.assertRaisesRegex(
+                RuntimeError, "stop before final audit checkpoint"
+            ), patch.object(
+                cv,
+                "build_detail_audit_rows",
+                side_effect=recording_builder,
+            ):
+                run_engine(store, FakeTransport([
+                    (coverage, settled_usage()),
+                    (audit, settled_usage()),
+                    (
+                        typed_detail_payload_for_rows(fixture_rows),
+                        settled_usage(),
+                    ),
+                ]), max_calls=4)
+            progress_path = next(
+                store.root.glob("*/audit_details_progress.json")
+            )
+            record = json.loads(progress_path.read_text(encoding="utf-8"))
+            current_rows = next(
+                rows for rows in observed_rows
+                if cv.canonical_json_hash(rows)
+                == record["payload"]["rows_sha256"]
+            )
+            prior_rows = copy.deepcopy(current_rows)
+            for row in prior_rows:
+                subject = row.get("subject")
+                if row.get("kind") == "sequence_evidence" and isinstance(
+                    subject, dict
+                ):
+                    subject.pop("source_page_range", None)
+                    subject.pop("material_claim_atoms", None)
+                    subject.pop("required_material_atom_reaudit", None)
+                    beat = subject.get("beat")
+                    if (
+                        isinstance(beat, dict)
+                        and str(beat.get("character_knowledge", "")).strip()
+                        .upper() == "NOT LOCATED"
+                    ):
+                        subject["required_fields"] = [
+                            field for field in subject["required_fields"]
+                            if field != "character_knowledge"
+                        ]
+            rows_sha256 = cv.canonical_json_hash(prior_rows)
+            if rows_hash_mutator is not None:
+                rows_sha256 = rows_hash_mutator(rows_sha256)
+            record["payload"].update({
+                "detail_contract_version": (
+                    cv.SEQUENCE_RANGE_MIGRATION_VERSION
+                ),
+                "rows_sha256": rows_sha256,
+            })
+            progress_path.write_text(
+                json.dumps(cv._sealed_record(
+                    record["binding"], record["payload"]
+                )),
+                encoding="utf-8",
+            )
+            return cv.LocalCheckpointStore(store.root), progress_path, current_rows
+
+        store, progress_path, current_rows = prepare()
+        resume = FakeTransport([RuntimeError("stop after exact migration")])
+        with self.assertRaisesRegex(RuntimeError, "stop after exact migration"):
+            run_engine(store, resume, max_calls=4)
+
+        self.assertEqual(len(resume.calls), 1)
+        self.assertEqual(
+            resume.calls[0]["stage"],
+            "coverage_v1.fact_audit_details_typed_b",
+        )
+        schema = resume.calls[0]["tool"]["input_schema"]["properties"]
+        migrated_slots = [
+            slot
+            for group in ("sequence_results", "sequence_knowledge_results")
+            for slot in schema.get(group, {}).get("items", {}).get(
+                "properties", {}
+            ).get("slot", {}).get("enum", [])
+        ]
+        self.assertEqual(
+            set(migrated_slots),
+            {
+                str(row["slot"]) for row in current_rows
+                if row["kind"] == "sequence_evidence"
+            },
+        )
+        migrated = json.loads(progress_path.read_text(encoding="utf-8"))[
+            "payload"
+        ]
+        self.assertEqual(
+            migrated["detail_contract_version"],
+            cv.DETAIL_AUDIT_CONTRACT_VERSION,
+        )
+        self.assertEqual(
+            migrated["rows_sha256"], cv.canonical_json_hash(current_rows)
+        )
+
+        drift_store, _drift_progress, drift_rows = prepare(
+            lambda _value: "f" * 64
+        )
+        receipts_path = next(drift_store.root.glob("*/call_receipts.json"))
+        receipts_record = json.loads(
+            receipts_path.read_text(encoding="utf-8")
+        )
+        receipts_record["payload"]["receipts"] = {}
+        receipts_path.write_text(
+            json.dumps(cv._sealed_record(
+                receipts_record["binding"], receipts_record["payload"]
+            )),
+            encoding="utf-8",
+        )
+        drift = FakeTransport([RuntimeError("stop after rejected drift")])
+        with self.assertRaisesRegex(RuntimeError, "stop after rejected drift"):
+            run_engine(drift_store, drift, max_calls=4)
+        self.assertEqual(len(drift.calls), 1)
+        self.assertEqual(
+            drift.calls[0]["stage"], "coverage_v1.fact_audit_details"
+        )
+        drift_schema = drift.calls[0]["tool"]["input_schema"]["properties"]
+        requested_slots = {
+            slot
+            for group in drift_schema.values()
+            for slot in group.get("items", {}).get("properties", {}).get(
+                "slot", {}
+            ).get("enum", [])
+        }
+        self.assertEqual(
+            requested_slots, {str(row["slot"]) for row in drift_rows}
+        )
 
     def test_audit_failure_preserves_coverage_and_resume_repays_nothing(self):
         coverage = valid_coverage()
@@ -9941,6 +10255,7 @@ The footage continues.
             "Tercer Juez... Tercer Juez confirma su nota.\n"
             "El quinto Juez muestra una calificacion distinta.\n"
             "The 5th judge reveals a different score.\n"
+            "The judges know their scores.\n"
             "El publico vuelve a exclamar.\n"
             "[PAGE 95]\n"
             "Judges 1, 2, 3, and 4 score 10, 10, 5, and 2.\n"
@@ -9957,7 +10272,7 @@ The footage continues.
                 "and Judge 4 gives 2 on pp.94-95."
             ),
             "result": "Los Chavos are declared winners on p.95.",
-            "character_knowledge": "NOT LOCATED",
+            "character_knowledge": "The judges know their scores.",
             "audience_knowledge": (
                 "The audience sees every score on pp.94-95."
             ),
@@ -9973,12 +10288,14 @@ The footage continues.
             "actor": "Los jueces alzan sus paletas de calificaciones",
             "action": "Judges 1, 2, 3, and 4 score 10, 10, 5, and 2",
             "result": "Los nuevos reyes y ganadores del CINLTT",
+            "character_knowledge": "The judges know their scores",
             "audience_knowledge": "El publico ve las notas 10, 10, 5 y 2",
         }
         pages = {
             "actor": 94,
             "action": 95,
             "result": 95,
+            "character_knowledge": 94,
             "audience_knowledge": 95,
         }
         value = {
@@ -9993,7 +10310,7 @@ The footage continues.
                 for field in target["subject"]["required_fields"]
             ],
             "observed_actors": ["Los jueces"],
-            "observed_knowers": [],
+            "observed_knowers": ["The judges"],
             "note": "The bound Spanish passage supports the judge sequence.",
         }
         count_value = {
@@ -10746,6 +11063,11 @@ The footage continues.
                     cv.SEQUENCE_SOURCE_NOT_LOCATED
                 ),
                 "character_knowledge_status": "checked",
+                "material_atom_results": [
+                    f"{atom['atom_id']}|not_located|"
+                    f"{cv.SEQUENCE_SOURCE_NOT_LOCATED}"
+                    for atom in target["subject"]["material_claim_atoms"]
+                ],
             }],
         }
         transport = FakeTransport([
@@ -10840,7 +11162,10 @@ The footage continues.
         )
         self.assertEqual(
             unresolved["unresolved_fields"],
-            ["action", "result", "audience_knowledge"],
+            [
+                "action", "result", "character_knowledge",
+                "audience_knowledge",
+            ],
         )
         self.assertFalse(unresolved["grounding_valid"])
 
@@ -10933,7 +11258,7 @@ Dante hands cash to the judges as Tony watches.
         ])
 
         report, _usage = run_engine(
-            new_store(), transport, text=source
+            new_store(), transport, text=source, max_calls=3
         )
 
         self.assertEqual(report["status"], "needs_review")
@@ -11538,11 +11863,11 @@ Dante hands cash to the judges as Tony watches.
 
         self.assertEqual(
             cv.canonical_json_hash(cv._legacy_detail_16_user_blocks(current)),
-            "ceccf41853347e3b404d140ca41eee45942684ea6dfb7e049b2d8d467366ed07",
+            "ce4c7b0fb3a9292976e27355ff2fa2f1b13508d4cce19a1efafa1c3313af73d6",
         )
         self.assertEqual(
             cv.canonical_json_hash(cv._legacy_detail_15_user_blocks(current)),
-            "ccabe2d599a3f0fada198803f26a4324c7e5e8eaec945ae4453a564505d57473",
+            "facb249ba6e3960e757ed3af3804d2025f0233283f30d5507e2ec76487fca001",
         )
         self.assertEqual(
             cv.canonical_json_hash(cv._legacy_detail_tool(
@@ -11595,6 +11920,7 @@ Dante hands cash to the judges as Tony watches.
                     continue
                 item = properties[group]["items"]
                 item_properties = item["properties"]
+                item_properties.pop("material_atom_results", None)
                 source_keys = [
                     key for key in item_properties
                     if key.endswith("_source_id")
@@ -12192,7 +12518,9 @@ Dante hands cash to the judges as Tony watches.
             (retry_payload, settled_usage()),
         ])
 
-        report, usage = run_engine(new_store(), transport)
+        report, usage = run_engine(
+            new_store(), transport, max_calls=4
+        )
         self.assertEqual(report["status"], "needs_review")
         self.assertEqual(usage["call_count"], 4)
         self.assertEqual(
@@ -13530,6 +13858,21 @@ Angela knows she said yes under puppeting.""",
 
         self.assertIn("guard.existing_evidence", targets)
 
+    def test_negated_richie_camera_note_does_not_request_a_new_source(self):
+        self.assertFalse(cv._asserts_new_or_missing_source(
+            "These concerns support CONSIDER without turning an existing "
+            "setup into a demand for a new camera."
+        ))
+        self.assertFalse(cv._asserts_new_or_missing_source(
+            "Do not add a new camera; reuse Richie's established setup."
+        ))
+        self.assertTrue(cv._asserts_new_or_missing_source(
+            "The rewrite requires a new camera."
+        ))
+        self.assertTrue(cv._asserts_new_or_missing_source(
+            "Do not add a new camera, but create another source."
+        ))
+
     def test_cosquillitas_richie_evidence_repair_ignores_unrelated_sequence_gaps(self):
         coverage = valid_coverage()
         coverage["development_priorities"][0] = {
@@ -13779,6 +14122,150 @@ Siguen videos donde Richie espía a Lucesita.
         self.assertEqual(usage["call_count"], 2)
         self.assertTrue(
             report["diagnostics"]["fact_repair"]["candidate_replayed"]
+        )
+
+    def test_three_remaining_calls_complete_fact_repair_core_and_detail(self):
+        coverage = valid_coverage()
+        audit = supported_audit(coverage)
+        audit["verdicts"][0].update({
+            "classification": "partially_supported",
+            "note": "The protagonist wording is vague.",
+        })
+        corrected = copy.deepcopy(coverage)
+        corrected["story_spine"]["protagonist"] = (
+            "Diego Salas, retired goalkeeper"
+        )
+        corrected["strengths"][0] = {
+            "point": (
+                "El penal de Tepito presenta la capacidad de Diego con acción"
+            ),
+            "page": 2,
+            "excerpt": "Diego detiene el penal con una sola mano",
+        }
+        reaudit_core = provider_audit_core(corrected)
+        reaudit_core["sequence_ledger"] = copy.deepcopy(
+            audit["sequence_ledger"]
+        )
+        normalized_reaudit = cv.normalize_audit_tool_input(
+            copy.deepcopy(reaudit_core), range(1, 7)
+        )
+        corrected_checks = cv.build_existing_evidence_checks(
+            corrected, SCREENPLAY_TEXT
+        )
+        corrected_rows = cv.build_detail_audit_rows(
+            corrected,
+            corrected_checks,
+            normalized_reaudit["sequence_ledger"],
+        )
+        _seeded_evidence, _seeded_citations, pending = (
+            cv._reusable_detail_seed(
+                coverage,
+                cv.build_existing_evidence_checks(
+                    coverage, SCREENPLAY_TEXT
+                ),
+                audit,
+                corrected_rows,
+            )
+        )
+        self.assertTrue(pending)
+        transport = FakeTransport([
+            (coverage, settled_usage()),
+            (audit, settled_usage()),
+            (corrected, settled_usage()),
+            (reaudit_core, settled_usage()),
+            (typed_detail_payload_for_rows(pending), settled_usage()),
+        ])
+
+        report, _usage = run_engine(
+            new_store(), transport, max_calls=5, max_cost_usd=5.0
+        )
+
+        self.assertEqual(report["status"], "sealed")
+        self.assertEqual(
+            [call["stage"] for call in transport.calls],
+            [
+                "coverage_v1.coverage",
+                "coverage_v1.fact_audit",
+                "coverage_v1.fact_repair",
+                "coverage_v1.fact_reaudit",
+                "coverage_v1.fact_reaudit_details",
+            ],
+        )
+
+    def test_two_remaining_calls_do_not_start_fresh_fact_repair(self):
+        coverage = valid_coverage()
+        audit = supported_audit(coverage)
+        audit["verdicts"][0].update({
+            "classification": "partially_supported",
+            "note": "The protagonist wording is vague.",
+        })
+        transport = FakeTransport([
+            (coverage, settled_usage()),
+            (audit, settled_usage()),
+        ])
+
+        report, _usage = run_engine(
+            new_store(), transport, max_calls=4, max_cost_usd=5.0
+        )
+
+        self.assertEqual(report["status"], "needs_review")
+        self.assertEqual(len(transport.calls), 2)
+        self.assertFalse(report["diagnostics"]["fact_repair"]["attempted"])
+
+    def test_scope_retry_defers_at_cap_and_same_cap_resume_is_no_spend(self):
+        coverage = valid_coverage()
+        audit = supported_audit(coverage)
+        audit["verdicts"][0].update({
+            "classification": "partially_supported",
+            "note": "The protagonist wording is vague.",
+        })
+        corrected = copy.deepcopy(coverage)
+        corrected["story_spine"]["protagonist"] = (
+            "Diego Salas, retired goalkeeper"
+        )
+        corrected["concerns"][0]["point"] = (
+            "On p.4, Román Vega threatens the field, but no motive is "
+            "established anywhere in the screenplay."
+        )
+        store = new_store()
+        first = FakeTransport([
+            (coverage, settled_usage()),
+            (audit, settled_usage()),
+            (corrected, settled_usage()),
+        ])
+
+        report, _usage = run_engine(
+            store, first, max_calls=5, max_cost_usd=5.0
+        )
+
+        self.assertEqual(report["status"], "needs_review")
+        self.assertEqual(
+            [call["stage"] for call in first.calls],
+            [
+                "coverage_v1.coverage",
+                "coverage_v1.fact_audit",
+                "coverage_v1.fact_repair",
+            ],
+        )
+        self.assertTrue(
+            report["diagnostics"]["fact_repair"][
+                "scope_repair_deferred_at_call_cap"
+            ]
+        )
+        budget_path = next(store.root.glob("*/budget.json"))
+        receipts_path = next(store.root.glob("*/call_receipts.json"))
+        before = (budget_path.read_bytes(), receipts_path.read_bytes())
+
+        replay = FakeTransport([])
+        replayed, usage = run_engine(
+            store, replay, max_calls=5, max_cost_usd=5.0
+        )
+
+        self.assertEqual(replayed["status"], "needs_review")
+        self.assertEqual(replay.calls, [])
+        self.assertEqual(usage["call_count"], 0)
+        self.assertEqual(
+            (budget_path.read_bytes(), receipts_path.read_bytes()), before
         )
 
 
@@ -14083,6 +14570,1706 @@ class TestBudget(unittest.TestCase):
         self.assertEqual(usage["call_count"], 3)
         self.assertEqual(report["cost"]["call_count"], 4)
         self.assertEqual(report["status"], "sealed")
+
+
+class TestPostDetailSequenceRepair(unittest.TestCase):
+    @staticmethod
+    def _event_bundle_fixture():
+        source = {
+            "sequence_ledger": [
+                {
+                    "order": 1,
+                    "phase": "ending",
+                    "page": 6,
+                    "actor": "Diego",
+                    "action": "Diego lifts the trophy.",
+                    "result": "The crowd applauds Diego.",
+                    "character_knowledge": "Diego knows he won.",
+                    "audience_knowledge": "The crowd sees Diego win.",
+                },
+                {
+                    "order": 2,
+                    "phase": "ending",
+                    "page": 6,
+                    "actor": "Roman",
+                    "action": "Roman leaves the field.",
+                    "result": "Roman exits alone.",
+                    "character_knowledge": "Roman knows he lost.",
+                    "audience_knowledge": "The crowd sees Roman leave.",
+                },
+            ],
+            "sequence_evidence": [],
+            "verdicts": [],
+        }
+        plan = [
+            {
+                "slot": f"sequence_{order:03d}_{field}",
+                "ledger_index": order - 1,
+                "order": order,
+                "field": field,
+                "field_path": f"sequence_ledger[order={order}].{field}",
+                "prior_value": source["sequence_ledger"][order - 1][field],
+                "reasons": ["failed source-grounding check"],
+            }
+            for order in (1, 2)
+            for field in ("action", "result")
+        ]
+        return source, plan
+
+    def _repair_fixture(self):
+        coverage = valid_coverage()
+        provider_core = provider_audit_core(coverage)
+        bad = provider_core["sequence_ledger"]["climax"][0]
+        bad["character_knowledge"] = "NOT LOCATED"
+        page_map = cv.build_page_reference_map(SCREENPLAY_TEXT, 6, None)
+        normalized = cv.normalize_audit_tool_input(
+            copy.deepcopy(provider_core), page_map["valid_citation_pages"]
+        )
+        evidence_checks = cv.build_existing_evidence_checks(
+            coverage, SCREENPLAY_TEXT
+        )
+        rows = cv.build_detail_audit_rows(
+            coverage, evidence_checks, normalized["sequence_ledger"]
+        )
+        first_detail = detail_payload_for_rows(rows, SCREENPLAY_TEXT)
+        evidence, citations = cv.decode_detail_audit_payload(
+            first_detail, rows, SCREENPLAY_TEXT
+        )
+        source_audit = cv._replace_audit_details(
+            normalized, evidence, citations, evidence_checks
+        )
+        source_audit = cv._reconcile_literal_sequence_claims(
+            source_audit, coverage
+        )
+        plan, blockers = cv._post_detail_sequence_repair_plan(source_audit)
+        self.assertFalse(blockers)
+        good_ledger = cv.normalize_audit_tool_input(
+            provider_audit_core(coverage),
+            page_map["valid_citation_pages"],
+        )["sequence_ledger"]
+        good_by_order = {
+            beat["order"]: beat for beat in good_ledger
+        }
+        good_by_order[1]["action"] = (
+            "Diego detiene el último penal de la final y se desploma sobre "
+            "el pasto."
+        )
+        good_by_order[3].update({
+            "action": "Diego sees that he survives and stays as coach.",
+            "result": "Diego survives and stays as coach.",
+        })
+        repair = {
+            "repairs": [
+                {
+                    "slot": item["slot"],
+                    "corrected_value": (
+                        good_by_order[item["order"]][item["field"]]
+                    ),
+                }
+                for item in plan
+            ]
+        }
+        candidate, _paths = cv._apply_post_detail_sequence_repairs(
+            source_audit, repair, plan
+        )
+        _all, _evidence, _citations, pending = (
+            cv._post_detail_sequence_repair_rows(
+                coverage,
+                evidence_checks,
+                source_audit,
+                candidate,
+                plan,
+            )
+        )
+        return coverage, provider_core, first_detail, plan, repair, pending
+
+    def test_material_claim_atoms_keep_exact_clause_spans(self):
+        beat = {
+            "action": (
+                "Richie declares his love and says twenty years have passed, "
+                "then he gives Lucesita the wig."
+            ),
+            "result": "The public sings along and celebrates.",
+        }
+
+        atoms = cv._sequence_material_claim_atoms(beat)
+
+        self.assertEqual(
+            [atom["text"] for atom in atoms if atom["field"] == "action"],
+            [
+                "Richie declares his love",
+                "says twenty years have passed",
+                "then he gives Lucesita the wig.",
+            ],
+        )
+        self.assertEqual(
+            [atom["text"] for atom in atoms if atom["field"] == "result"],
+            ["The public sings along", "celebrates."],
+        )
+        for atom in atoms:
+            scalar = beat[atom["field"]]
+            self.assertEqual(
+                scalar[atom["start"]:atom["end"]], atom["text"]
+            )
+            self.assertEqual(
+                atom["claim_sha256"], cv.canonical_json_hash({
+                    "field": atom["field"],
+                    "start": atom["start"],
+                    "end": atom["end"],
+                    "text": atom["text"],
+                })
+            )
+
+        nested = cv._sequence_material_claim_atoms({
+            "action": (
+                "Video shows gifts (cash, lingerie and a poster), then "
+                "security detains them."
+            ),
+            "result": (
+                "They leave to 'el mejor y mas cálido aplauso de la gente'."
+            ),
+        })
+        self.assertEqual(
+            [atom["text"] for atom in nested],
+            [
+                "Video shows gifts (cash, lingerie and a poster)",
+                "then security detains them.",
+                "They leave to 'el mejor y mas cálido aplauso de la gente'.",
+            ],
+        )
+
+    def _atomic_repair_fixture(self):
+        text = (
+            "[PAGE 6]\n"
+            "Richie declares his love.\n"
+            "Richie says he has loved Lucesita for five years.\n"
+            "Lucesita accepts Richie's love.\n"
+        )
+        beat = {
+            "order": 1,
+            "phase": "ending",
+            "page": 6,
+            "actor": "Richie",
+            "action": (
+                "Richie declares his love; Richie says he has loved Lucesita "
+                "for ten years."
+            ),
+            "result": "Lucesita accepts Richie's love.",
+            "character_knowledge": "Richie knows Lucesita accepts his love.",
+            "audience_knowledge": "The audience sees Lucesita accept his love.",
+        }
+        row = cv.build_detail_audit_rows({}, [], [beat])[0]
+        atoms = row["subject"]["material_claim_atoms"]
+        by_id = {atom["atom_id"]: atom for atom in atoms}
+        raw = {
+            "material_atom_results": [
+                {
+                    "atom_id": "action_001",
+                    "disposition": "supported",
+                    "source_id": f"{row['slot']}:action_001:p006-l001",
+                },
+                {
+                    "atom_id": "action_002",
+                    "disposition": "contradicted",
+                    "source_id": f"{row['slot']}:action_002:p006-l002",
+                },
+                {
+                    "atom_id": "result_001",
+                    "disposition": "supported",
+                    "source_id": f"{row['slot']}:result_001:p006-l003",
+                },
+            ],
+        }
+        normalized, reason = cv._decode_sequence_material_atom_results(
+            raw,
+            row,
+            text,
+            {
+                "action": {"supports": False},
+                "result": {"supports": True},
+            },
+        )
+        self.assertIsNone(reason)
+        self.assertEqual(len(normalized or []), len(atoms))
+        audit = {
+            "sequence_ledger": [beat],
+            "sequence_evidence": [{
+                "field_path": "sequence_ledger[1]",
+                "classification": "partially_supported",
+                "grounding_valid": True,
+                "checks": [
+                    {"field": "action", "supports": False},
+                    {"field": "result", "supports": True},
+                ],
+                "material_atom_results": normalized,
+                "claim_sha256": "claim-one",
+                "row_identity": "row-one",
+            }],
+            "verdicts": [],
+        }
+        plan, blockers = cv._post_detail_sequence_repair_plan(audit)
+        self.assertFalse(blockers)
+        self.assertEqual(len(plan), 1)
+        self.assertEqual(plan[0]["atom_id"], "action_002")
+        self.assertEqual(
+            plan[0]["prior_value"], by_id["action_002"]["text"]
+        )
+        repair = {
+            "atom_repairs": [{
+                "slot": plan[0]["slot"],
+                "old_fragment": plan[0]["prior_value"],
+                "replacement": (
+                    "Richie says he has loved Lucesita for five years."
+                ),
+                "source_id": (
+                    f"{plan[0]['slot']}:replacement:p006-l002"
+                ),
+            }],
+        }
+        return text, audit, row, plan, repair
+
+    def test_atomic_provenance_targets_only_failed_fragment(self):
+        text, audit, row, plan, repair = self._atomic_repair_fixture()
+
+        tool = cv.build_post_detail_sequence_repair_tool(plan)
+        self.assertEqual(
+            tool["input_schema"]["required"], ["atom_repairs"]
+        )
+        corrected, paths = cv._apply_post_detail_sequence_repairs(
+            audit, repair, plan, source_text=text
+        )
+
+        self.assertEqual(paths, [plan[0]["field_path"]])
+        self.assertEqual(
+            corrected["sequence_ledger"][0]["action"],
+            (
+                "Richie declares his love; Richie says he has loved "
+                "Lucesita for five years."
+            ),
+        )
+        self.assertEqual(
+            cv._sequence_protected_event_inventory(audit, plan),
+            cv._sequence_protected_event_inventory(corrected, plan),
+        )
+        _all, _evidence, _citations, pending = (
+            cv._post_detail_sequence_repair_rows(
+                {}, [], audit, corrected, plan
+            )
+        )
+        repaired_row = next(
+            pending_row for pending_row in pending
+            if pending_row["identifier"] == row["identifier"]
+        )
+        self.assertTrue(
+            repaired_row["subject"]["required_material_atom_reaudit"]
+        )
+        self.assertEqual(
+            " ".join(
+                atom["text"]
+                for atom in repaired_row["subject"]["material_claim_atoms"]
+                if atom["field"] == "action"
+            ),
+            (
+                "Richie declares his love Richie says he has loved Lucesita "
+                "for five years."
+            ),
+        )
+
+    def test_scalar_repair_reaudits_previously_failed_compound_atoms(self):
+        text, audit, row, _plan, _repair = self._atomic_repair_fixture()
+        failed_atom = audit["sequence_evidence"][0][
+            "material_atom_results"
+        ][1]
+        failed_atom.update({
+            "disposition": "supported",
+            "page": 6,
+            "excerpt": "Richie says he has loved Lucesita for years.",
+            "source_anchor_id": "p006-l002",
+        })
+        candidate = copy.deepcopy(audit)
+        candidate["sequence_ledger"][0]["character_knowledge"] = (
+            cv.SEQUENCE_KNOWLEDGE_NOT_APPLICABLE
+        )
+        scalar_plan = [{
+            "repair_kind": "scalar",
+            "slot": "sequence_001_character_knowledge",
+            "ledger_index": 0,
+            "order": 1,
+            "field": "character_knowledge",
+            "field_path": (
+                "sequence_ledger[order=1].character_knowledge"
+            ),
+            "prior_value": audit["sequence_ledger"][0][
+                "character_knowledge"
+            ],
+            "prior_grounding_not_located": True,
+            "reasons": ["failed source-grounding check"],
+        }]
+
+        _all, _evidence, _citations, pending = (
+            cv._post_detail_sequence_repair_rows(
+                {}, [], audit, candidate, scalar_plan
+            )
+        )
+
+        repaired_row = next(
+            value for value in pending
+            if value["identifier"] == row["identifier"]
+        )
+        self.assertTrue(
+            repaired_row["subject"]["required_material_atom_reaudit"]
+        )
+
+    def test_atomic_repair_rejects_fragment_or_supported_sibling_changes(self):
+        text, audit, _row, plan, repair = self._atomic_repair_fixture()
+        malformed = copy.deepcopy(repair)
+        malformed["atom_repairs"][0]["old_fragment"] = "twenty years"
+        with self.assertRaisesRegex(
+            cv.CoverageContractError, "frozen source fragment"
+        ):
+            cv._apply_post_detail_sequence_repairs(
+                audit, malformed, plan, source_text=text
+            )
+
+        corrected, _paths = cv._apply_post_detail_sequence_repairs(
+            audit, repair, plan, source_text=text
+        )
+        corrected["sequence_ledger"][0]["action"] = corrected[
+            "sequence_ledger"
+        ][0]["action"].replace("declares", "professes")
+        self.assertNotEqual(
+            cv._sequence_protected_event_inventory(audit, plan),
+            cv._sequence_protected_event_inventory(corrected, plan),
+        )
+
+        changed_source = copy.deepcopy(repair)
+        changed_source["atom_repairs"][0]["source_id"] = (
+            f"{plan[0]['slot']}:replacement:p006-l001"
+        )
+        with self.assertRaisesRegex(
+            cv.CoverageContractError, "changed its contradiction source"
+        ):
+            cv._apply_post_detail_sequence_repairs(
+                audit, changed_source, plan, source_text=text
+            )
+
+    def test_atomic_repair_blocks_missing_or_unresolved_provenance(self):
+        _text, audit, _row, _plan, _repair = self._atomic_repair_fixture()
+        missing = copy.deepcopy(audit)
+        missing["sequence_evidence"][0].pop("material_atom_results")
+        plan, blockers = cv._post_detail_sequence_repair_plan(missing)
+        self.assertFalse(plan)
+        self.assertTrue(any("atomic provenance" in item for item in blockers))
+
+        unresolved = copy.deepcopy(audit)
+        atom = unresolved["sequence_evidence"][0]["material_atom_results"][1]
+        atom["disposition"] = "unresolved"
+        plan, blockers = cv._post_detail_sequence_repair_plan(unresolved)
+        self.assertFalse(plan)
+        self.assertTrue(any("unresolved atom" in item for item in blockers))
+
+        not_located = copy.deepcopy(audit)
+        atom = not_located["sequence_evidence"][0][
+            "material_atom_results"
+        ][1]
+        atom["disposition"] = "not_located"
+        for field in ("page", "excerpt", "source_anchor_id"):
+            atom.pop(field, None)
+        plan, blockers = cv._post_detail_sequence_repair_plan(not_located)
+        self.assertFalse(plan)
+        self.assertTrue(any(
+            "NOT_LOCATED atom(s) requiring human review" in item
+            for item in blockers
+        ))
+
+    def test_atomic_repair_cannot_swap_in_a_different_true_event(self):
+        source = (
+            "[PAGE 6]\n"
+            "Tony enters the room.\n"
+            "Tony steals Diego's trophy.\n"
+            "Tony steals Carlos's car.\n"
+            "Diego watches Tony leave.\n"
+        )
+        beat = {
+            "order": 1,
+            "phase": "ending",
+            "page": 6,
+            "actor": "Tony",
+            "action": (
+                "Tony enters the room, then Tony steals Diego's trophy."
+            ),
+            "result": "Tony remains in the room.",
+            "character_knowledge": "Tony knows he entered the room.",
+            "audience_knowledge": "The audience sees Tony enter the room.",
+        }
+        atoms = cv._sequence_material_claim_atoms(beat)
+        by_id = {atom["atom_id"]: atom for atom in atoms}
+        audit = {
+            "sequence_ledger": [beat],
+            "sequence_evidence": [{
+                "field_path": "sequence_ledger[1]",
+                "classification": "partially_supported",
+                "grounding_valid": True,
+                "checks": [
+                    {"field": "actor", "supports": True},
+                    {"field": "action", "supports": False},
+                    {"field": "result", "supports": True},
+                    {"field": "character_knowledge", "supports": True},
+                    {"field": "audience_knowledge", "supports": True},
+                ],
+                "material_atom_results": [
+                    {
+                        **by_id["action_001"],
+                        "disposition": "supported",
+                        "page": 6,
+                        "excerpt": "Tony enters the room",
+                        "source_anchor_id": "p006-l001",
+                    },
+                    {
+                        **by_id["action_002"],
+                        "disposition": "contradicted",
+                        "page": 6,
+                        "excerpt": "Tony steals Carlos's car",
+                        "source_anchor_id": "p006-l003",
+                    },
+                ],
+                "claim_sha256": "claim-one",
+                "row_identity": "row-one",
+            }],
+            "verdicts": [],
+        }
+        plan, blockers = cv._post_detail_sequence_repair_plan(audit)
+        self.assertFalse(plan)
+        self.assertTrue(any(
+            "changes participant roles and requires human review" in item
+            for item in blockers
+        ))
+        self.assertFalse(cv._sequence_same_repair_event(
+            "Tony steals Diego's trophy.",
+            "Tony steals Carlos's car.",
+        ))
+        self.assertFalse(cv._sequence_same_repair_event(
+            "Tony steals Diego's trophy.",
+            "Tony steals Diego's car.",
+        ))
+        self.assertFalse(cv._sequence_same_repair_event(
+            "Tony gives Diego two trophies.",
+            "Diego gives Tony three trophies.",
+        ))
+        self.assertFalse(cv._sequence_same_repair_event(
+            "Tony enters Diego's house.",
+            "Diego exits Tony's house.",
+        ))
+        self.assertFalse(cv._sequence_same_repair_event(
+            "Tony wins two trophies.",
+            "Tony wins three trophies; wins trophies.",
+        ))
+        self.assertFalse(cv._sequence_same_repair_event(
+            "Tony does not win the trophy.",
+            "Tony wins the trophy; wins the trophy.",
+        ))
+        self.assertFalse(cv._sequence_same_repair_event(
+            "Tony wins two trophies.",
+            "Tony wins three trophies / wins trophies.",
+        ))
+        self.assertFalse(cv._sequence_same_repair_event(
+            "Tony wins two trophies.",
+            "Tony wins three trophies (wins trophies).",
+        ))
+        self.assertFalse(cv._sequence_same_repair_event(
+            "Tony enters the house.",
+            "Tony exits the house / exits the house.",
+        ))
+        self.assertFalse(cv._sequence_same_repair_event(
+            "Tony stops, killing two guards.",
+            "Tony stops killing three guards.",
+        ))
+
+    def test_numbered_identity_is_not_a_repairable_quantity(self):
+        cases = (
+            (
+                "Tony enters the room, then Judge 1 gives Tony the trophy.",
+                "then Judge 2 gives Tony the trophy.",
+            ),
+            (
+                "Tony entra al cuarto, luego Juez 1 entrega el trofeo a "
+                "Tony.",
+                "luego Juez 2 entrega el trofeo a Tony.",
+            ),
+        )
+        for action, contradiction in cases:
+            with self.subTest(action=action):
+                beat = {
+                    "order": 1,
+                    "phase": "ending",
+                    "page": 6,
+                    "actor": "Tony and Judge 1",
+                    "action": action,
+                    "result": "Tony keeps the trophy.",
+                    "character_knowledge": (
+                        "Tony knows he has the trophy."
+                    ),
+                    "audience_knowledge": (
+                        "The audience sees Tony receive the trophy."
+                    ),
+                }
+                atoms = {
+                    atom["atom_id"]: atom
+                    for atom in cv._sequence_material_claim_atoms(beat)
+                }
+                audit = {
+                    "sequence_ledger": [beat],
+                    "sequence_evidence": [{
+                        "field_path": "sequence_ledger[1]",
+                        "classification": "partially_supported",
+                        "grounding_valid": True,
+                        "checks": [
+                            {"field": "actor", "supports": True},
+                            {"field": "action", "supports": False},
+                            {"field": "result", "supports": True},
+                            {
+                                "field": "character_knowledge",
+                                "supports": True,
+                            },
+                            {
+                                "field": "audience_knowledge",
+                                "supports": True,
+                            },
+                        ],
+                        "material_atom_results": [
+                            {
+                                **atoms["action_001"],
+                                "disposition": "supported",
+                                "page": 6,
+                                "excerpt": atoms["action_001"]["text"],
+                                "source_anchor_id": "p006-l001",
+                            },
+                            {
+                                **atoms["action_002"],
+                                "disposition": "contradicted",
+                                "page": 6,
+                                "excerpt": contradiction,
+                                "source_anchor_id": "p006-l002",
+                            },
+                        ],
+                        "claim_sha256": "claim-one",
+                        "row_identity": "row-one",
+                    }],
+                    "verdicts": [],
+                }
+
+                plan, blockers = cv._post_detail_sequence_repair_plan(audit)
+
+                self.assertFalse(plan)
+                self.assertTrue(any(
+                    "does not preserve one event" in blocker
+                    for blocker in blockers
+                ))
+        self.assertFalse(cv._sequence_same_repair_event(
+            "Guard 1 arrests Tony.", "Guard 2 arrests Tony."
+        ))
+        self.assertFalse(cv._sequence_same_repair_event(
+            "Tony enters room 1.", "Tony enters room 2."
+        ))
+        self.assertFalse(cv._sequence_same_repair_event(
+            "Tony enters room one.", "Tony enters room two."
+        ))
+        self.assertFalse(cv._sequence_same_repair_event(
+            "camera 1 records Tony.", "camera 2 records Tony."
+        ))
+        self.assertFalse(cv._sequence_same_repair_event(
+            "Tony uses first camera.", "Tony uses second camera."
+        ))
+        self.assertFalse(cv._sequence_same_repair_event(
+            "Tony boards flight AA1.", "Tony boards flight AA2."
+        ))
+        for separator in (
+            "-", "/", "#", "_", ".", " ", "‑", "−",
+        ):
+            with self.subTest(device_code_separator=separator):
+                self.assertFalse(cv._sequence_same_repair_event(
+                    f"Tony uses camera A{separator}1.",
+                    f"Tony uses camera A{separator}2.",
+                ))
+        for separator in ("-", " "):
+            with self.subTest(word_device_code_separator=separator):
+                self.assertFalse(cv._sequence_same_repair_event(
+                    f"Tony uses camera A{separator}one.",
+                    f"Tony uses camera A{separator}two.",
+                ))
+        self.assertFalse(cv._sequence_same_repair_event(
+            "Tony uses camera 1.1.", "Tony uses camera 1.2."
+        ))
+        for left, right in (("(1)", "(2)"), ("[1]", "[2]"), ("“1”", "“2”")):
+            with self.subTest(bracketed_device_code=left):
+                self.assertFalse(cv._sequence_same_repair_event(
+                    f"Tony uses camera {left}.",
+                    f"Tony uses camera {right}.",
+                ))
+        for claim, replacement in (
+            (
+                "Tony chooses two as the access code.",
+                "Tony chooses three as the access code.",
+            ),
+            (
+                "Tony selects two for the channel.",
+                "Tony selects three for the channel.",
+            ),
+            (
+                "Tony presses two on the keypad.",
+                "Tony presses three on the keypad.",
+            ),
+        ):
+            with self.subTest(selected_numeric_identifier=claim):
+                self.assertFalse(cv._sequence_same_repair_event(
+                    claim, replacement
+                ))
+        for claim, replacement in (
+            (
+                "Tony visits the 'two guards' bar.",
+                "Tony visits the 'three guards' bar.",
+            ),
+            (
+                "Tony watches the “two trophies” show.",
+                "Tony watches the “three trophies” show.",
+            ),
+            (
+                "Tony joins the [two guards] club.",
+                "Tony joins the [three guards] club.",
+            ),
+        ):
+            with self.subTest(count_shaped_name=claim):
+                self.assertFalse(cv._sequence_same_repair_event(
+                    claim, replacement
+                ))
+        self.assertFalse(cv._sequence_same_repair_event(
+            "Tony watches 12 Years a Slave.",
+            "Tony watches 13 Years a Slave.",
+        ))
+        self.assertFalse(cv._sequence_same_repair_event(
+            "Tony boards the 10-Year Bus.",
+            "Tony boards the 5-Year Bus.",
+        ))
+        self.assertFalse(cv._sequence_same_repair_event(
+            "Tony uses camera №1 while watching 12 Years a Slave.",
+            "Tony uses camera №1 while watching 13 Years a Slave.",
+        ))
+        self.assertFalse(cv._sequence_same_repair_event(
+            "Tony reads the ﬁle, then watches 12 Years a Slave.",
+            "Tony reads the ﬁle, then watches 13 Years a Slave.",
+        ))
+        self.assertTrue(cv._sequence_same_repair_event(
+            "Tony wins two trophies.", "Tony wins three trophies."
+        ))
+        self.assertTrue(cv._sequence_same_repair_event(
+            "Tony kills two guards.", "Tony kills three guards."
+        ))
+        self.assertTrue(cv._sequence_same_repair_event(
+            "Tony waits ten years.", "Tony waits five years."
+        ))
+
+    def test_plan_uses_unique_order_and_targets_unlocated_knowledge(self):
+        coverage = valid_coverage()
+        audit = supported_audit(coverage)
+        row = next(
+            value for value in audit["sequence_evidence"]
+            if value["field_path"] == "sequence_ledger[2]"
+        )
+        row.update({
+            "classification": "unsupported",
+            "grounding_valid": True,
+            "checks": [{"field": "actor", "supports": False}],
+            "row_identity": "row-two",
+        })
+        audit["sequence_ledger"][2]["character_knowledge"] = "NOT LOCATED"
+
+        plan, blockers = cv._post_detail_sequence_repair_plan(audit)
+
+        self.assertFalse(blockers)
+        by_slot = {item["slot"]: item for item in plan}
+        self.assertEqual(by_slot["sequence_002_actor"]["ledger_index"], 1)
+        self.assertEqual(
+            by_slot["sequence_002_actor"]["field_path"],
+            "sequence_ledger[order=2].actor",
+        )
+        self.assertIn("sequence_003_character_knowledge", by_slot)
+        self.assertNotIn(
+            "prior_grounding_not_located",
+            by_slot["sequence_003_character_knowledge"],
+        )
+
+    def test_plan_blocks_automatic_rewrite_of_ungrounded_material_event(self):
+        audit, _repair_plan = self._event_bundle_fixture()
+        audit["sequence_evidence"] = []
+        for beat in audit["sequence_ledger"]:
+            checks = [
+                {"field": field, "supports": True}
+                for field in cv.GROUNDED_SEQUENCE_FIELDS
+            ]
+            if beat["order"] == 1:
+                checks[1] = {"field": "action", "supports": False}
+            audit["sequence_evidence"].append({
+                "field_path": f"sequence_ledger[{beat['order']}]",
+                "classification": (
+                    "partially_supported" if beat["order"] == 1
+                    else "supported"
+                ),
+                "grounding_valid": True,
+                "checks": checks,
+            })
+
+        plan, blockers = cv._post_detail_sequence_repair_plan(audit)
+
+        self.assertFalse(any(
+            item["field"] in {"action", "result"} for item in plan
+        ))
+        self.assertIn(
+            "sequence material event order 1 has ungrounded action; "
+            "atomic provenance is incomplete",
+            blockers,
+        )
+
+    def test_not_applicable_is_exact_and_engine_authorized(self):
+        coverage = valid_coverage()
+        claims = cv.build_audit_claims(coverage)
+        page_map = cv.build_page_reference_map(SCREENPLAY_TEXT, 6, None)
+        checks = cv.build_existing_evidence_checks(
+            coverage, SCREENPLAY_TEXT
+        )
+        audit = supported_audit(coverage)
+        audit["sequence_ledger"][1]["character_knowledge"] = (
+            cv.SEQUENCE_KNOWLEDGE_NOT_APPLICABLE
+        )
+        problems = cv.validate_audit_payload(
+            audit, claims, coverage, page_map, checks
+        )
+        self.assertTrue(any("unauthorized NOT APPLICABLE" in p for p in problems))
+
+        audit["_sequence_repair_authorized_not_applicable_orders"] = [2]
+        problems = cv.validate_audit_payload(
+            audit, claims, coverage, page_map, checks
+        )
+        self.assertFalse(any("unauthorized NOT APPLICABLE" in p for p in problems))
+        self.assertFalse(any("invalid knowledge structure" in p for p in problems))
+
+        audit["sequence_ledger"][1]["character_knowledge"] = "not applicable"
+        problems = cv.validate_audit_payload(
+            audit, claims, coverage, page_map, checks
+        )
+        self.assertTrue(any("invalid knowledge structure" in p for p in problems))
+
+    def test_not_applicable_requires_confirmed_absence_and_no_staged_knowledge(self):
+        source, _plan = self._event_bundle_fixture()
+        no_knowledge_source = "[PAGE 6]\nDiego lifts the trophy.\n"
+        beat = source["sequence_ledger"][0]
+        beat["character_knowledge"] = "Diego knows a secret plan."
+        item = {
+            "slot": "sequence_001_character_knowledge",
+            "ledger_index": 0,
+            "order": 1,
+            "field": "character_knowledge",
+            "field_path": "sequence_ledger[order=1].character_knowledge",
+            "prior_value": beat["character_knowledge"],
+            "reasons": ["failed source-grounding check"],
+            "prior_grounding_not_located": True,
+        }
+        repaired, _paths = cv._apply_post_detail_sequence_repairs(
+            source,
+            {"repairs": [{
+                "slot": item["slot"],
+                "corrected_value": cv.SEQUENCE_KNOWLEDGE_NOT_APPLICABLE,
+            }]},
+            [item],
+            source_text=no_knowledge_source,
+        )
+        self.assertEqual(
+            repaired["sequence_ledger"][0]["character_knowledge"],
+            cv.SEQUENCE_KNOWLEDGE_NOT_APPLICABLE,
+        )
+        unverified = copy.deepcopy(item)
+        unverified.pop("prior_grounding_not_located")
+        with self.assertRaisesRegex(
+            cv.CoverageContractError, "cannot erase"
+        ):
+            cv._apply_post_detail_sequence_repairs(
+                source,
+                {"repairs": [{
+                    "slot": item["slot"],
+                    "corrected_value": cv.SEQUENCE_KNOWLEDGE_NOT_APPLICABLE,
+                }]},
+                [unverified],
+                source_text=no_knowledge_source,
+            )
+        raw_not_located = copy.deepcopy(item)
+        raw_not_located["prior_value"] = "NOT LOCATED"
+        raw_not_located.pop("prior_grounding_not_located")
+        source["sequence_ledger"][0]["character_knowledge"] = "NOT LOCATED"
+        with self.assertRaisesRegex(
+            cv.CoverageContractError, "cannot erase"
+        ):
+            cv._apply_post_detail_sequence_repairs(
+                source,
+                {"repairs": [{
+                    "slot": item["slot"],
+                    "corrected_value": cv.SEQUENCE_KNOWLEDGE_NOT_APPLICABLE,
+                }]},
+                [raw_not_located],
+                source_text=no_knowledge_source,
+            )
+        raw_not_located["prior_grounding_not_located"] = True
+        repaired, _paths = cv._apply_post_detail_sequence_repairs(
+            source,
+            {"repairs": [{
+                "slot": item["slot"],
+                "corrected_value": cv.SEQUENCE_KNOWLEDGE_NOT_APPLICABLE,
+            }]},
+            [raw_not_located],
+            source_text=no_knowledge_source,
+        )
+        self.assertEqual(
+            repaired["sequence_ledger"][0]["character_knowledge"],
+            cv.SEQUENCE_KNOWLEDGE_NOT_APPLICABLE,
+        )
+        staged_knowledge = copy.deepcopy(item)
+        staged_source = copy.deepcopy(source)
+        staged_source["sequence_ledger"][0].update({
+            "action": "Diego learns that Roman fixed the contest.",
+            "character_knowledge": item["prior_value"],
+        })
+        with self.assertRaisesRegex(
+            cv.CoverageContractError, "cannot erase"
+        ):
+            cv._apply_post_detail_sequence_repairs(
+                staged_source,
+                {"repairs": [{
+                    "slot": item["slot"],
+                    "corrected_value": cv.SEQUENCE_KNOWLEDGE_NOT_APPLICABLE,
+                }]},
+                [staged_knowledge],
+                source_text=no_knowledge_source,
+            )
+
+        screenplay_knowledge = copy.deepcopy(source)
+        screenplay_knowledge["sequence_ledger"][0][
+            "character_knowledge"
+        ] = item["prior_value"]
+        with self.assertRaisesRegex(
+            cv.CoverageContractError, "cannot erase"
+        ):
+            cv._apply_post_detail_sequence_repairs(
+                screenplay_knowledge,
+                {"repairs": [{
+                    "slot": item["slot"],
+                    "corrected_value": cv.SEQUENCE_KNOWLEDGE_NOT_APPLICABLE,
+                }]},
+                [item],
+                source_text=(
+                    "[PAGE 6]\nDiego realizes the plan is fake.\n"
+                ),
+            )
+        for staged_source_text in (
+            "[PAGE 6]\nDiego abre la carta.\nSe da cuenta del engaño.\n",
+            "[PAGE 6]\nDiego opens the letter.\nHe realizes the fraud.\n",
+        ):
+            with self.subTest(staged_source_text=staged_source_text):
+                with self.assertRaisesRegex(
+                    cv.CoverageContractError, "cannot erase"
+                ):
+                    cv._apply_post_detail_sequence_repairs(
+                        screenplay_knowledge,
+                        {"repairs": [{
+                            "slot": item["slot"],
+                            "corrected_value": (
+                                cv.SEQUENCE_KNOWLEDGE_NOT_APPLICABLE
+                            ),
+                        }]},
+                        [item],
+                        source_text=staged_source_text,
+                    )
+
+    def test_not_applicable_uses_the_same_call_corrected_actor(self):
+        source, _plan = self._event_bundle_fixture()
+        source["sequence_ledger"][0].update({
+            "actor": "Roman",
+            "character_knowledge": "Roman knows a secret plan.",
+        })
+        actor_item = {
+            "slot": "sequence_001_actor",
+            "ledger_index": 0,
+            "order": 1,
+            "field": "actor",
+            "field_path": "sequence_ledger[order=1].actor",
+            "prior_value": "Roman",
+            "reasons": ["failed source-grounding check"],
+        }
+        knowledge_item = {
+            "slot": "sequence_001_character_knowledge",
+            "ledger_index": 0,
+            "order": 1,
+            "field": "character_knowledge",
+            "field_path": "sequence_ledger[order=1].character_knowledge",
+            "prior_value": "Roman knows a secret plan.",
+            "reasons": ["failed source-grounding check"],
+            "prior_grounding_not_located": True,
+        }
+
+        with self.assertRaisesRegex(
+            cv.CoverageContractError, "cannot erase"
+        ):
+            cv._apply_post_detail_sequence_repairs(
+                source,
+                {"repairs": [
+                    {
+                        "slot": actor_item["slot"],
+                        "corrected_value": "Diego",
+                    },
+                    {
+                        "slot": knowledge_item["slot"],
+                        "corrected_value": (
+                            cv.SEQUENCE_KNOWLEDGE_NOT_APPLICABLE
+                        ),
+                    },
+                ]},
+                [actor_item, knowledge_item],
+                source_text=(
+                    "[PAGE 6]\nDiego realizes the plan is fake.\n"
+                ),
+            )
+
+    def test_not_applicable_checks_each_actor_in_a_multi_actor_roster(self):
+        source, _plan = self._event_bundle_fixture()
+        source["sequence_ledger"][0].update({
+            "actor": "Diego and Carlos",
+            "character_knowledge": "Diego and Carlos know a secret plan.",
+        })
+        item = {
+            "slot": "sequence_001_character_knowledge",
+            "ledger_index": 0,
+            "order": 1,
+            "field": "character_knowledge",
+            "field_path": "sequence_ledger[order=1].character_knowledge",
+            "prior_value": "Diego and Carlos know a secret plan.",
+            "reasons": ["failed source-grounding check"],
+            "prior_grounding_not_located": True,
+        }
+
+        with self.assertRaisesRegex(
+            cv.CoverageContractError, "cannot erase"
+        ):
+            cv._apply_post_detail_sequence_repairs(
+                source,
+                {"repairs": [{
+                    "slot": item["slot"],
+                    "corrected_value": cv.SEQUENCE_KNOWLEDGE_NOT_APPLICABLE,
+                }]},
+                [item],
+                source_text=(
+                    "[PAGE 6]\nCarlos realizes the truth.\n"
+                ),
+            )
+
+    def test_literal_staging_can_ground_audience_knowledge(self):
+        source = "[PAGE 1]\nRichie entrega la peluca a Lucesita.\n"
+        beat = {
+            "order": 1,
+            "phase": "climax",
+            "actor": "Richie",
+            "action": "Richie entrega la peluca a Lucesita.",
+            "result": "Richie entrega la peluca a Lucesita.",
+            "character_knowledge": cv.SEQUENCE_KNOWLEDGE_NOT_APPLICABLE,
+            "audience_knowledge": "Richie entrega la peluca a Lucesita.",
+            "page": 1,
+        }
+        row = cv.build_detail_audit_rows({}, [], [beat])[0]
+        source_id = next(iter(cv._source_anchor_catalog(source)))
+        value = {
+            "classification": "supported",
+            "checks": [
+                {
+                    "field": field,
+                    "source_id": f"{row['slot']}:{field}:{source_id}",
+                    "supports": True,
+                }
+                for field in row["subject"]["required_fields"]
+            ],
+            "note": "Literal staging supports the beat.",
+        }
+
+        decoded, reason = cv._decode_grounded_detail_value(
+            value, row, source
+        )
+
+        self.assertIsNone(reason)
+        self.assertTrue(decoded and decoded["grounding_valid"])
+
+    def test_bounded_ranges_ground_compound_events_but_not_other_fields(self):
+        source = (
+            "[PAGE 1]\n"
+            "El video muestra a Tony sobornando a dos jueces con regalos.\n"
+            "Los dos jueces intentan escapar y seguridad los detiene.\n"
+        )
+        anchor = cv._sequence_source_anchor(
+            source, "p001-l001-l001"
+        )
+        self.assertIsNotNone(anchor)
+        beat = {
+            "actor": "Video",
+            "action": "Video shows Tony bribing two judges with gifts.",
+        }
+        self.assertTrue(cv._sequence_compound_range_matches(
+            beat, "action", anchor["excerpt"]
+        ))
+        self.assertFalse(cv._sequence_compound_range_matches(
+            {
+                "actor": "Video",
+                "action": "Video shows Tony destroying the stadium.",
+            },
+            "action",
+            anchor["excerpt"],
+        ))
+        encore = (
+            "[PAGE 101]\n"
+            "El público pide otra canción.\n"
+            "PUBLICO: ¡Otra! ¡Otra!\n"
+            "Cosquillitas se vuelve loco de felicidad.\n"
+            "JUANITO\n"
+            "Esta canción se llama Otra.\n"
+            "Juanito se reúne con Cosquillitas.\n"
+            "Cantan otra.\n"
+            "Y YA\n"
+        )
+        encore_anchor = cv._sequence_source_anchor(
+            encore, "p101-l001-l008"
+        )
+        self.assertIsNotNone(encore_anchor)
+        finale = {
+            "actor": "Public, Juanito, and Cosquillitas",
+            "action": (
+                "Public demands encore ('Otra!'); Juanito announces the "
+                "song is titled Otra; Cosquillitas performs it."
+            ),
+            "result": (
+                "Final image is Cosquillitas performing encores for a "
+                "delirious crowd; screenplay ends mid-celebration."
+            ),
+        }
+        self.assertTrue(cv._sequence_compound_range_matches(
+            finale, "action", encore_anchor["excerpt"]
+        ))
+        self.assertTrue(cv._sequence_compound_range_matches(
+            finale, "result", encore_anchor["excerpt"]
+        ))
+        without_announcement = encore.replace(
+            "Esta canción se llama Otra.\n", ""
+        )
+        without_performance = encore.replace("Cantan otra.\n", "")
+        self.assertFalse(cv._sequence_compound_range_matches(
+            finale,
+            "action",
+            cv._sequence_source_anchor(
+                without_announcement, "p101-l001-l007"
+            )["excerpt"],
+        ))
+        self.assertFalse(cv._sequence_compound_range_matches(
+            finale,
+            "action",
+            cv._sequence_source_anchor(
+                without_performance, "p101-l001-l007"
+            )["excerpt"],
+        ))
+        decoded_beat = {
+            "order": 1,
+            "phase": "final_scene",
+            "page": 101,
+            **finale,
+            "actor": "Juanito",
+            "character_knowledge": cv.SEQUENCE_KNOWLEDGE_NOT_APPLICABLE,
+            "audience_knowledge": (
+                "The audience hears the request and performance."
+            ),
+        }
+        decoded_row = cv.build_detail_audit_rows({}, [], [decoded_beat])[0]
+        decoded_slot = decoded_row["slot"]
+        decoded, reason = cv._decode_grounded_detail_value(
+            {
+                "classification": "partially_supported",
+                "checks": [
+                    {
+                        "field": "actor",
+                        "source_id": (
+                            f"{decoded_slot}:actor:p101-l004"
+                        ),
+                        "supports": True,
+                    },
+                    *[
+                        {
+                            "field": field,
+                            "source_id": (
+                                f"{decoded_slot}:{field}:p101-l001-l008"
+                            ),
+                            "supports": True,
+                        }
+                        for field in ("action", "result")
+                    ],
+                    *[
+                        {
+                            "field": field,
+                            "source_id": cv.SEQUENCE_SOURCE_NOT_LOCATED,
+                            "supports": False,
+                        }
+                        for field in (
+                            "character_knowledge", "audience_knowledge",
+                        )
+                    ],
+                ],
+                "note": "The literal finale range supports action and result.",
+            },
+            decoded_row,
+            encore,
+        )
+        self.assertIsNone(reason)
+        self.assertEqual(decoded["classification"], "partially_supported")
+        self.assertTrue(all(
+            check["supports"]
+            for check in decoded["checks"]
+            if check["field"] in {"action", "result"}
+        ))
+        row = {"slot": "sequence_001", "kind": "sequence_evidence"}
+        _anchor, reason = cv._sequence_source_token_anchor(
+            "sequence_001:actor:p001-l001-l002", row, "actor"
+        )
+        self.assertIn("cannot use a source line range", str(reason))
+        overlong = "[PAGE 1]\n" + "\n".join(
+            f"Line {index} has enough source words." for index in range(25)
+        )
+        self.assertIsNone(cv._sequence_source_anchor(
+            overlong, "p001-l001-l025"
+        ))
+        adjacent = (
+            "[PAGE 1]\nTony starts the recorded confession.\n"
+            "[PAGE 2]\nThe judges receive the gifts from Tony.\n"
+        )
+        self.assertIsNotNone(cv._sequence_source_anchor(
+            adjacent, "p001-l001-p002-l001"
+        ))
+        crossing_scene = adjacent.replace(
+            "[PAGE 2]\n", "[PAGE 2]\nINT. OTHER ROOM - DAY\n"
+        )
+        self.assertIsNone(cv._sequence_source_anchor(
+            crossing_scene, "p001-l001-p002-l002"
+        ))
+
+    def test_supported_event_inventory_rejects_rewrite_and_permutation(self):
+        source, plan = self._event_bundle_fixture()
+        for item in plan:
+            item["reasons"] = ["same-page source order inversion"]
+
+        def repair(values):
+            return {
+                "repairs": [
+                    {"slot": item["slot"], "corrected_value": values[index]}
+                    for index, item in enumerate(plan)
+                ]
+            }
+
+        first = source["sequence_ledger"][0]
+        second = source["sequence_ledger"][1]
+        for values in (
+            [
+                second["action"], second["result"],
+                first["action"], first["result"],
+            ],
+            [
+                "Diego drops the trophy.", first["result"],
+                second["action"], second["result"],
+            ],
+            [
+                first["action"], first["result"],
+                first["action"], first["result"],
+            ],
+        ):
+            with self.subTest(values=values):
+                with self.assertRaisesRegex(
+                    cv.CoverageContractError, "protected material event"
+                ):
+                    cv._apply_post_detail_sequence_repairs(
+                        source, repair(values), plan
+                    )
+
+        literal_source, literal_plan = self._event_bundle_fixture()
+        for item in literal_plan:
+            item["reasons"] = ["same-page source order inversion"]
+        literal_source["sequence_ledger"][0]["action"] = "Diego dice sí."
+        literal_plan[0]["prior_value"] = "Diego dice sí."
+        literal_values = [
+            literal_source["sequence_ledger"][0]["action"],
+            literal_source["sequence_ledger"][0]["result"],
+            literal_source["sequence_ledger"][1]["action"],
+            literal_source["sequence_ledger"][1]["result"],
+        ]
+        for mutation in ("Diego dice si.", "diego dice sí.", "Diego dice sí"):
+            with self.subTest(literal_mutation=mutation):
+                changed = list(literal_values)
+                changed[0] = mutation
+                with self.assertRaisesRegex(
+                    cv.CoverageContractError, "protected material event"
+                ):
+                    cv._apply_post_detail_sequence_repairs(
+                        literal_source, repair(changed), literal_plan
+                    )
+
+    def test_ungrounded_event_pair_cannot_be_rewritten(self):
+        source, plan = self._event_bundle_fixture()
+        with self.assertRaisesRegex(
+            cv.CoverageContractError, "protected material event"
+        ):
+            cv._apply_post_detail_sequence_repairs(
+                source,
+                {"repairs": [
+                    {
+                        "slot": item["slot"],
+                        "corrected_value": (
+                            "Diego returns the trophy."
+                            if item["ledger_index"] == 0
+                            and item["field"] == "action"
+                            else "The trophy returns to its owner."
+                            if item["ledger_index"] == 0
+                            else "Roman congratulates Diego."
+                            if item["field"] == "action"
+                            else "The rivals reconcile."
+                        ),
+                    }
+                    for item in plan
+                ]},
+                plan,
+            )
+
+    def test_repaired_event_source_order_and_checkpoint_are_bound(self):
+        source, plan = self._event_bundle_fixture()
+        for item in plan:
+            item["reasons"] = ["same-page source order inversion"]
+        repair = {
+            "repairs": [
+                {
+                    "slot": item["slot"],
+                    "corrected_value": source["sequence_ledger"][
+                        item["ledger_index"]
+                    ][item["field"]],
+                }
+                for item in plan
+            ]
+        }
+        candidate, changed_paths = cv._apply_post_detail_sequence_repairs(
+            source, repair, plan
+        )
+        candidate["sequence_evidence"] = [
+            {
+                "field_path": f"sequence_ledger[{order}]",
+                "checks": [{
+                    "field": "action",
+                    "source_anchor_id": f"p006-l{line:03d}",
+                }],
+            }
+            for order, line in ((1, 1), (2, 2))
+        ]
+        self.assertTrue(cv._sequence_repair_source_order_is_literal(candidate))
+        candidate["sequence_evidence"][1]["checks"][0][
+            "source_anchor_id"
+        ] = "p006-l000"
+        self.assertFalse(cv._sequence_repair_source_order_is_literal(candidate))
+        candidate["sequence_evidence"][1]["checks"][0][
+            "source_anchor_id"
+        ] = "p006-l002"
+
+        candidate["sequence_evidence"][1]["checks"][0][
+            "source_anchor_id"
+        ] = "p006-l001"
+        self.assertFalse(cv._sequence_repair_source_order_is_literal(candidate))
+        candidate["sequence_evidence"][1]["checks"][0][
+            "source_anchor_id"
+        ] = "p006-l001-l002"
+        self.assertFalse(cv._sequence_repair_source_order_is_literal(candidate))
+        candidate["sequence_evidence"][1]["checks"][0][
+            "source_anchor_id"
+        ] = "p006-l002"
+
+        candidate["sequence_ledger"][0]["phase"] = "ending"
+        candidate["sequence_ledger"][1]["phase"] = "final_scene"
+        candidate["sequence_evidence"][0]["checks"][0][
+            "source_anchor_id"
+        ] = "p006-l010"
+        candidate["sequence_evidence"][1]["checks"][0][
+            "source_anchor_id"
+        ] = "p006-l005"
+        self.assertFalse(cv._sequence_repair_source_order_is_literal(candidate))
+        candidate["sequence_ledger"][1]["phase"] = "ending"
+        candidate["sequence_evidence"][0]["checks"][0][
+            "source_anchor_id"
+        ] = "p006-l001"
+        candidate["sequence_evidence"][1]["checks"][0][
+            "source_anchor_id"
+        ] = "p006-l002"
+
+        source_sha = cv.canonical_json_hash(source)
+        inventory_sha = cv.canonical_json_hash(
+            cv._sequence_protected_event_inventory(source, plan)
+        )
+        record = {
+            "sequence_repair_contract_version": (
+                cv.SEQUENCE_REPAIR_CONTRACT_VERSION
+            ),
+            "source_audit_sha256": source_sha,
+            "material_event_inventory_sha256": inventory_sha,
+            "plan": plan,
+            "plan_sha256": cv.canonical_json_hash(plan),
+            "audit": candidate,
+            "audit_sha256": cv.canonical_json_hash(candidate),
+            "corrected_ledger_sha256": cv.canonical_json_hash(
+                candidate["sequence_ledger"]
+            ),
+            "changed_paths": changed_paths,
+            "authorized_not_applicable_orders": [],
+            "details_verified": False,
+        }
+        self.assertIsNotNone(cv._validated_sequence_repair_checkpoint(
+            record, source_sha, inventory_sha, plan, final=False
+        ))
+        tampered = copy.deepcopy(record)
+        tampered["audit"]["sequence_ledger"][0]["action"] = (
+            "Diego hides the trophy."
+        )
+        tampered["audit_sha256"] = cv.canonical_json_hash(tampered["audit"])
+        tampered["corrected_ledger_sha256"] = cv.canonical_json_hash(
+            tampered["audit"]["sequence_ledger"]
+        )
+        with self.assertRaises(cv.CheckpointTamperedError):
+            cv._validated_sequence_repair_checkpoint(
+                tampered, source_sha, inventory_sha, plan, final=False
+            )
+
+    def test_plan_targets_every_pair_in_a_same_page_source_inversion(self):
+        source, _plan = self._event_bundle_fixture()
+        third = copy.deepcopy(source["sequence_ledger"][1])
+        third.update({
+            "order": 3,
+            "actor": "Lucesita",
+            "action": "Lucesita enters the field.",
+            "result": "Lucesita joins the celebration.",
+            "character_knowledge": "Lucesita knows Diego won.",
+            "audience_knowledge": "The crowd sees Lucesita arrive.",
+        })
+        source["sequence_ledger"].append(third)
+        source["sequence_evidence"] = [
+            {
+                "field_path": f"sequence_ledger[{order}]",
+                "classification": "supported",
+                "grounding_valid": True,
+                "claim_sha256": f"claim-{order}",
+                "row_identity": f"row-{order}",
+                "checks": [{
+                    "field": "action",
+                    "supports": True,
+                    "source_anchor_id": f"p006-l{line:03d}",
+                }],
+            }
+            for order, line in ((1, 20), (2, 30), (3, 10))
+        ]
+
+        plan, blockers = cv._post_detail_sequence_repair_plan(source)
+
+        self.assertFalse(plan)
+        self.assertTrue(blockers)
+        self.assertTrue(all(
+            "requires a new atomic audit" in blocker
+            for blocker in blockers
+        ))
+
+    def test_source_order_blocker_cannot_seal_public_report(self):
+        coverage = valid_coverage()
+        core = provider_audit_core(coverage)
+        second = copy.deepcopy(core["sequence_ledger"]["climax"][0])
+        second["result"] = "Diego detiene el último penal."
+        core["sequence_ledger"]["climax"].append(second)
+        action = (
+            "Diego detiene el último penal de la final y se desploma sobre "
+            "el pasto."
+        )
+        audience = "El público ve que Diego detiene el último penal."
+        source = SCREENPLAY_TEXT.replace(
+            action, f"{action}\n{audience}\n{action}", 1
+        )
+        page_map = cv.build_page_reference_map(source, 6, None)
+        normalized = cv.normalize_audit_tool_input(
+            copy.deepcopy(core), page_map["valid_citation_pages"]
+        )
+        evidence = cv.build_existing_evidence_checks(coverage, source)
+        rows = cv.build_detail_audit_rows(
+            coverage, evidence, normalized["sequence_ledger"]
+        )
+        detail = detail_payload_for_rows(rows, source)
+        second_row = next(
+            row for row in rows
+            if row["kind"] == "sequence_evidence"
+            and row["subject"]["beat"]["order"] == 2
+        )
+        slot = second_row["slot"]
+        second_detail = json.loads(detail["results"][slot])
+        for check in second_detail["checks"]:
+            field = check["field"]
+            if field in {"action", "result"}:
+                check["source_id"] = f"{slot}:{field}:p006-l003w01"
+            elif field == "audience_knowledge":
+                check["source_id"] = (
+                    f"{slot}:audience_knowledge:p006-l004"
+                )
+        detail["results"][slot] = json.dumps(second_detail)
+        transport = FakeTransport([
+            (coverage, settled_usage()),
+            (core, settled_usage()),
+            (detail, settled_usage()),
+        ])
+
+        report, _usage = run_engine(
+            new_store(), transport, text=source,
+            max_calls=3, max_cost_usd=5.0,
+        )
+
+        self.assertEqual(report["status"], "needs_review")
+        self.assertEqual(
+            [call["stage"] for call in transport.calls],
+            [
+                "coverage_v1.coverage",
+                "coverage_v1.fact_audit",
+                "coverage_v1.fact_audit_details",
+            ],
+        )
+        blockers = report["diagnostics"]["sequence_repair"]["blockers"]
+        self.assertTrue(any(
+            "sequence source order inversion" in blocker
+            for blocker in blockers
+        ))
+        self.assertTrue(any(
+            "sequence correction requires human review" in reason
+            for reason in report["review_reasons"]
+        ))
+
+    def test_provider_duplicate_material_beat_is_rejected(self):
+        coverage = valid_coverage()
+        audit = supported_audit(coverage)
+        duplicate = copy.deepcopy(audit["sequence_ledger"][0])
+        audit["sequence_ledger"].insert(1, duplicate)
+        for order, beat in enumerate(audit["sequence_ledger"], 1):
+            beat["order"] = order
+        audit["sequence_evidence"] = [
+            {
+                "field_path": f"sequence_ledger[{beat['order']}]",
+                "classification": "supported",
+                "note": "The source grounds every required field.",
+                "checks": [],
+                "claim_sha256": cv.canonical_json_hash({
+                    field: beat.get(field)
+                    for field in (
+                        "order", "phase", "page",
+                        *cv.GROUNDED_SEQUENCE_FIELDS,
+                    )
+                }),
+                "grounding_valid": True,
+            }
+            for beat in audit["sequence_ledger"]
+            if beat["action"] != "NOT PRESENT"
+        ]
+
+        problems = cv.validate_audit_payload(
+            audit,
+            cv.build_audit_claims(coverage),
+            coverage,
+            cv.build_page_reference_map(SCREENPLAY_TEXT, 6, None),
+            cv.build_existing_evidence_checks(coverage, SCREENPLAY_TEXT),
+        )
+
+        self.assertTrue(any(
+            "duplicates a material beat" in problem for problem in problems
+        ))
+
+    def test_provider_paraphrase_cannot_reuse_overlapping_action_source(self):
+        coverage = valid_coverage()
+        for phase, page in (
+            ("climax", 6),
+            ("final_scene", 6),
+            ("ending", 5),
+        ):
+            with self.subTest(phase=phase, page=page):
+                audit = supported_audit(coverage)
+                duplicate = copy.deepcopy(audit["sequence_ledger"][0])
+                duplicate.update({
+                    "phase": phase,
+                    "page": page,
+                    "action": duplicate["action"] + "!",
+                    "result": duplicate["result"] + "!",
+                })
+                audit["sequence_ledger"].insert(1, duplicate)
+                for order, beat in enumerate(audit["sequence_ledger"], 1):
+                    beat["order"] = order
+                audit["sequence_evidence"] = [
+                    {
+                        "field_path": f"sequence_ledger[{beat['order']}]",
+                        "classification": "supported",
+                        "note": "The source grounds every required field.",
+                        "checks": ([{
+                            "field": "action",
+                            "supports": True,
+                            "source_anchor_id": (
+                                "p006-l003w01" if beat["order"] == 1
+                                else "p006-l002-l003"
+                            ),
+                        }] if beat["order"] in {1, 2} else []),
+                        "claim_sha256": cv.canonical_json_hash({
+                            field: beat.get(field)
+                            for field in (
+                                "order", "phase", "page",
+                                *cv.GROUNDED_SEQUENCE_FIELDS,
+                            )
+                        }),
+                        "grounding_valid": True,
+                    }
+                    for beat in audit["sequence_ledger"]
+                    if beat["action"] != "NOT PRESENT"
+                ]
+
+                problems = cv.validate_audit_payload(
+                    audit,
+                    cv.build_audit_claims(coverage),
+                    coverage,
+                    cv.build_page_reference_map(SCREENPLAY_TEXT, 6, None),
+                    cv.build_existing_evidence_checks(
+                        coverage, SCREENPLAY_TEXT
+                    ),
+                )
+
+                self.assertTrue(any(
+                    "overlaps an action source span" in problem
+                    for problem in problems
+                ))
+
+    def test_apply_rejects_incomplete_duplicate_and_untyped_slots(self):
+        _coverage, _core, _detail, plan, repair, _pending = (
+            self._repair_fixture()
+        )
+        source = supported_audit(valid_coverage())
+        failed = copy.deepcopy(source)
+        failed_row = failed["sequence_evidence"][0]
+        failed_row.update({
+            "classification": "unsupported",
+            "grounding_valid": True,
+            "checks": [{"field": "actor", "supports": False}],
+        })
+        simple_plan, blockers = cv._post_detail_sequence_repair_plan(failed)
+        self.assertFalse(blockers)
+        valid = {
+            "repairs": [{
+                "slot": simple_plan[0]["slot"],
+                "corrected_value": "Diego Salas",
+            }]
+        }
+        for malformed in (
+            {"repairs": []},
+            {"repairs": [*valid["repairs"], *valid["repairs"]]},
+            {"repairs": [{
+                "slot": simple_plan[0]["slot"],
+                "corrected_value": 7,
+            }]},
+        ):
+            with self.subTest(malformed=malformed):
+                with self.assertRaises(cv.CoverageContractError):
+                    cv._apply_post_detail_sequence_repairs(
+                        failed, malformed, simple_plan
+                    )
+        unchanged, paths = cv._apply_post_detail_sequence_repairs(
+            failed,
+            {"repairs": [{
+                "slot": simple_plan[0]["slot"],
+                "corrected_value": source["sequence_ledger"][0]["actor"],
+            }]},
+            simple_plan,
+        )
+        self.assertEqual(
+            unchanged["sequence_ledger"][0]["actor"],
+            source["sequence_ledger"][0]["actor"],
+        )
+        self.assertEqual(paths, [simple_plan[0]["field_path"]])
+        self.assertTrue(plan)
+        self.assertTrue(repair["repairs"])
+
+    def test_checkpointed_repair_resumes_without_rebuying_call_13(self):
+        coverage, core, first_detail, _plan, repair, pending = (
+            self._repair_fixture()
+        )
+        store = new_store()
+        first = FakeTransport([
+            (coverage, settled_usage()),
+            (core, settled_usage()),
+            (first_detail, settled_usage()),
+            (repair, settled_usage()),
+        ])
+
+        partial, _usage = run_engine(
+            store, first, max_calls=4, max_cost_usd=5.0
+        )
+
+        self.assertEqual(partial["status"], "needs_review")
+        self.assertEqual(
+            first.calls[-1]["stage"], "coverage_v1.sequence_repair"
+        )
+        self.assertEqual(
+            partial["diagnostics"]["sequence_repair"]["deferred_stage"],
+            "coverage_v1.sequence_repair_details",
+        )
+
+        resume = FakeTransport([
+            (typed_detail_payload_for_rows(pending), settled_usage())
+        ])
+        report, _usage = run_engine(
+            store, resume, max_calls=5, max_cost_usd=5.0
+        )
+
+        self.assertEqual(
+            [call["stage"] for call in resume.calls],
+            ["coverage_v1.sequence_repair_details"],
+        )
+        self.assertTrue(report["diagnostics"]["sequence_repair"]["applied"])
+        self.assertEqual(report["status"], "sealed")
+
+    def test_malformed_redetail_stops_before_fact_repair(self):
+        coverage, core, first_detail, _plan, repair, _pending = (
+            self._repair_fixture()
+        )
+        store = new_store()
+        run_engine(
+            store,
+            FakeTransport([
+                (coverage, settled_usage()),
+                (core, settled_usage()),
+                (first_detail, settled_usage()),
+                (repair, settled_usage()),
+            ]),
+            max_calls=4,
+            max_cost_usd=5.0,
+        )
+        resume = FakeTransport([
+            ({"sequence_results": []}, settled_usage()),
+            (coverage, settled_usage()),
+        ])
+
+        with self.assertRaises(cv.CoverageContractError):
+            run_engine(
+                store, resume, max_calls=6, max_cost_usd=5.0
+            )
+
+        self.assertEqual(len(resume.calls), 1)
+        self.assertEqual(
+            resume.calls[0]["stage"],
+            "coverage_v1.sequence_repair_details",
+        )
 
 
 class TestLabels(unittest.TestCase):
