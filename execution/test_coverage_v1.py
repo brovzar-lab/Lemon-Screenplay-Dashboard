@@ -1481,16 +1481,9 @@ def cosquillitas_literal_rows():
 
 def cosquillitas_literal_correction(_candidate, inventory):
     rows = cosquillitas_literal_rows()
-    response = {"sequence_ledger": {
-        phase: [] for phase in cv.AUDIT_SEQUENCE_PHASES
-    }}
-    allowed = set(cv._AUDIT_SEQUENCE_BEAT_SCHEMA["required"])
+    response = {"sequence_rows": {}}
     for stage in inventory:
-        row = {
-            key: copy.deepcopy(value)
-            for key, value in rows[str(stage["stage_id"])].items()
-            if key in allowed
-        }
+        row = copy.deepcopy(rows[str(stage["stage_id"])])
         for field in ("action", "result"):
             canonical_claims = [
                 str(required["canonical_claim"])
@@ -1499,9 +1492,44 @@ def cosquillitas_literal_correction(_candidate, inventory):
             ]
             if canonical_claims:
                 row[field] = "; ".join(canonical_claims)
-        row["stage_id"] = stage["stage_id"]
-        response["sequence_ledger"][stage["phase"]].append(row)
+        response["sequence_rows"][stage["stage_id"]] = (
+            encode_literal_correction_values([
+                row[field]
+                for field in cv._LITERAL_SEQUENCE_CORRECTION_FIELDS
+            ])
+        )
     return response
+
+
+def encode_literal_correction_values(values):
+    return "\n".join(
+        f"{label}{value}"
+        for label, value in zip(cv._LITERAL_SEQUENCE_CORRECTION_LABELS, values)
+    )
+
+
+def literal_correction_values(payload, stage_id):
+    decoded = cv._decode_literal_sequence_correction_value(
+        payload["sequence_rows"][stage_id]
+    )
+    assert decoded is not None
+    return [
+        decoded[field] for field in cv._LITERAL_SEQUENCE_CORRECTION_FIELDS
+    ]
+
+
+def literal_correction_field(payload, stage_id, field):
+    return literal_correction_values(payload, stage_id)[
+        cv._LITERAL_SEQUENCE_CORRECTION_FIELDS.index(field)
+    ]
+
+
+def set_literal_correction_field(payload, stage_id, field, value):
+    values = literal_correction_values(payload, stage_id)
+    values[cv._LITERAL_SEQUENCE_CORRECTION_FIELDS.index(field)] = value
+    payload["sequence_rows"][stage_id] = encode_literal_correction_values(
+        values
+    )
 
 
 def screenplay_with_printed_headers() -> str:
@@ -8668,7 +8696,7 @@ El público pide otra canción
                     )
                 )
 
-    def test_source_bound_correction_rejects_missing_duplicate_and_reorder(self):
+    def test_source_bound_correction_requires_every_stage_key(self):
         candidate = cosquillitas_literal_candidate()
         inventory = cosquillitas_literal_inventory()
         response = cosquillitas_literal_correction(candidate, inventory)
@@ -8683,25 +8711,25 @@ El público pide otra canción
         self.assertEqual(merged["sequence_ledger"][0]["page"], 89)
 
         missing_opening = copy.deepcopy(response)
-        missing_opening["sequence_ledger"]["climax"].pop(0)
-        collapsed_capture = copy.deepcopy(response)
-        collapsed_capture["sequence_ledger"]["climax"].pop(16)
-        duplicate = copy.deepcopy(response)
-        duplicate["sequence_ledger"]["climax"][16]["stage_id"] = (
-            duplicate["sequence_ledger"]["climax"][15]["stage_id"]
+        missing_opening["sequence_rows"].pop(
+            "climax.001.chavos_perfect_score"
         )
-        richie_after_exposure = copy.deepcopy(response)
-        rows = richie_after_exposure["sequence_ledger"]["climax"]
-        rows[10], rows[13] = rows[13], rows[10]
+        collapsed_capture = copy.deepcopy(response)
+        collapsed_capture["sequence_rows"].pop(
+            "climax.017.judges_captured"
+        )
+        extra = copy.deepcopy(response)
+        extra["sequence_rows"]["climax.999.fabricated"] = (
+            encode_literal_correction_values(["a", "b", "c", "d"])
+        )
         for label, changed in (
             ("missing p.89", missing_opening),
             ("collapsed p.97", collapsed_capture),
-            ("duplicate stage", duplicate),
-            ("Richie after exposure", richie_after_exposure),
+            ("fabricated stage", extra),
         ):
             with self.subTest(label=label), self.assertRaisesRegex(
                 cv.CoverageContractError,
-                "stage identity or source order",
+                "required stage identity",
             ):
                 cv._merge_literal_sequence_correction(
                     candidate,
@@ -8711,53 +8739,136 @@ El público pide otra canción
                     COSQUILLITAS_LITERAL_SOURCE,
                 )
 
-        def row_for(payload, stage_id):
-            return next(
-                row
-                for phase_rows in payload["sequence_ledger"].values()
-                for row in phase_rows
-                if row["stage_id"] == stage_id
+        empty_call5 = {"sequence_ledger": {
+            phase: [] for phase in cv.AUDIT_SEQUENCE_PHASES
+        }}
+        with self.assertRaisesRegex(
+            cv.CoverageContractError, "sequence_rows only"
+        ):
+            cv._merge_literal_sequence_correction(
+                candidate,
+                empty_call5,
+                inventory,
+                range(1, 102),
+                COSQUILLITAS_LITERAL_SOURCE,
             )
 
-        missing_four_tens = copy.deepcopy(response)
-        opening = row_for(
-            missing_four_tens, "climax.001.chavos_perfect_score"
+        malformed_values = (
+            '["a", "b", "c", "d"]',
+            "ACTION=a\nRESULT=b\nCHARACTER_KNOWLEDGE=c",
+            (
+                "ACTION=a\nRESULT=b\nCHARACTER_KNOWLEDGE=c\n"
+                "AUDIENCE_KNOWLEDGE=d\nEXTRA=e"
+            ),
+            (
+                "ACTION=a\nRESULT=b\nKNOWLEDGE=c\n"
+                "AUDIENCE_KNOWLEDGE=d"
+            ),
+            (
+                "ACTION=   \nRESULT=b\nCHARACTER_KNOWLEDGE=c\n"
+                "AUDIENCE_KNOWLEDGE=d"
+            ),
         )
-        opening["action"] = "The judges give a perfect score."
-        opening["result"] = "Los Chavos receive a perfect score."
+        for malformed in malformed_values:
+            changed = copy.deepcopy(response)
+            changed["sequence_rows"][
+                "climax.001.chavos_perfect_score"
+            ] = malformed
+            with self.subTest(malformed=malformed), self.assertRaisesRegex(
+                cv.CoverageContractError, "four non-empty labeled text lines"
+            ):
+                cv._merge_literal_sequence_correction(
+                    candidate,
+                    changed,
+                    inventory,
+                    range(1, 102),
+                    COSQUILLITAS_LITERAL_SOURCE,
+                )
+
+        shuffled = {"sequence_rows": dict(reversed(
+            list(response["sequence_rows"].items())
+        ))}
+        shuffled_merged = cv._merge_literal_sequence_correction(
+            candidate,
+            shuffled,
+            inventory,
+            range(1, 102),
+            COSQUILLITAS_LITERAL_SOURCE,
+        )
+        self.assertEqual(
+            [row["page"] for row in shuffled_merged["sequence_ledger"]],
+            [row["page"] for row in merged["sequence_ledger"]],
+        )
+
+        missing_four_tens = copy.deepcopy(response)
+        set_literal_correction_field(
+            missing_four_tens,
+            "climax.001.chavos_perfect_score",
+            "action",
+            "The judges give a perfect score.",
+        )
+        set_literal_correction_field(
+            missing_four_tens,
+            "climax.001.chavos_perfect_score",
+            "result",
+            "Los Chavos receive a perfect score.",
+        )
 
         changed_four_tens = copy.deepcopy(response)
-        row_for(
-            changed_four_tens, "climax.001.chavos_perfect_score"
-        )["action"] = "The four judges score 1, 1, 1, and 1."
+        set_literal_correction_field(
+            changed_four_tens,
+            "climax.001.chavos_perfect_score",
+            "action",
+            "The four judges score 1, 1, 1, and 1.",
+        )
 
         father_in_currency_stage = copy.deepcopy(response)
-        currency = row_for(
-            father_in_currency_stage, "ending.006.peso_three_dollars"
+        set_literal_correction_field(
+            father_in_currency_stage,
+            "ending.006.peso_three_dollars",
+            "action",
+            "Anita's father returns with 3 letters.",
         )
-        currency["action"] = "Anita's father returns with 3 letters."
-        currency["result"] = "He seeks reconciliation."
+        set_literal_correction_field(
+            father_in_currency_stage,
+            "ending.006.peso_three_dollars",
+            "result",
+            "He seeks reconciliation.",
+        )
 
         missing_currency_value = copy.deepcopy(response)
-        currency = row_for(
-            missing_currency_value, "ending.006.peso_three_dollars"
+        set_literal_correction_field(
+            missing_currency_value,
+            "ending.006.peso_three_dollars",
+            "action",
+            "The conductor says the dollar fell.",
         )
-        currency["action"] = "The conductor says the dollar fell."
-        currency["result"] = "The currency changed."
+        set_literal_correction_field(
+            missing_currency_value,
+            "ending.006.peso_three_dollars",
+            "result",
+            "The currency changed.",
+        )
 
         collapsed_exposure = copy.deepcopy(response)
-        exposure = row_for(
+        exposure_result = literal_correction_values(
             collapsed_exposure, "climax.014.dante_tony_video_exposure"
-        )
-        exposure["result"] += (
-            " Security captures the judges and awards Cosquillitas the trophy."
+        )[cv._LITERAL_SEQUENCE_CORRECTION_FIELDS.index("result")]
+        set_literal_correction_field(
+            collapsed_exposure,
+            "climax.014.dante_tony_video_exposure",
+            "result",
+            exposure_result
+            + " Security captures the judges and awards Cosquillitas the trophy.",
         )
 
         lost_negation = copy.deepcopy(response)
-        love = row_for(
-            lost_negation, "climax.011.richie_declares_love"
+        set_literal_correction_field(
+            lost_negation,
+            "climax.011.richie_declares_love",
+            "action",
+            "Richie says his love for Lucesita continues.",
         )
-        love["action"] = "Richie says his love for Lucesita continues."
 
         mutations = (
             (missing_four_tens, "deleted a required numeric source fact"),
@@ -8813,6 +8924,18 @@ El público pide otra canción
             "# PRIOR LEDGER AND REJECTED FIRST PASS",
             "\n".join(str(block["text"]) for block in blocks),
         )
+        tool = cv.build_literal_sequence_correction_tool(inventory)
+        sequence_rows = tool["input_schema"]["properties"]["sequence_rows"]
+        stage_ids = [stage["stage_id"] for stage in inventory]
+        self.assertEqual(sequence_rows["required"], stage_ids)
+        self.assertEqual(set(sequence_rows["properties"]), set(stage_ids))
+        self.assertTrue(all(
+            schema == {
+                "type": "string",
+                "pattern": cv._LITERAL_SEQUENCE_CORRECTION_PATTERN,
+            }
+            for schema in sequence_rows["properties"].values()
+        ))
         ceiling = cv._request_cost_ceiling_microusd({
             "system_blocks": [{
                 "type": "text",
@@ -8823,13 +8946,13 @@ El público pide otra canción
             }],
             "user_blocks": blocks,
             "model_key": "sonnet",
-            "tool": cv.build_literal_sequence_correction_tool(inventory),
+            "tool": tool,
             "thinking_budget": cv.LITERAL_SEQUENCE_THINKING_BUDGET,
             "max_tokens": cv.LITERAL_SEQUENCE_CORRECTION_MAX_TOKENS,
         })
 
-        # Call 4 left exactly this much under the immutable $1.50 cap.
-        self.assertLessEqual(ceiling, 595_051)
+        # Settled Call 5 left exactly this much under the immutable $1.50 cap.
+        self.assertLessEqual(ceiling, 530_332)
 
     def test_real_cosquillitas_contract_compiles_and_merges_all_claims(self):
         source = real_cosquillitas_source()
@@ -8951,14 +9074,6 @@ El público pide otra canción
         ):
             self.assertNotIn(unsupported, bribe_text)
 
-        def response_row(payload, stage_id):
-            return next(
-                row
-                for phase_rows in payload["sequence_ledger"].values()
-                for row in phase_rows
-                if row["stage_id"] == stage_id
-            )
-
         added_obligations = {
             "p093-l008-l009": (
                 "result", "Los oyentes se empiezan a destapar los oídos."
@@ -9006,10 +9121,13 @@ El público pide otra canción
             )
 
             changed = copy.deepcopy(response)
-            changed_row = response_row(changed, stage["stage_id"])
-            clauses = changed_row[field].split("; ")
+            clauses = literal_correction_field(
+                changed, stage["stage_id"], field
+            ).split("; ")
             clauses.remove(claim)
-            changed_row[field] = "; ".join(clauses)
+            set_literal_correction_field(
+                changed, stage["stage_id"], field, "; ".join(clauses)
+            )
             with self.subTest(source_id=source_id), self.assertRaisesRegex(
                 cv.CoverageContractError,
                 "changed, moved, reordered, or omitted a canonical source claim",
@@ -9028,30 +9146,46 @@ El público pide otra canción
             for required in ovation["required_sources"]
             if required["source_id"] == "p093-l027"
         )
-        ovation_row = response_row(
-            omitted, "climax.007.angelic_voice_and_ovation"
+        ovation_result = literal_correction_field(
+            omitted, "climax.007.angelic_voice_and_ovation", "result"
         )
-        ovation_row["result"] = ovation_row["result"].replace(
-            f"; {rony_claim}", ""
+        set_literal_correction_field(
+            omitted,
+            "climax.007.angelic_voice_and_ovation",
+            "result",
+            ovation_result.replace(f"; {rony_claim}", ""),
         )
 
         moved = copy.deepcopy(response)
-        exposure_row = response_row(
-            moved, "climax.014.dante_tony_video_exposure"
+        exposure_action = literal_correction_field(
+            moved, "climax.014.dante_tony_video_exposure", "action"
         )
-        canonical_exposure = exposure_row["action"]
-        exposure_row["action"] = exposure_row["result"]
-        exposure_row["result"] = (
-            canonical_exposure + "; " + exposure_row["result"]
+        exposure_result = literal_correction_field(
+            moved, "climax.014.dante_tony_video_exposure", "result"
+        )
+        set_literal_correction_field(
+            moved,
+            "climax.014.dante_tony_video_exposure",
+            "action",
+            exposure_result,
+        )
+        set_literal_correction_field(
+            moved,
+            "climax.014.dante_tony_video_exposure",
+            "result",
+            exposure_action + "; " + exposure_result,
         )
 
         reordered = copy.deepcopy(response)
-        ovation_row = response_row(
-            reordered, "climax.007.angelic_voice_and_ovation"
+        ovation_result = literal_correction_field(
+            reordered, "climax.007.angelic_voice_and_ovation", "result"
         )
-        ovation_row["result"] = "; ".join(reversed(
-            ovation_row["result"].split("; ")
-        ))
+        set_literal_correction_field(
+            reordered,
+            "climax.007.angelic_voice_and_ovation",
+            "result",
+            "; ".join(reversed(ovation_result.split("; "))),
+        )
 
         for label, changed in (
             ("omitted p.93 source fact", omitted),
@@ -9067,18 +9201,10 @@ El público pide otra canción
                     candidate, changed, inventory, range(1, 102), source
                 )
 
-        changed_actor = copy.deepcopy(response)
-        richie = next(
-            row for row in changed_actor["sequence_ledger"]["climax"]
-            if row["stage_id"] == "climax.011.richie_declares_love"
+        self.assertEqual(
+            bound_row("climax.011.richie_declares_love")["actor"],
+            "Richie",
         )
-        richie["actor"] = "Richie (murders Juanito)"
-        with self.assertRaisesRegex(
-            cv.CoverageContractError, "changed its canonical actor"
-        ):
-            cv._merge_literal_sequence_correction(
-                candidate, changed_actor, inventory, range(1, 102), source
-            )
 
     def test_real_cosquillitas_p93_p94_detail_is_atom_authoritative(self):
         source = real_cosquillitas_source()
@@ -9172,12 +9298,17 @@ El público pide otra canción
                 self.assertTrue(all(item["represented"] for item in represented))
 
         out_of_order = cosquillitas_literal_correction(candidate, inventory)
-        angelic = next(
-            value for value in out_of_order["sequence_ledger"]["climax"]
-            if value["stage_id"]
-            == "climax.007.angelic_voice_and_ovation"
+        angelic_result = literal_correction_field(
+            out_of_order,
+            "climax.007.angelic_voice_and_ovation",
+            "result",
         )
-        angelic["result"] = "Juan abre los ojos.; " + angelic["result"]
+        set_literal_correction_field(
+            out_of_order,
+            "climax.007.angelic_voice_and_ovation",
+            "result",
+            "Juan abre los ojos.; " + angelic_result,
+        )
         merged = cv._merge_literal_sequence_correction(
             candidate, out_of_order, inventory, range(1, 102), source
         )

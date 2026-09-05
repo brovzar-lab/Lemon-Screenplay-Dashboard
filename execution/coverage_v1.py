@@ -618,49 +618,40 @@ for _literal_sequence_phase in AUDIT_SEQUENCE_PHASES:
 def build_literal_sequence_correction_tool(
     inventory: Sequence[Dict[str, Any]],
 ) -> Dict[str, Any]:
-    """Bind one correction row to every code-generated source stage."""
-    by_phase = {
-        phase: [
-            str(stage["stage_id"])
-            for stage in inventory
-            if stage.get("phase") == phase
-        ]
-        for phase in AUDIT_SEQUENCE_PHASES
-    }
-    if any(not ids or len(ids) != len(set(ids)) for ids in by_phase.values()):
+    """Require one scalar payload for every code-generated source stage."""
+    stage_ids = [str(stage["stage_id"]) for stage in inventory]
+    phases = {str(stage.get("phase")) for stage in inventory}
+    if (
+        not stage_ids
+        or len(stage_ids) != len(set(stage_ids))
+        or phases != set(AUDIT_SEQUENCE_PHASES)
+    ):
         raise CoverageContractError(
             "Literal sequence correction requires unique stages in every phase"
         )
-    ledger_properties: Dict[str, Any] = {}
-    for phase, stage_ids in by_phase.items():
-        beat = copy.deepcopy(_AUDIT_SEQUENCE_BEAT_SCHEMA)
-        beat["properties"]["stage_id"] = {
-            "type": "string",
-            "enum": stage_ids,
-        }
-        beat["required"].append("stage_id")
-        ledger_properties[phase] = {
-            "type": "array",
-            "items": beat,
-            "minItems": len(stage_ids),
-            "maxItems": len(stage_ids),
-        }
     tool = {
         "name": "submit_literal_sequence_correction_v1_2",
         "description": (
-            "Return exactly one literal ledger row for every engine-bound "
-            "source stage, using its stage_id in screenplay order."
+            "Return every required stage key. Each value has exactly four "
+            "non-empty labeled lines in this order: ACTION, RESULT, "
+            "CHARACTER_KNOWLEDGE, AUDIENCE_KNOWLEDGE."
         ),
         "input_schema": {
             "type": "object",
             "properties": {
-                "sequence_ledger": {
+                "sequence_rows": {
                     "type": "object",
-                    "properties": ledger_properties,
-                    "required": list(AUDIT_SEQUENCE_PHASES),
+                    "properties": {
+                        stage_id: {
+                            "type": "string",
+                            "pattern": _LITERAL_SEQUENCE_CORRECTION_PATTERN,
+                        }
+                        for stage_id in stage_ids
+                    },
+                    "required": stage_ids,
                 },
             },
-            "required": ["sequence_ledger"],
+            "required": ["sequence_rows"],
         },
     }
     stats = strict_schema_complexity(tool["input_schema"])
@@ -10125,18 +10116,62 @@ def build_literal_sequence_retry_user_blocks(
 
 LITERAL_SEQUENCE_CONTRACT_VERSION = "literal-sequence-contract-4"
 LITERAL_SEQUENCE_CORRECTION_CHECKPOINT_VERSION = (
-    "literal-sequence-correction-3"
+    "literal-sequence-correction-4"
 )
 PRIOR_LITERAL_SEQUENCE_CORRECTION_CHECKPOINT_VERSION = (
-    "literal-sequence-correction-2"
+    "literal-sequence-correction-3"
 )
 _LITERAL_SEQUENCE_BINDING_KEY = "_literal_source_binding"
+_LITERAL_SEQUENCE_CORRECTION_FIELDS = (
+    "action",
+    "result",
+    "character_knowledge",
+    "audience_knowledge",
+)
+_LITERAL_SEQUENCE_CORRECTION_LABELS = (
+    "ACTION=",
+    "RESULT=",
+    "CHARACTER_KNOWLEDGE=",
+    "AUDIENCE_KNOWLEDGE=",
+)
+_LITERAL_SEQUENCE_CORRECTION_PATTERN = (
+    r"^ACTION=[^\r\n]*[^ \t\r\n][^\r\n]*\n"
+    r"RESULT=[^\r\n]*[^ \t\r\n][^\r\n]*\n"
+    r"CHARACTER_KNOWLEDGE=[^\r\n]*[^ \t\r\n][^\r\n]*\n"
+    r"AUDIENCE_KNOWLEDGE=[^\r\n]*[^ \t\r\n][^\r\n]*$"
+)
 _LITERAL_STAGE_EXCLUSIVE_CONCEPTS = frozenset({
     "award", "bribe", "close", "cure", "currency", "detain", "end",
     "enter", "escape", "fabricate", "father", "kiss", "love", "peace",
     "perform", "pregnancy", "request", "retract", "score", "trophy",
     "vehicle", "video", "wig", "win",
 })
+
+
+def _decode_literal_sequence_correction_value(
+    encoded: Any,
+) -> Optional[Dict[str, str]]:
+    """Decode the provider-constrained four-line stage payload."""
+    if (
+        not isinstance(encoded, str)
+        or re.fullmatch(_LITERAL_SEQUENCE_CORRECTION_PATTERN, encoded) is None
+    ):
+        return None
+    values = {
+        field: line[len(label):].strip()
+        for field, label, line in zip(
+            _LITERAL_SEQUENCE_CORRECTION_FIELDS,
+            _LITERAL_SEQUENCE_CORRECTION_LABELS,
+            encoded.split("\n"),
+        )
+        if line.startswith(label)
+    }
+    return (
+        values
+        if len(values) == len(_LITERAL_SEQUENCE_CORRECTION_FIELDS)
+        and all(values.values())
+        else None
+    )
 
 
 def _is_prior_literal_sequence_correction_checkpoint(
@@ -10941,12 +10976,15 @@ def build_literal_sequence_correction_user_blocks(
             "type": "text",
             "text": (
                 f"# ONE-USE LITERAL SEQUENCE CORRECTION — {title}\n\n"
-                "Return exactly one row for every required stage_id and no "
-                "other rows. Copy each stage_id exactly once, in the supplied "
-                "order and phase. Use its fixed page. Each stage occupies its "
-                "own row; never combine two stage_ids. The source_ids and "
+                "Return every required stage_id as a key in sequence_rows and "
+                "no other keys. Each value must contain exactly four "
+                "non-empty lines in this exact order: `ACTION=...`, "
+                "`RESULT=...`, `CHARACTER_KNOWLEDGE=...`, and "
+                "`AUDIENCE_KNOWLEDGE=...`. Code supplies and "
+                "locks phase, order, page, actor, and stage order; do not put "
+                "them in the value. Each stage occupies its own key; never "
+                "combine two stage_ids. The source_ids and "
                 "excerpts are code-bound evidence locations, not suggestions. "
-                "Copy each stage's canonical_actor byte-for-byte into actor. "
                 "Describe only what those source spans and their continuous "
                 "same-or-next-page event prove. Preserve named actors, counts, "
                 "polarity, cause, result, and who knows what. Never replace a "
@@ -10960,8 +10998,9 @@ def build_literal_sequence_correction_user_blocks(
                 "material atom. Partial summaries fail the independent detail "
                 "audit. Keep every supplied stage "
                 "in its own row and literal order. "
-                "Use NOT PRESENT in all five text fields only for a "
-                "not-present stage. Every changed row will receive a fresh "
+                "Use NOT PRESENT in all four returned fields only for a "
+                "not-present stage; code supplies the NOT PRESENT actor. "
+                "Every changed row will receive a fresh "
                 "full-source detail audit before sealing. The prior attempt "
                 "was rejected because it did not match this complete, "
                 "source-bound inventory."
@@ -13925,12 +13964,17 @@ def _merge_literal_sequence_correction(
     """Bind every corrected row to its immutable source stage."""
     if (
         not isinstance(repaired, dict)
-        or set(repaired) != {"sequence_ledger"}
-        or not isinstance(repaired["sequence_ledger"], dict)
-        or set(repaired["sequence_ledger"]) != set(AUDIT_SEQUENCE_PHASES)
+        or set(repaired) != {"sequence_rows"}
+        or not isinstance(repaired["sequence_rows"], dict)
     ):
         raise CoverageContractError(
-            "Literal sequence correction must return every sequence phase only"
+            "Literal sequence correction must return sequence_rows only"
+        )
+    encoded_rows = repaired["sequence_rows"]
+    expected_stage_ids = [str(stage["stage_id"]) for stage in inventory]
+    if set(encoded_rows) != set(expected_stage_ids):
+        raise CoverageContractError(
+            "Literal sequence correction changed required stage identity"
         )
     expected_by_phase = {
         phase: [
@@ -13940,42 +13984,25 @@ def _merge_literal_sequence_correction(
     }
     stripped: Dict[str, List[Dict[str, Any]]] = {}
     for phase in AUDIT_SEQUENCE_PHASES:
-        rows = repaired["sequence_ledger"].get(phase)
-        if not isinstance(rows, list) or any(
-            not isinstance(row, dict) for row in rows
-        ):
-            raise CoverageContractError(
-                f"Literal sequence correction {phase} must be an array of rows"
-            )
         expected = expected_by_phase[phase]
-        actual_ids = [str(row.get("stage_id", "")) for row in rows]
-        expected_ids = [str(stage["stage_id"]) for stage in expected]
-        if actual_ids != expected_ids or len(actual_ids) != len(set(actual_ids)):
-            raise CoverageContractError(
-                f"Literal sequence correction changed {phase} stage identity "
-                "or source order"
-            )
         clean_rows: List[Dict[str, Any]] = []
-        for row, stage in zip(rows, expected):
-            if row.get("page") != stage.get("page"):
+        for stage in expected:
+            encoded = encoded_rows.get(str(stage["stage_id"]))
+            values = _decode_literal_sequence_correction_value(encoded)
+            if values is None:
                 raise CoverageContractError(
-                    f"Literal sequence correction moved stage "
-                    f"{stage['stage_id']} from its source page"
+                    f"Literal sequence correction stage {stage['stage_id']} "
+                    "must contain four non-empty labeled text lines"
                 )
             clean = {
-                key: copy.deepcopy(value)
-                for key, value in row.items()
-                if key != "stage_id"
+                "actor": stage["canonical_actor"],
+                **values,
+                "page": stage["page"],
             }
             if set(clean) != set(_AUDIT_SEQUENCE_BEAT_SCHEMA["required"]):
                 raise CoverageContractError(
                     f"Literal sequence correction stage {stage['stage_id']} "
                     "has unexpected or missing fields"
-                )
-            if clean.get("actor") != stage.get("canonical_actor"):
-                raise CoverageContractError(
-                    f"Literal sequence correction stage {stage['stage_id']} "
-                    "changed its canonical actor"
                 )
             if not stage.get("source_ids") and not all(
                 clean.get(field) == "NOT PRESENT"
