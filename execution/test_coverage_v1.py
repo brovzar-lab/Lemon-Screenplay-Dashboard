@@ -25,6 +25,12 @@ CALL12_FIXTURE = json.loads(
     (Path(__file__).parent / "fixtures/cosquillitas_call12_regression.json")
     .read_text(encoding="utf-8")
 )
+CALL6_LITERAL_SEQUENCE_FIXTURE = json.loads(
+    (
+        Path(__file__).parent
+        / "fixtures/cosquillitas_call6_literal_sequence.json"
+    ).read_text(encoding="utf-8")
+)
 COSQUILLITAS_SOURCE_SHA256 = (
     "8e46bdc2fda2cdb3b7ee8bc42574de9e70047174214c632c3047634d4c537276"
 )
@@ -8774,16 +8780,24 @@ El público pide otra canción
             changed["sequence_rows"][
                 "climax.001.chavos_perfect_score"
             ] = malformed
-            with self.subTest(malformed=malformed), self.assertRaisesRegex(
-                cv.CoverageContractError, "four non-empty labeled text lines"
-            ):
-                cv._merge_literal_sequence_correction(
-                    candidate,
-                    changed,
-                    inventory,
-                    range(1, 102),
-                    COSQUILLITAS_LITERAL_SOURCE,
+            salvaged = cv._merge_literal_sequence_correction(
+                candidate,
+                changed,
+                inventory,
+                range(1, 102),
+                COSQUILLITAS_LITERAL_SOURCE,
+            )
+            first = salvaged["sequence_ledger"][0]
+            with self.subTest(malformed=malformed):
+                self.assertEqual(
+                    first["action"],
+                    cv._literal_sequence_canonical_material(inventory[0])[
+                        "action"
+                    ],
                 )
+                self.assertEqual(first["result"], "NOT LOCATED")
+                self.assertEqual(first["character_knowledge"], "NOT LOCATED")
+                self.assertEqual(first["audience_knowledge"], "NOT LOCATED")
 
         shuffled = {"sequence_rows": dict(reversed(
             list(response["sequence_rows"].items())
@@ -8870,25 +8884,45 @@ El público pide otra canción
             "Richie says his love for Lucesita continues.",
         )
 
-        mutations = (
-            (missing_four_tens, "deleted a required numeric source fact"),
-            (changed_four_tens, "deleted a required numeric source fact"),
-            (father_in_currency_stage, "required source event"),
-            (missing_currency_value, "deleted a required numeric source fact"),
-            (collapsed_exposure, "combines a separately bound source event"),
-            (lost_negation, "deleted required source polarity"),
-        )
-        for changed, error in mutations:
-            with self.subTest(error=error), self.assertRaisesRegex(
-                cv.CoverageContractError, error
+        for changed in (
+            missing_four_tens,
+            changed_four_tens,
+            father_in_currency_stage,
+            missing_currency_value,
+            lost_negation,
+        ):
+            reconstructed = cv._merge_literal_sequence_correction(
+                candidate,
+                changed,
+                inventory,
+                range(1, 102),
+                COSQUILLITAS_LITERAL_SOURCE,
+            )
+            for row, stage in zip(
+                reconstructed["sequence_ledger"], inventory
             ):
-                cv._merge_literal_sequence_correction(
-                    candidate,
-                    changed,
-                    inventory,
-                    range(1, 102),
-                    COSQUILLITAS_LITERAL_SOURCE,
-                )
+                for field, expected in (
+                    cv._literal_sequence_canonical_material(stage).items()
+                ):
+                    self.assertEqual(row[field], expected)
+
+        reconstructed = cv._merge_literal_sequence_correction(
+            candidate,
+            collapsed_exposure,
+            inventory,
+            range(1, 102),
+            COSQUILLITAS_LITERAL_SOURCE,
+        )
+        exposure = next(
+            row for row in reconstructed["sequence_ledger"]
+            if row[cv._LITERAL_SEQUENCE_BINDING_KEY]["stage_id"]
+            == "climax.014.dante_tony_video_exposure"
+        )
+        self.assertEqual(
+            exposure["action"],
+            cv._literal_sequence_canonical_material(inventory[13])["action"],
+        )
+        self.assertIn("captures the judges", exposure["result"])
 
         public = cv._public_sequence_ledger(merged["sequence_ledger"])
         self.assertTrue(any(
@@ -9125,12 +9159,18 @@ El público pide otra canción
             set_literal_correction_field(
                 changed, stage["stage_id"], field, "; ".join(clauses)
             )
-            with self.subTest(source_id=source_id), self.assertRaisesRegex(
-                cv.CoverageContractError,
-                "changed, moved, reordered, or omitted a canonical source claim",
-            ):
-                cv._merge_literal_sequence_correction(
-                    candidate, changed, inventory, range(1, 102), source
+            reconstructed = cv._merge_literal_sequence_correction(
+                candidate, changed, inventory, range(1, 102), source
+            )
+            reconstructed_row = next(
+                row for row in reconstructed["sequence_ledger"]
+                if row[cv._LITERAL_SEQUENCE_BINDING_KEY]["stage_id"]
+                == stage["stage_id"]
+            )
+            with self.subTest(source_id=source_id):
+                self.assertEqual(
+                    reconstructed_row[field],
+                    cv._literal_sequence_canonical_material(stage)[field],
                 )
 
         omitted = copy.deepcopy(response)
@@ -9189,14 +9229,29 @@ El público pide otra canción
             ("moved p.97 source fact", moved),
             ("reordered p.93 source facts", reordered),
         ):
-            with self.subTest(label=label), self.assertRaisesRegex(
-                cv.CoverageContractError,
-                "changed, moved, reordered, or omitted a canonical source "
-                "claim",
-            ):
-                cv._merge_literal_sequence_correction(
-                    candidate, changed, inventory, range(1, 102), source
-                )
+            reconstructed = cv._merge_literal_sequence_correction(
+                candidate, changed, inventory, range(1, 102), source
+            )
+            with self.subTest(label=label):
+                self.assertIsNone(cv._literal_sequence_contract_problem(
+                    reconstructed, source, COSQUILLITAS_SOURCE_SHA256
+                ))
+                for row, stage in zip(
+                    reconstructed["sequence_ledger"], inventory
+                ):
+                    for field, expected in (
+                        cv._literal_sequence_canonical_material(stage).items()
+                    ):
+                        self.assertEqual(row[field], expected)
+
+        tampered = copy.deepcopy(merged)
+        tampered["sequence_ledger"][0]["action"] += " Extra provider prose."
+        self.assertIn(
+            "engine-reconstructed facts",
+            cv._literal_sequence_contract_problem(
+                tampered, source, COSQUILLITAS_SOURCE_SHA256
+            ),
+        )
 
         self.assertEqual(
             bound_row("climax.011.richie_declares_love")["actor"],
@@ -9294,21 +9349,21 @@ El público pide otra canción
                 self.assertEqual(len(represented), required_count)
                 self.assertTrue(all(item["represented"] for item in represented))
 
-        out_of_order = cosquillitas_literal_correction(candidate, inventory)
-        angelic_result = literal_correction_field(
-            out_of_order,
-            "climax.007.angelic_voice_and_ovation",
-            "result",
-        )
-        set_literal_correction_field(
-            out_of_order,
-            "climax.007.angelic_voice_and_ovation",
-            "result",
-            "Juan abre los ojos.; " + angelic_result,
-        )
         merged = cv._merge_literal_sequence_correction(
-            candidate, out_of_order, inventory, range(1, 102), source
+            candidate,
+            cosquillitas_literal_correction(candidate, inventory),
+            inventory,
+            range(1, 102),
+            source,
         )
+        angelic = next(
+            beat for beat in merged["sequence_ledger"]
+            if beat[cv._LITERAL_SEQUENCE_BINDING_KEY]["stage_id"]
+            == "climax.007.angelic_voice_and_ovation"
+        )
+        angelic["result"] = "; ".join(reversed(
+            angelic["result"].split("; ")
+        ))
         row = next(
             value for value in cv.build_detail_audit_rows(
                 {}, [], merged["sequence_ledger"]
@@ -9368,6 +9423,132 @@ El público pide otra canción
 
         self.assertIsNone(decoded)
         self.assertIn("reverse source order", reason)
+
+    def test_settled_call6_is_reconstructed_without_rebuy_or_fabrication(self):
+        source = real_cosquillitas_source()
+        inventory = cv.build_literal_sequence_stage_inventory(
+            source, COSQUILLITAS_SOURCE_SHA256
+        )
+        candidate = cosquillitas_literal_candidate()
+
+        merged = cv._merge_literal_sequence_correction(
+            candidate,
+            CALL6_LITERAL_SEQUENCE_FIXTURE,
+            inventory,
+            range(1, 102),
+            source,
+        )
+
+        self.assertEqual(len(merged["sequence_ledger"]), 33)
+        self.assertIsNone(cv._literal_sequence_contract_problem(
+            merged, source, COSQUILLITAS_SOURCE_SHA256
+        ))
+        reconstructed_claims = 0
+        for beat, stage in zip(merged["sequence_ledger"], inventory):
+            canonical = cv._literal_sequence_canonical_material(stage)
+            if not stage["source_ids"]:
+                self.assertNotIn(cv._LITERAL_SEQUENCE_BINDING_KEY, beat)
+                continue
+            self.assertEqual(
+                beat[cv._LITERAL_SEQUENCE_BINDING_KEY][
+                    "engine_reconstructed_fields"
+                ],
+                sorted(canonical),
+            )
+            for field, value in canonical.items():
+                self.assertEqual(beat[field], value)
+                reconstructed_claims += len(value.split("; "))
+        self.assertEqual(reconstructed_claims, 87)
+
+        encore = next(
+            beat for beat in merged["sequence_ledger"]
+            if beat[cv._LITERAL_SEQUENCE_BINDING_KEY]["stage_id"]
+            == "final_scene.003.otra_encore"
+        )
+        self.assertEqual(
+            encore["action"],
+            "Por que ustedes lo pidieron esta canción se llama “Otra!”",
+        )
+        self.assertEqual(encore["result"], "Cantan otra.")
+        self.assertEqual(encore["character_knowledge"], "NOT LOCATED")
+        self.assertEqual(encore["audience_knowledge"], "NOT LOCATED")
+
+        detail_rows = cv.build_detail_audit_rows(
+            {}, [], merged["sequence_ledger"]
+        )
+        sequence_rows = [
+            row for row in detail_rows
+            if row["kind"] == "sequence_evidence"
+        ]
+        audit = {
+            "sequence_ledger": merged["sequence_ledger"],
+            "sequence_evidence": [
+                {
+                    "field_path": row["identifier"],
+                    "classification": (
+                        "partially_supported"
+                        if any(
+                            row["subject"]["beat"][field] == "NOT LOCATED"
+                            for field in row["subject"]["required_fields"]
+                        )
+                        else "supported"
+                    ),
+                    "grounding_valid": True,
+                    "claim_sha256": row["subject"]["claim_sha256"],
+                    "row_identity": cv._detail_row_identity(row),
+                    "checks": [
+                        {
+                            "field": field,
+                            "supports": (
+                                row["subject"]["beat"][field]
+                                != "NOT LOCATED"
+                            ),
+                        }
+                        for field in row["subject"]["required_fields"]
+                    ],
+                }
+                for row in sequence_rows
+            ],
+            "existing_evidence_verdicts": [],
+        }
+        plan, blockers = cv._post_detail_sequence_repair_plan(audit)
+        self.assertFalse(blockers)
+        self.assertEqual(
+            {
+                item["field"] for item in plan
+                if item["order"] == encore["order"]
+            },
+            {"character_knowledge", "audience_knowledge"},
+        )
+
+        prior = cv._merge_literal_sequence_correction(
+            candidate,
+            cosquillitas_literal_correction(candidate, inventory),
+            inventory,
+            range(1, 102),
+            source,
+        )
+        prior_rows = cv.build_detail_audit_rows(
+            {}, [], prior["sequence_ledger"]
+        )
+        prior_audit = {
+            "sequence_ledger": prior["sequence_ledger"],
+            "sequence_evidence": [
+                {
+                    "field_path": row["identifier"],
+                    "classification": "supported",
+                    "grounding_valid": True,
+                }
+                for row in prior_rows if row["kind"] == "sequence_evidence"
+            ],
+        }
+        _evidence, _citations, pending = cv._reusable_detail_seed(
+            {}, [], prior_audit, detail_rows
+        )
+        self.assertIn(
+            f"sequence_ledger[{encore['order']}]",
+            {row["identifier"] for row in pending},
+        )
 
     def test_universal_judge_claim_requires_universal_source_evidence(self):
         source = (
@@ -9540,9 +9721,8 @@ El público pide otra canción
             cv.LITERAL_SEQUENCE_CORRECTION_CHECKPOINT_VERSION,
         )
         [receipts_path] = list(store.root.glob("*/call_receipts.json"))
-        receipts = json.loads(receipts_path.read_text(encoding="utf-8"))[
-            "payload"
-        ]["receipts"]
+        receipt_record = json.loads(receipts_path.read_text(encoding="utf-8"))
+        receipts = receipt_record["payload"]["receipts"]
         fingerprints_by_stage = {
             receipt["stage"]: fingerprint
             for fingerprint, receipt in receipts.items()
@@ -9557,21 +9737,20 @@ El público pide otra canción
         )
         current_checkpoint_payload = copy.deepcopy(checkpoint_payload)
         legacy_checkpoint_payload = copy.deepcopy(checkpoint_payload)
-        legacy_checkpoint_payload.update({
-            "contract_version": (
-                cv.PRIOR_LITERAL_SEQUENCE_CORRECTION_CHECKPOINT_VERSION
-            ),
-            "inventory_sha256": "1" * 64,
-            "source_focus_sha256": "2" * 64,
-            "correction_request_fingerprint": "3" * 64,
-        })
+        legacy_checkpoint_payload["contract_version"] = (
+            cv.PRIOR_LITERAL_SEQUENCE_CORRECTION_CHECKPOINT_VERSION
+        )
         self.assertTrue(
             cv._is_prior_literal_sequence_correction_checkpoint(
                 legacy_checkpoint_payload, current_checkpoint_payload
             )
         )
         for field in (
-            "first_retry_fingerprint", "rejected_payload_sha256"
+            "first_retry_fingerprint",
+            "rejected_payload_sha256",
+            "inventory_sha256",
+            "source_focus_sha256",
+            "correction_request_fingerprint",
         ):
             with self.subTest(field=field):
                 changed_lineage = copy.deepcopy(legacy_checkpoint_payload)
@@ -9581,6 +9760,55 @@ El público pide otra canción
                         changed_lineage, current_checkpoint_payload
                     )
                 )
+        for receipt_contract in (
+            legacy_checkpoint_payload, current_checkpoint_payload
+        ):
+            checkpoint.write_text(
+                json.dumps(
+                    cv._sealed_record(
+                        checkpoint_record["binding"], receipt_contract
+                    ),
+                    sort_keys=True,
+                ),
+                encoding="utf-8",
+            )
+            missing_receipt_record = copy.deepcopy(receipt_record)
+            del missing_receipt_record["payload"]["receipts"][
+                fingerprints_by_stage[
+                    "coverage_v1.literal_sequence_correction"
+                ]
+            ]
+            missing_receipt_record = cv._sealed_record(
+                missing_receipt_record["binding"],
+                missing_receipt_record["payload"],
+            )
+            receipts_path.write_text(
+                json.dumps(
+                    missing_receipt_record, ensure_ascii=False, indent=1
+                ),
+                encoding="utf-8",
+            )
+            blocked = FakeTransport([])
+            with (
+                self.subTest(contract=receipt_contract["contract_version"]),
+                patch.object(
+                    cv,
+                    "build_literal_sequence_stage_inventory",
+                    return_value=inventory,
+                ),
+                patch.object(
+                    cv, "_merge_literal_sequence_retry", side_effect=rejection
+                ),
+                self.assertRaisesRegex(
+                    cv.CheckpointTamperedError, "no exact settled receipt"
+                ),
+            ):
+                run_engine(store, blocked, max_cost_usd=5.0)
+            self.assertEqual(blocked.calls, [])
+        receipts_path.write_text(
+            json.dumps(receipt_record, ensure_ascii=False, indent=1),
+            encoding="utf-8",
+        )
         checkpoint.write_text(
             json.dumps(
                 cv._sealed_record(

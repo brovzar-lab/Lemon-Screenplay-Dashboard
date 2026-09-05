@@ -10113,10 +10113,10 @@ def build_literal_sequence_retry_user_blocks(
 
 LITERAL_SEQUENCE_CONTRACT_VERSION = "literal-sequence-contract-4"
 LITERAL_SEQUENCE_CORRECTION_CHECKPOINT_VERSION = (
-    "literal-sequence-correction-5"
+    "literal-sequence-correction-6"
 )
 PRIOR_LITERAL_SEQUENCE_CORRECTION_CHECKPOINT_VERSION = (
-    "literal-sequence-correction-4"
+    "literal-sequence-correction-5"
 )
 _LITERAL_SEQUENCE_BINDING_KEY = "_literal_source_binding"
 _LITERAL_SEQUENCE_CORRECTION_FIELDS = (
@@ -10175,15 +10175,13 @@ def _is_prior_literal_sequence_correction_checkpoint(
     prior: Dict[str, Any], current: Dict[str, Any],
 ) -> bool:
     """Allow one sealed lineage-preserving contract migration only."""
-    return (
-        set(prior) == set(current)
-        and prior.get("contract_version")
-        == PRIOR_LITERAL_SEQUENCE_CORRECTION_CHECKPOINT_VERSION
-        and prior.get("first_retry_fingerprint")
-        == current.get("first_retry_fingerprint")
-        and prior.get("rejected_payload_sha256")
-        == current.get("rejected_payload_sha256")
-    )
+    migrated = copy.deepcopy(prior)
+    if migrated.get(
+        "contract_version"
+    ) != PRIOR_LITERAL_SEQUENCE_CORRECTION_CHECKPOINT_VERSION:
+        return False
+    migrated["contract_version"] = LITERAL_SEQUENCE_CORRECTION_CHECKPOINT_VERSION
+    return migrated == current
 
 
 def _literal_sequence_text_sha256(text: str) -> str:
@@ -10857,6 +10855,10 @@ def _literal_sequence_stage_binding(stage: Dict[str, Any]) -> Dict[str, Any]:
             stage["required_obligation_ids"]
         ),
         "required_sources": copy.deepcopy(stage["required_sources"]),
+        "engine_reconstructed_fields": sorted({
+            str(required["canonical_field"])
+            for required in stage["required_sources"]
+        }),
         "required_digit_counts": copy.deepcopy(
             stage.get("required_digit_counts", {})
         ),
@@ -10865,6 +10867,40 @@ def _literal_sequence_stage_binding(stage: Dict[str, Any]) -> Dict[str, Any]:
         ),
         "requires_negation": bool(stage.get("requires_negation")),
     }
+
+
+def _literal_sequence_canonical_material(
+    stage: Dict[str, Any],
+) -> Dict[str, str]:
+    """Build source-authored material fields without provider transcription."""
+    claims: Dict[str, List[str]] = {"action": [], "result": []}
+    for required in stage.get("required_sources", []):
+        field = str(required.get("canonical_field", ""))
+        claim = required.get("canonical_claim")
+        if field in claims and isinstance(claim, str) and claim:
+            claims[field].append(claim)
+    return {
+        field: "; ".join(values)
+        for field, values in claims.items()
+        if values
+    }
+
+
+def _literal_sequence_atomic_knowledge(value: str) -> str:
+    """Keep one provider claim for re-audit; never synthesize a missing one."""
+    if value.upper() in {
+        "NOT LOCATED", "NOT PRESENT", SEQUENCE_KNOWLEDGE_NOT_APPLICABLE,
+    }:
+        return "NOT LOCATED"
+    if _has_exactly_one_knowledge_claim(value):
+        return value
+    return next(
+        (
+            clause for clause in _sequence_knowledge_clauses(value)
+            if _has_exactly_one_knowledge_claim(clause)
+        ),
+        "NOT LOCATED",
+    )
 
 
 def _literal_sequence_inventory_if_available(
@@ -10905,6 +10941,12 @@ def _literal_sequence_contract_problem(
             _literal_sequence_stage_binding(stage)
         ):
             return "sequence_ledger lacks current hash-bound source bindings"
+        canonical_material = _literal_sequence_canonical_material(stage)
+        if any(
+            row.get(field) != value
+            for field, value in canonical_material.items()
+        ):
+            return "sequence_ledger changed its engine-reconstructed facts"
         canonical_atoms = [
             (required["canonical_field"], required["canonical_claim"])
             for required in stage["required_sources"]
@@ -12353,6 +12395,14 @@ def validate_audit_payload(
             strict_absence = _is_strict_sequence_absence_marker(
                 beat, phase_size=phase_sizes.get(phase, 0)
             )
+            literal_binding = beat.get(_LITERAL_SEQUENCE_BINDING_KEY)
+            reconstructed_fields = set(
+                literal_binding.get("engine_reconstructed_fields", [])
+            ) if isinstance(literal_binding, dict) else set()
+            canonical_actor_bound = bool(
+                isinstance(literal_binding, dict)
+                and literal_binding.get("canonical_actor") == beat.get("actor")
+            )
             if not strict_absence:
                 material_event = (
                     repr(beat.get("page")),
@@ -12389,6 +12439,7 @@ def validate_audit_payload(
                     problems.append(f"sequence_ledger[{index}].{field} missing")
                 elif (
                     field == "action"
+                    and field not in reconstructed_fields
                     and _sequence_action_has_role_count_syntax(value)
                     and _sequence_numbered_role_count_subject(
                         beat, beat.get("page")
@@ -12401,6 +12452,7 @@ def validate_audit_payload(
                     )
                 elif (
                     field != "action"
+                    and not (field == "actor" and canonical_actor_bound)
                     and _sequence_has_unverified_numeric_shorthand(value)
                 ):
                     problems.append(
@@ -13986,11 +14038,30 @@ def _merge_literal_sequence_correction(
         for stage in expected:
             encoded = encoded_rows.get(str(stage["stage_id"]))
             values = _decode_literal_sequence_correction_value(encoded)
-            if values is None:
-                raise CoverageContractError(
-                    f"Literal sequence correction stage {stage['stage_id']} "
-                    "must contain four non-empty labeled text lines"
+            if not stage.get("source_ids"):
+                values = {
+                    field: "NOT PRESENT"
+                    for field in _LITERAL_SEQUENCE_CORRECTION_FIELDS
+                }
+            else:
+                values = copy.deepcopy(values) if values is not None else {
+                    field: "NOT LOCATED"
+                    for field in _LITERAL_SEQUENCE_CORRECTION_FIELDS
+                }
+                values = {
+                    field: (
+                        "NOT LOCATED" if value.upper() == "NOT PRESENT"
+                        else value
+                    )
+                    for field, value in values.items()
+                }
+                values["character_knowledge"] = (
+                    _literal_sequence_atomic_knowledge(
+                        values["character_knowledge"]
+                    )
                 )
+                canonical_material = _literal_sequence_canonical_material(stage)
+                values.update(canonical_material)
             clean = {
                 "actor": stage["canonical_actor"],
                 **values,
@@ -14000,14 +14071,6 @@ def _merge_literal_sequence_correction(
                 raise CoverageContractError(
                     f"Literal sequence correction stage {stage['stage_id']} "
                     "has unexpected or missing fields"
-                )
-            if not stage.get("source_ids") and not all(
-                clean.get(field) == "NOT PRESENT"
-                for field in GROUNDED_SEQUENCE_FIELDS
-            ):
-                raise CoverageContractError(
-                    f"Literal sequence correction stage {stage['stage_id']} "
-                    "must remain NOT PRESENT"
                 )
             if stage.get("source_ids"):
                 material_atoms = _sequence_material_claim_atoms(clean)
@@ -14043,21 +14106,6 @@ def _merge_literal_sequence_correction(
                         f"Literal sequence correction stage {stage['stage_id']} "
                         "deleted required source polarity"
                     )
-                foreign_concepts = concepts & (
-                    {
-                        concept
-                        for other in inventory
-                        if other.get("stage_id") != stage.get("stage_id")
-                        for concept in other.get("required_concepts", [])
-                    }
-                    - set(stage.get("allowed_concepts", []))
-                )
-                if foreign_concepts:
-                    raise CoverageContractError(
-                        f"Literal sequence correction stage {stage['stage_id']} "
-                        "combines a separately bound source event: "
-                        + ", ".join(sorted(foreign_concepts))
-                    )
                 canonical_atoms = [
                     (
                         required.get("canonical_field"),
@@ -14073,9 +14121,8 @@ def _merge_literal_sequence_correction(
                 ]
                 if represented_canonical_atoms != canonical_atoms:
                     raise CoverageContractError(
-                        f"Literal sequence correction stage "
-                        f"{stage['stage_id']} changed, moved, reordered, or "
-                        "omitted a canonical source claim"
+                        f"Literal sequence correction stage {stage['stage_id']} "
+                        "lost an engine-reconstructed source claim"
                     )
                 clean[_LITERAL_SEQUENCE_BINDING_KEY] = (
                     _literal_sequence_stage_binding(stage)
@@ -18950,15 +18997,15 @@ def run_coverage_v1(
             }
             first_retry_fingerprint = _request_fingerprint(first_request)
             repaired: Any = None
-            if require_source_contract:
-                prior_lineage = _verified_payload(
-                    checkpoint_store.load(
-                        checkpoint_key,
-                        "literal_sequence_correction_request",
-                    ),
-                    binding,
+            prior_lineage = _verified_payload(
+                checkpoint_store.load(
+                    checkpoint_key,
                     "literal_sequence_correction_request",
-                )
+                ),
+                binding,
+                "literal_sequence_correction_request",
+            )
+            if require_source_contract or prior_lineage is not None:
                 if prior_lineage is not None:
                     prior_version = prior_lineage.get("contract_version")
                     prior_fingerprint = prior_lineage.get(
@@ -18969,13 +19016,13 @@ def run_coverage_v1(
                             LITERAL_SEQUENCE_CORRECTION_CHECKPOINT_VERSION,
                             PRIOR_LITERAL_SEQUENCE_CORRECTION_CHECKPOINT_VERSION,
                         }
-                        or not isinstance(prior_fingerprint, str)
+                        or prior_fingerprint != first_retry_fingerprint
                     ):
                         raise CheckpointTamperedError(
                             "Literal sequence correction lineage is malformed"
                         )
                     replayed_retry = guard.replay_call(
-                        prior_fingerprint,
+                        first_retry_fingerprint,
                         "coverage_v1.literal_sequence_retry",
                     )
                     if replayed_retry is None:
@@ -18991,7 +19038,6 @@ def run_coverage_v1(
                         raise CheckpointTamperedError(
                             "Literal sequence retry receipt changed"
                         )
-                    first_retry_fingerprint = prior_fingerprint
             if repaired is None:
                 repaired, _text_out, usage = call(**first_request)
             try:
@@ -19095,6 +19141,14 @@ def run_coverage_v1(
                 ):
                     raise CheckpointTamperedError(
                         "Literal sequence correction checkpoint changed"
+                    )
+                if guard.replay_call(
+                    correction_request_fingerprint,
+                    "coverage_v1.literal_sequence_correction",
+                ) is None:
+                    raise CheckpointTamperedError(
+                        "Prior literal sequence correction checkpoint "
+                        "has no exact settled receipt"
                     )
                 if stale_prior_contract:
                     checkpoint_store.save(
