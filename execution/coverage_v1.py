@@ -10125,10 +10125,10 @@ def build_literal_sequence_retry_user_blocks(
 
 LITERAL_SEQUENCE_CONTRACT_VERSION = "literal-sequence-contract-4"
 LITERAL_SEQUENCE_CORRECTION_CHECKPOINT_VERSION = (
-    "literal-sequence-correction-2"
+    "literal-sequence-correction-3"
 )
 PRIOR_LITERAL_SEQUENCE_CORRECTION_CHECKPOINT_VERSION = (
-    "literal-sequence-correction-1"
+    "literal-sequence-correction-2"
 )
 _LITERAL_SEQUENCE_BINDING_KEY = "_literal_source_binding"
 _LITERAL_STAGE_EXCLUSIVE_CONCEPTS = frozenset({
@@ -10891,12 +10891,8 @@ def _literal_sequence_contract_problem(
 def build_literal_sequence_correction_user_blocks(
     text: str,
     title: str,
-    candidate: Dict[str, Any],
-    rejected: Dict[str, Any],
-    page_reference_map: PageReferenceMap,
     sequence_focus: Dict[str, Any],
     inventory: Sequence[Dict[str, Any]],
-    failures: Sequence[str],
 ) -> List[Dict[str, Any]]:
     """Build the one-use, source-bound correction packet."""
     _numbers, pages = _marked_page_contents(text)
@@ -10913,43 +10909,32 @@ def build_literal_sequence_correction_user_blocks(
     source_packet = "\n\n".join(
         f"[PAGE {page}]\n{pages[page].strip()}" for page in selected
     )
-    page_packet = {
-        "mode": page_reference_map["mode"],
-        "valid_citation_pages": page_reference_map["valid_citation_pages"],
-        "selected_pages": [
-            row for row in page_reference_map["pages"]
-            if row.get("citation_page") in selected
-        ],
-    }
+    prompt_inventory = [
+        {
+            "stage_id": stage["stage_id"],
+            "phase": stage["phase"],
+            "canonical_actor": stage["canonical_actor"],
+            "page": stage["page"],
+            "source_ids": stage.get("source_ids", []),
+            "required_sources": [
+                {
+                    "source_id": required["source_id"],
+                    "excerpt": required["excerpt"],
+                    "canonical_field": required["canonical_field"],
+                    "canonical_claim": required["canonical_claim"],
+                }
+                for required in stage.get("required_sources", [])
+            ],
+        }
+        for stage in inventory
+    ]
     return [
         {"type": "text", "text": "# TARGETED SOURCE PAGES\n\n" + source_packet},
-        _character_index_block(text),
-        {
-            "type": "text",
-            "text": (
-                "# PAGE REFERENCE MAP (code-generated; AUTHORITATIVE)\n\n"
-                + json.dumps(page_packet, ensure_ascii=False, indent=1)
-            ),
-        },
-        {
-            "type": "text",
-            "text": (
-                "# PRIOR LEDGER AND REJECTED FIRST PASS\n\n"
-                + json.dumps(
-                    {
-                        "prior": candidate.get("sequence_ledger", []),
-                        "rejected": rejected.get("sequence_ledger", {}),
-                    },
-                    ensure_ascii=False,
-                    indent=1,
-                )
-            ),
-        },
         {
             "type": "text",
             "text": (
                 "# ENGINE-BOUND REQUIRED STAGES\n\n"
-                + json.dumps(list(inventory), ensure_ascii=False, indent=1)
+                + json.dumps(prompt_inventory, ensure_ascii=False, indent=1)
             ),
         },
         {
@@ -10975,14 +10960,11 @@ def build_literal_sequence_correction_user_blocks(
                 "material atom. Partial summaries fail the independent detail "
                 "audit. Keep every supplied stage "
                 "in its own row and literal order. "
-                "Reuse prior wording byte-for-byte when one prior event already "
-                "fits one stage; when a compound prior event must split, move "
-                "its exact clauses into the bound rows without paraphrasing. "
                 "Use NOT PRESENT in all five text fields only for a "
                 "not-present stage. Every changed row will receive a fresh "
-                "full-source detail audit before sealing.\n\n"
-                "DETERMINISTIC REJECTION REASONS:\n- "
-                + "\n- ".join(failures)
+                "full-source detail audit before sealing. The prior attempt "
+                "was rejected because it did not match this complete, "
+                "source-bound inventory."
             ),
         },
     ]
@@ -19010,12 +18992,8 @@ def run_coverage_v1(
             correction_blocks = build_literal_sequence_correction_user_blocks(
                 text,
                 title,
-                candidate,
-                repaired,
-                page_reference_map,
                 sequence_focus,
                 inventory,
-                failures,
             )
             correction_tool = build_literal_sequence_correction_tool(inventory)
             correction_request = {

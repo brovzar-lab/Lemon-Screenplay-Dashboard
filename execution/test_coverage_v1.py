@@ -8569,7 +8569,7 @@ El público pide otra canción
         self.assertNotIn("# SCREENPLAY TEXT", prompt)
 
     def test_literal_sequence_retry_has_non_truncating_live_ceiling(self):
-        # Cosquillitas has 34 required literal stages and exhausted the old
+        # Cosquillitas has 33 required literal stages and exhausted the old
         # 4k response ceiling before the strict tool payload was complete.
         self.assertGreaterEqual(cv.LITERAL_SEQUENCE_MAX_TOKENS, 8_000)
         self.assertGreaterEqual(
@@ -8787,6 +8787,49 @@ El público pide otra canción
         self.assertTrue(all(
             cv._LITERAL_SEQUENCE_BINDING_KEY not in row for row in public
         ))
+
+    def test_real_cosquillitas_correction_fits_remaining_script_cap(self):
+        source = real_cosquillitas_source()
+        inventory = cv.build_literal_sequence_stage_inventory(
+            source, COSQUILLITAS_SOURCE_SHA256
+        )
+        blocks = cv.build_literal_sequence_correction_user_blocks(
+            source,
+            "Cosquillitas",
+            cv.build_sequence_focus(source),
+            inventory,
+        )
+        headers = [str(block["text"]).splitlines()[0] for block in blocks]
+
+        self.assertEqual(
+            headers,
+            [
+                "# TARGETED SOURCE PAGES",
+                "# ENGINE-BOUND REQUIRED STAGES",
+                "# ONE-USE LITERAL SEQUENCE CORRECTION — Cosquillitas",
+            ],
+        )
+        self.assertNotIn(
+            "# PRIOR LEDGER AND REJECTED FIRST PASS",
+            "\n".join(str(block["text"]) for block in blocks),
+        )
+        ceiling = cv._request_cost_ceiling_microusd({
+            "system_blocks": [{
+                "type": "text",
+                "text": (
+                    f"{cv.UNTRUSTED_SCREENPLAY_INSTRUCTION}\n\n"
+                    f"{cv.AUDIT_CHARTER}"
+                ),
+            }],
+            "user_blocks": blocks,
+            "model_key": "sonnet",
+            "tool": cv.build_literal_sequence_correction_tool(inventory),
+            "thinking_budget": cv.LITERAL_SEQUENCE_THINKING_BUDGET,
+            "max_tokens": cv.LITERAL_SEQUENCE_CORRECTION_MAX_TOKENS,
+        })
+
+        # Call 4 left exactly this much under the immutable $1.50 cap.
+        self.assertLessEqual(ceiling, 595_051)
 
     def test_real_cosquillitas_contract_compiles_and_merges_all_claims(self):
         source = real_cosquillitas_source()
