@@ -1,0 +1,384 @@
+{
+  "contract_version": "literal-sequence-contract-4",
+  "content_sha256": "8e46bdc2fda2cdb3b7ee8bc42574de9e70047174214c632c3047634d4c537276",
+  "normalized_text_sha256": "93e0b116b8ff63daf9415b0563e88f0b8b1ca74370603f5d6d4bb38f8070b38c",
+  "canonical_source_claims": {
+    "p089-l005-l009": [{"field": "action", "text": "Los jueces muestran a Los Chavos sus calificaciones."}],
+    "p089-l012-l013": [{"field": "action", "text": "10, 10, 10, 10, calificación perfecta."}],
+    "p089-l014": [{"field": "result", "text": "La gente estalla en aplausos y gritos."}],
+    "p090-l002": [{"field": "action", "text": "Por el pasillo vemos entrar a Cosquillitas, lentamente."}],
+    "p091-l002": [{"field": "action", "text": "Comienzan a bailar y cantar y lo hacen bastante bien."}],
+    "p091-l003-l004": [{"field": "action", "text": "Los insultos y abucheos son canalizados positivamente y se les ve muy seguros."}],
+    "p091-l009": [{"field": "result", "text": "El público disminuye poco a poco sus insultos."}],
+    "p091-l013-l014": [{"field": "result", "text": "Chuy se da cuenta de que el público está poniendo atención al número."}],
+    "p091-l015-l016": [{"field": "result", "text": "Chuy observa que Lucesita ha dejado de llorar y está segura y concentrada."}],
+    "p091-l021": [{"field": "result", "text": "El público queda totalmente en silencio."}],
+    "p092-l012-l013": [{"field": "action", "text": "Javierín se da cuenta de que Juan no podrá cantar, paralizado y sobándose el pecho."}],
+    "p092-l014-l015": [{"field": "action", "text": "Javierín da un paso al frente, al parecer el va a sacar adelante el Show."}],
+    "p092-l032-l033": [{"field": "action", "text": "Juanito canta algo jamás escuchado por el oído humano como una verdadera sirena."}],
+    "p092-l034-l035": [{"field": "result", "text": "Las notas son muy desafinadas y fuertes, provocando que público y Cosquillitas se tapen los oídos."}],
+    "p093-l006-l007": [{"field": "action", "text": "Las notas de Juan pasan de chillidos a notas angelicales."}],
+    "p093-l008-l009": [{"field": "result", "text": "Los oyentes se empiezan a destapar los oídos."}, {"field": "result", "text": "Los que escuchan estas notas caen en un estado de hipnosis."}],
+    "p093-l017-l018": [{"field": "result", "text": "No pueden creer lo ocurrido."}, {"field": "result", "text": "El silencio parece que nunca va a terminar y de pronto comienza el aplauso gringo."}],
+    "p093-l019-l020": [{"field": "result", "text": "El público, acompañado por Ludueña, Esther, el conductor y las edecanes, aplaude cada vez más."}],
+    "p093-l026w02": [{"field": "result", "text": "La ovación supera a la que recibieron los Chavos."}],
+    "p093-l027": [{"field": "result", "text": "Rony aplaude emocionado."}],
+    "p094-l003-l006": [{"field": "action", "text": "Primer Juez, primer calificación 10."}],
+    "p094-l010-l012": [{"field": "action", "text": "Segundo Juez, segundo Juez 10."}],
+    "p094-l028-l032": [{"field": "action", "text": "Tercer Juez Tercer Juez el juez levanta su paleta C...I...N...C...OOOOOO"}],
+    "p095-l007-l009": [{"field": "action", "text": "El conductor presenta la última calificación aunque ya no es necesaria."}],
+    "p095-l010-l011": [{"field": "action", "text": "El Juez la levanta y sonríe maliciosamente viendo a Tony antes de dar su calificación"}],
+    "p095-l013": [{"field": "action", "text": "D O S es un DOS"}],
+    "p095-l014": [{"field": "result", "text": "Los chavos comienzan a festejar y a saltar"}],
+    "p095-l016-l017": [{"field": "result", "text": "Los nuevos reyes y ganadores del CINLTT, LOS CHAVOS."}],
+    "p095-l022-l023": [{"field": "action", "text": "Tony y los demás Chavos se acercan a burlarse salvo Richie."}],
+    "p095-l024-l027": [{"field": "action", "text": "TONY proclama LES GANAMOS."}],
+    "p095-l028-l032": [{"field": "action", "text": "CHAVOS ríen y dicen Perdedores."}],
+    "p095-l033-l034": [{"field": "result", "text": "Cosquillitas no hacen caso y el público se da cuenta de la burla y reprueba esa actitud."}],
+    "p096-l012-l015": [{"field": "action", "text": "Richie dice a Lucesita que nunca ha podido olvidarla."}],
+    "p096-l018-l020": [{"field": "action", "text": "LUCESITA dice que a ella le ha pasado lo mismo."}],
+    "p096-l021-l024": [{"field": "action", "text": "No he podido dejar de quererte y pensar en ti un momento."}],
+    "p096-l025-l026": [{"field": "action", "text": "Lucesita no deja que termine su empalagoso y cursi dialogo y lo besa."}],
+    "p096-l027-l028": [{"field": "result", "text": "LUCESITA dice Te amo Richie."}],
+    "p096-l032-l034": [{"field": "action", "text": "Lucesita señala todo el pelo que Richie ha dejado regado."}],
+    "p096-l035-l037": [{"field": "action", "text": "te dejé y te lastimé horrible y destrocé tu corazón puro e inocente, te hice una peluca."}],
+    "p096-l039": [{"field": "result", "text": "Lucesita saca de la bolsa una peluca perfecta para Richie."}],
+    "p097-l008-l010": [{"field": "action", "text": "La gran pantalla muestra una conversación de Dante con Tony sobre el video falso que incrimina a Cosquillitas."}],
+    "p097-l019-l021": [{"field": "action", "text": "El intento de escape de Dante junto con Tony queda bloqueado por puertas cerradas mediante elementos de seguridad."}],
+    "p097-l022-l025": [{"field": "action", "text": "El video muestra a un primer juez recibiendo de Tony un reloj con un portafolio lleno de billetes, mientras otro recibe lencería con un póster de Memo Ochoa autografiado."}],
+    "p097-l026-l027": [{"field": "action", "text": "Los Jueces se paran de sus asientos."}, {"field": "action", "text": "Los Jueces se echan a correr antes de que los elementos de seguridad los atrapen"}],
+    "p097-l030-l034": [{"field": "action", "text": "La disculpa responde a haber hecho pasar a Cosquillitas por la peor semana de sus vidas."}, {"field": "action", "text": "El conductor ofrece a Cosquillitas disculpas junto con la entrega del trofeo como premio del CINLTT."}],
+    "p097-l035": [{"field": "result", "text": "El público se pone de pie aplaudiendo y festejando."}],
+    "p097-l036-l037": [{"field": "result", "text": "Cosquillitas no lo cree con Juanito saltando emocionado y Chuy abrazando a Anita."}],
+    "p098-l002-l004": [{"field": "action", "text": "El video no ha dejado de correr mostrando videos de Richie bailando en su cuarto junto con videos donde espía a Lucesita"}],
+    "p098-l018-l019": [{"field": "action", "text": "El abrazo de Richie y Lucesita da paso al abrazo grupal de Anita, Chuy, Lucesita, Richie, Javierín y Juanito."}],
+    "p098-l020-l022": [{"field": "action", "text": "La gente vitorea a Cosquillitas mientras la policía se lleva a Los Chavos a punta de macanazos."}],
+    "p098-l023-l024": [{"field": "action", "text": "Richie dice a sus amigos que los extrañaba."}],
+    "p098-l025-l026": [{"field": "result", "text": "Chuy responde a Richie que ellos también lo extrañaban."}],
+    "p098-l027-l028": [{"field": "action", "text": "Lucesita pregunta a Juan cómo logró cantar así."}],
+    "p098-l029-l030": [{"field": "action", "text": "Lucesita le toca la bolita que le resalta en el pecho a Juan, y Juan de inmediato emite una nota aguda."}],
+    "p098-l036-l037": [{"field": "action", "text": "Lucesita se sorprende y mientras Juanito se toca y se señala el pecho"}],
+    "p098-l038-l040": [{"field": "action", "text": "Juanito responde que solo debía buscar dentro de su pecho."}],
+    "p099-l008-l011": [{"field": "action", "text": "Lucyfer se levanta con una prueba de embarazo y un vaso de orina que derrama sobre la gente."}],
+    "p099-l014": [{"field": "action", "text": "Juan vas a ser papá"}],
+    "p099-l015-l016": [{"field": "action", "text": "Levanta la prueba positiva de embarazo, mientras sigue derramando la orina sobre las personas de al lado."}],
+    "p099-l023-l026": [{"field": "action", "text": "JUANITO repite que será papá mediante vocalizaciones."}],
+    "p099-l027-l028": [{"field": "action", "text": "Lucyfer corre hacia Juanito."}, {"field": "result", "text": "Lucyfer y Juanito se abrazan mientras el público aplaude la noticia."}],
+    "p099-l029-l033": [{"field": "action", "text": "El conductor anuncia como premio para el ganador un auto último modelo."}],
+    "p099-l036-l038": [{"field": "action", "text": "El conductor anuncia que quienes dieron el premio prefieren permanecer anónimos."}],
+    "p099-l039": [{"field": "result", "text": "Ludueña y Esther sonríen."}],
+    "p100-l004-l006": [{"field": "action", "text": "ahora un peso vale 3 dólares."}],
+    "p100-l010-l015": [{"field": "action", "text": "El padre de Anita se identifica como el ausente de su infancia que regresó para enmendarlo."}, {"field": "action", "text": "El regreso busca enmendar todo aunque ya sea innecesario."}],
+    "p100-l016-l018": [{"field": "result", "text": "El padre abraza a Anita, ella responde con repulsión, Chuy no deja de reír y la gente aplaude."}],
+    "p100-l023-l027": [{"field": "action", "text": "La paz mundial es una realidad tras terminar la guerra."}],
+    "p100-l028": [{"field": "result", "text": "La gente explota de felicidad y queda extasiada."}],
+    "p100-l031-l033": [{"field": "action", "text": "la pastilla que cura en minutos tanto la sífilis como la gonorrea ya es un hecho."}],
+    "p100-l034-l035": [{"field": "result", "text": "Un señor del público salta festejando como el único feliz con la noticia."}],
+    "p100-l036-l041": [{"field": "action", "text": "El conductor corrige que la pastilla contra gonorrea junto con sífilis en minutos no es un hecho."}],
+    "p100-l042": [{"field": "result", "text": "El señor vuelve apenado a su asiento."}],
+    "p101-l006-l008": [{"field": "action", "text": "El conductor ordena que comience el festejo."}],
+    "p101-l009": [{"field": "action", "text": "Comienza el tema musical de Cosquillitas."}],
+    "p101-l010": [{"field": "result", "text": "Termina el tema musical de Cosquillitas."}],
+    "p101-l011-l013": [{"field": "action", "text": "El público se vuelve loco."}, {"field": "action", "text": "El público pide otra canción y corea Otra."}],
+    "p101-l015-l017": [{"field": "action", "text": "Por que ustedes lo pidieron esta canción se llama “Otra!”"}],
+    "p101-l018": [{"field": "result", "text": "Cantan otra."}],
+    "p101-l019": [{"field": "result", "text": "La historia termina con Y YA."}]
+  },
+  "stages": [
+    {
+      "stage_id": "climax.001.chavos_perfect_score",
+      "phase": "climax",
+      "canonical_actor": "The judges",
+      "source_ids": ["p089-l002-l021"],
+      "required_source_ids": ["p089-l005-l009", "p089-l012-l013", "p089-l014"]
+    },
+    {
+      "stage_id": "climax.002.cosquillitas_enter_hostile_stage",
+      "phase": "climax",
+      "canonical_actor": "Cosquillitas",
+      "source_ids": ["p090-l002-l011"],
+      "required_source_ids": ["p090-l002"]
+    },
+    {
+      "stage_id": "climax.003.performance_changes_crowd",
+      "phase": "climax",
+      "canonical_actor": "Cosquillitas",
+      "source_ids": ["p091-l002-l021"],
+      "required_source_ids": [
+        "p091-l002",
+        "p091-l003-l004",
+        "p091-l009",
+        "p091-l013-l014",
+        "p091-l015-l016",
+        "p091-l021"
+      ]
+    },
+    {
+      "stage_id": "climax.004.juanito_freezes",
+      "phase": "climax",
+      "canonical_actor": "Juanito",
+      "source_ids": ["p092-l012-l013"],
+      "required_source_ids": ["p092-l012-l013"],
+      "requires_negation": true
+    },
+    {
+      "stage_id": "climax.005.javierin_steps_forward",
+      "phase": "climax",
+      "canonical_actor": "Javierín",
+      "source_ids": ["p092-l014-l015"],
+      "required_source_ids": ["p092-l014-l015"]
+    },
+    {
+      "stage_id": "climax.006.juanito_raw_voice",
+      "phase": "climax",
+      "canonical_actor": "Juanito",
+      "source_ids": ["p092-l016-l039"],
+      "required_source_ids": ["p092-l032-l033", "p092-l034-l035"]
+    },
+    {
+      "stage_id": "climax.007.angelic_voice_and_ovation",
+      "phase": "climax",
+      "canonical_actor": "The audience",
+      "source_ids": ["p093-l002-l021", "p093-l023-l027"],
+      "required_source_ids": [
+        "p093-l006-l007",
+        "p093-l008-l009",
+        "p093-l017-l018",
+        "p093-l019-l020",
+        "p093-l026w02",
+        "p093-l027"
+      ]
+    },
+    {
+      "stage_id": "climax.008.first_three_scores",
+      "phase": "climax",
+      "canonical_actor": "The first three judges",
+      "source_ids": ["p094-l002-l015", "p094-l016-l035"],
+      "required_source_ids": [
+        "p094-l003-l006",
+        "p094-l010-l012",
+        "p094-l028-l032"
+      ]
+    },
+    {
+      "stage_id": "climax.009.final_score_and_chavos_win",
+      "phase": "climax",
+      "canonical_actor": "The fourth judge",
+      "source_ids": ["p095-l007-l021"],
+      "required_source_ids": [
+        "p095-l007-l009",
+        "p095-l010-l011",
+        "p095-l013",
+        "p095-l014",
+        "p095-l016-l017"
+      ]
+    },
+    {
+      "stage_id": "climax.010.chavos_taunt_rejected",
+      "phase": "climax",
+      "canonical_actor": "Los Chavos",
+      "source_ids": ["p095-l022-l034"],
+      "required_source_ids": [
+        "p095-l022-l023",
+        "p095-l024-l027",
+        "p095-l028-l032",
+        "p095-l033-l034"
+      ]
+    },
+    {
+      "stage_id": "climax.011.richie_declares_love",
+      "phase": "climax",
+      "canonical_actor": "Richie",
+      "source_ids": ["p096-l004-l024"],
+      "required_source_ids": [
+        "p096-l012-l015",
+        "p096-l018-l020",
+        "p096-l021-l024"
+      ],
+      "requires_negation": true
+    },
+    {
+      "stage_id": "climax.012.lucesita_kisses_richie",
+      "phase": "climax",
+      "canonical_actor": "Lucesita",
+      "source_ids": ["p096-l025-l031"],
+      "required_source_ids": ["p096-l025-l026", "p096-l027-l028"]
+    },
+    {
+      "stage_id": "climax.013.wig_reveal_and_payoff",
+      "phase": "climax",
+      "canonical_actor": "Lucesita",
+      "source_ids": ["p096-l032-p097-l006"],
+      "required_source_ids": [
+        "p096-l032-l034",
+        "p096-l035-l037",
+        "p096-l039"
+      ]
+    },
+    {
+      "stage_id": "climax.014.dante_tony_video_exposure",
+      "phase": "climax",
+      "canonical_actor": "Dante and Tony",
+      "source_ids": ["p097-l008-l010"],
+      "required_source_ids": ["p097-l008-l010"]
+    },
+    {
+      "stage_id": "climax.015.dante_tony_escape_blocked",
+      "phase": "climax",
+      "canonical_actor": "Dante and Tony",
+      "source_ids": ["p097-l019-l021"],
+      "required_source_ids": ["p097-l019-l021"]
+    },
+    {
+      "stage_id": "climax.016.judges_bribes_exposed",
+      "phase": "climax",
+      "canonical_actor": "The judges",
+      "source_ids": ["p097-l022-l025"],
+      "required_source_ids": ["p097-l022-l025"]
+    },
+    {
+      "stage_id": "climax.017.judges_captured",
+      "phase": "climax",
+      "canonical_actor": "Security",
+      "source_ids": ["p097-l026-l027"],
+      "required_source_ids": ["p097-l026-l027"]
+    },
+    {
+      "stage_id": "climax.018.trophy_awarded_to_cosquillitas",
+      "phase": "climax",
+      "canonical_actor": "The conductor",
+      "source_ids": ["p097-l028-l037"],
+      "required_source_ids": [
+        "p097-l030-l034",
+        "p097-l035",
+        "p097-l036-l037"
+      ]
+    },
+    {
+      "stage_id": "ending.001.richie_private_video_continues",
+      "phase": "ending",
+      "canonical_actor": "The video",
+      "source_ids": ["p098-l002-l004"],
+      "required_source_ids": ["p098-l002-l004"]
+    },
+    {
+      "stage_id": "ending.002.group_reunion_and_chavos_removed",
+      "phase": "ending",
+      "canonical_actor": "Cosquillitas",
+      "source_ids": ["p098-l018-l026"],
+      "required_source_ids": [
+        "p098-l018-l019",
+        "p098-l020-l022",
+        "p098-l023-l024",
+        "p098-l025-l026"
+      ]
+    },
+    {
+      "stage_id": "ending.003.juanito_explains_voice",
+      "phase": "ending",
+      "canonical_actor": "Juanito",
+      "source_ids": ["p098-l027-l040"],
+      "required_source_ids": [
+        "p098-l027-l028",
+        "p098-l029-l030",
+        "p098-l036-l037",
+        "p098-l038-l040"
+      ]
+    },
+    {
+      "stage_id": "ending.004.pregnancy_reveal",
+      "phase": "ending",
+      "canonical_actor": "Lucyfer",
+      "source_ids": ["p099-l006-l028"],
+      "required_source_ids": [
+        "p099-l008-l011",
+        "p099-l014",
+        "p099-l015-l016",
+        "p099-l023-l026",
+        "p099-l027-l028"
+      ]
+    },
+    {
+      "stage_id": "ending.005.vehicle_prize",
+      "phase": "ending",
+      "canonical_actor": "The contest",
+      "source_ids": ["p099-l029-l039"],
+      "required_source_ids": [
+        "p099-l029-l033",
+        "p099-l036-l038",
+        "p099-l039"
+      ]
+    },
+    {
+      "stage_id": "ending.006.peso_three_dollars",
+      "phase": "ending",
+      "canonical_actor": "The conductor",
+      "source_ids": ["p100-l002-l007"],
+      "required_source_ids": ["p100-l004-l006"]
+    },
+    {
+      "stage_id": "ending.007.anita_father_returns",
+      "phase": "ending",
+      "canonical_actor": "Anita's father",
+      "source_ids": ["p100-l008-l018"],
+      "required_source_ids": ["p100-l010-l015", "p100-l016-l018"]
+    },
+    {
+      "stage_id": "ending.008.world_peace_announced",
+      "phase": "ending",
+      "canonical_actor": "The conductor",
+      "source_ids": ["p100-l020-l028"],
+      "required_source_ids": ["p100-l023-l027", "p100-l028"]
+    },
+    {
+      "stage_id": "ending.009.cure_announced",
+      "phase": "ending",
+      "canonical_actor": "The conductor",
+      "source_ids": ["p100-l029-l035"],
+      "required_source_ids": ["p100-l031-l033", "p100-l034-l035"]
+    },
+    {
+      "stage_id": "ending.010.cure_retracted",
+      "phase": "ending",
+      "canonical_actor": "The conductor",
+      "source_ids": ["p100-l036-l045"],
+      "required_source_ids": ["p100-l036-l041", "p100-l042"],
+      "requires_negation": true
+    },
+    {
+      "stage_id": "final_scene.001.celebration_theme",
+      "phase": "final_scene",
+      "canonical_actor": "Cosquillitas",
+      "source_ids": ["p101-l002-l010"],
+      "required_source_ids": ["p101-l006-l008", "p101-l009", "p101-l010"]
+    },
+    {
+      "stage_id": "final_scene.002.audience_requests_encore",
+      "phase": "final_scene",
+      "canonical_actor": "The audience",
+      "source_ids": ["p101-l011-l013"],
+      "required_source_ids": ["p101-l011-l013"]
+    },
+    {
+      "stage_id": "final_scene.003.otra_encore",
+      "phase": "final_scene",
+      "canonical_actor": "Cosquillitas",
+      "source_ids": ["p101-l014-l018"],
+      "required_source_ids": ["p101-l015-l017", "p101-l018"]
+    },
+    {
+      "stage_id": "tag.001.y_ya",
+      "phase": "tag",
+      "canonical_actor": "The text Y YA",
+      "source_ids": ["p101-l019"],
+      "required_source_ids": ["p101-l019"]
+    },
+    {
+      "stage_id": "aftermath.001.not_present",
+      "phase": "aftermath",
+      "canonical_actor": "NOT PRESENT",
+      "source_ids": [],
+      "required_source_ids": []
+    }
+  ]
+}

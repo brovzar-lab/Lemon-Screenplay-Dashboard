@@ -10,6 +10,7 @@ import json
 import sys
 import tempfile
 import unittest
+from functools import lru_cache
 from pathlib import Path
 from unittest.mock import patch
 
@@ -24,6 +25,72 @@ CALL12_FIXTURE = json.loads(
     (Path(__file__).parent / "fixtures/cosquillitas_call12_regression.json")
     .read_text(encoding="utf-8")
 )
+COSQUILLITAS_SOURCE_SHA256 = (
+    "8e46bdc2fda2cdb3b7ee8bc42574de9e70047174214c632c3047634d4c537276"
+)
+COSQUILLITAS_PDF = (
+    Path(__file__).parent.parent
+    / "benchmark-artifacts/coverage-v1-audit-packages/01-COSQUILLITAS/SCREENPLAY.pdf"
+)
+
+
+@lru_cache(maxsize=1)
+def real_cosquillitas_source():
+    from parse_screenplay_pdf_v2 import extract_text_pymupdf
+
+    text, method = extract_text_pymupdf(COSQUILLITAS_PDF)
+    if method != "pymupdf":
+        raise AssertionError("Cosquillitas regression requires native PDF text")
+    return cv._renumber_page_markers(text, -1)
+
+COSQUILLITAS_LITERAL_SOURCE = """\
+[PAGE 89]
+10, 10, 10, 10... Calificación perfecta.
+[PAGE 90]
+Por el pasillo vemos entrar a Cosquillitas, lo hacen lento.
+[PAGE 91]
+Comienzan a bailar y cantar y lo hacen bastante bien.
+[PAGE 92]
+Javierín se da cuenta que Juan no va poder cantar, Juan está paralizado.
+Javierín da un paso al frente, al parecer él va a sacar adelante el show.
+Juanito está cantando algo que oído humano jamás había escuchado.
+[PAGE 93]
+La ovación es mas fuerte que la que le dieron a los Chavos.
+[PAGE 94]
+Las primeras tres calificaciones son 10, 10 y 5.
+[PAGE 95]
+La cuarta calificación es 2. Los nuevos reyes y ganadores son LOS CHAVOS.
+Los Chavos se burlan, pero el público no los apoya.
+[PAGE 96]
+Richie dice que no ha podido dejar de quererte.
+Lucesita lo besa.
+Lucesita dice: te hice una peluca.
+[PAGE 97]
+Aparece un video en la gran pantalla donde Dante y Tony hablan del video falso.
+Dante y Tony tratan de escapar, pero las puertas se cierran.
+El video continúa, ahora aparecen los jueces recibiendo sobornos y regalos.
+Los elementos de seguridad los atrapan.
+El conductor les entrega el trofeo y el premio del CINLTT.
+[PAGE 98]
+El video privado de Richie continúa.
+Cosquillitas se reúne y sacan a Los Chavos del escenario.
+Juanito explica que cantó con una voz que sólo aparece una vez al año.
+[PAGE 99]
+Lucyfer levanta una prueba de embarazo y Juanito sabe que será padre.
+El premio del concurso es un auto último modelo.
+[PAGE 100]
+El dólar ha bajado tanto que ahora cae más.
+Un peso vale 3 dólares.
+Anita, soy tu padre.
+La paz mundial por fin es una realidad.
+La pastilla que cura en minutos la sífilis es anunciada.
+Perdón, leí mal, la cura no es un hecho.
+[PAGE 101]
+Comienza y termina el tema musical de Cosquillitas.
+El público pide otra canción.
+El público grita Otra y Cosquillitas canta otra canción.
+Y YA
+"""
 
 SCREENPLAY_TEXT = """\
 [PAGE 1]
@@ -949,6 +1016,492 @@ def run_engine(store, transport, **overrides):
 
 def new_store():
     return cv.LocalCheckpointStore(Path(tempfile.mkdtemp()) / "cv1")
+
+
+def literal_beat(actor, action, result, page):
+    return {
+        "actor": actor,
+        "action": action,
+        "result": result,
+        "character_knowledge": f"{actor} knows that the event occurred.",
+        "audience_knowledge": "The audience sees that the event occurred.",
+        "page": page,
+    }
+
+
+def cosquillitas_literal_contract(text, content_sha256="f" * 64):
+    """Build a tiny exact-source contract for the synthetic screenplay."""
+    _numbers, pages = cv._marked_page_contents(text)
+
+    def source_id(page, first_text, last_text=None):
+        lines = pages[page].splitlines()
+        first = next(
+            index for index, line in enumerate(lines, start=1)
+            if first_text in line
+        )
+        last = next(
+            index for index, line in enumerate(lines, start=1)
+            if (last_text or first_text) in line
+        )
+        return f"p{page:03d}-l{first:03d}-l{last:03d}"
+
+    def stage(
+        stage_id,
+        phase,
+        page=None,
+        first_text=None,
+        last_text=None,
+        required_text=None,
+        requires_negation=False,
+    ):
+        if page is None:
+            return {
+                "stage_id": stage_id,
+                "phase": phase,
+                "source_ids": [],
+                "required_source_ids": [],
+            }
+        allowed = source_id(page, first_text, last_text)
+        required = source_id(page, required_text or first_text)
+        result = {
+            "stage_id": stage_id,
+            "phase": phase,
+            "source_ids": [allowed],
+            "required_source_ids": [required],
+        }
+        if requires_negation:
+            result["requires_negation"] = True
+        return result
+
+    stages = [
+        stage("climax.001.chavos_perfect_score", "climax", 89, "10, 10"),
+        stage("climax.002.cosquillitas_enter_hostile_stage", "climax", 90,
+              "Por el pasillo"),
+        stage("climax.003.performance_changes_crowd", "climax", 91,
+              "Comienzan a bailar"),
+        stage("climax.004.juanito_freezes", "climax", 92,
+              "Javierín se da cuenta", requires_negation=True),
+        stage("climax.005.javierin_steps_forward", "climax", 92,
+              "Javierín da un paso"),
+        stage("climax.006.juanito_raw_voice", "climax", 92,
+              "Juanito está cantando"),
+        stage("climax.007.angelic_voice_and_ovation", "climax", 93,
+              "La ovación"),
+        stage("climax.008.first_three_scores", "climax", 94,
+              "Las primeras tres"),
+        stage("climax.009.final_score_and_chavos_win", "climax", 95,
+              "La cuarta calificación"),
+        stage("climax.010.chavos_taunt_rejected", "climax", 95,
+              "Los Chavos se burlan"),
+        stage("climax.011.richie_declares_love", "climax", 96,
+              "Richie dice", requires_negation=True),
+        stage("climax.012.lucesita_kisses_richie", "climax", 96,
+              "Lucesita lo besa"),
+        stage("climax.013.wig_reveal_and_payoff", "climax", 96,
+              "Lucesita dice"),
+        stage("climax.014.dante_tony_video_exposure", "climax", 97,
+              "Aparece un video"),
+        stage("climax.015.dante_tony_escape_blocked", "climax", 97,
+              "Dante y Tony tratan"),
+        stage("climax.016.judges_bribes_exposed", "climax", 97,
+              "El video continúa"),
+        stage("climax.017.judges_captured", "climax", 97,
+              "Los elementos de seguridad"),
+        stage("climax.018.trophy_awarded_to_cosquillitas", "climax", 97,
+              "El conductor les entrega"),
+        stage("ending.001.richie_private_video_continues", "ending", 98,
+              "El video privado"),
+        stage("ending.002.group_reunion_and_chavos_removed", "ending", 98,
+              "Cosquillitas se reúne"),
+        stage("ending.003.juanito_explains_voice", "ending", 98,
+              "Juanito explica"),
+        stage("ending.004.pregnancy_reveal", "ending", 99,
+              "Lucyfer levanta"),
+        stage("ending.005.vehicle_prize", "ending", 99,
+              "El premio del concurso"),
+        stage("ending.006.peso_three_dollars", "ending", 100,
+              "El dólar", "Un peso", "Un peso"),
+        stage("ending.007.anita_father_returns", "ending", 100,
+              "Anita, soy tu padre"),
+        stage("ending.008.world_peace_announced", "ending", 100,
+              "La paz mundial"),
+        stage("ending.009.cure_announced", "ending", 100,
+              "La pastilla que cura"),
+        stage("ending.010.cure_retracted", "ending", 100,
+              "Perdón, leí mal", requires_negation=True),
+        stage("final_scene.001.celebration_theme", "final_scene", 101,
+              "Comienza y termina"),
+        stage("final_scene.002.audience_requests_encore", "final_scene", 101,
+              "El público pide"),
+        stage("final_scene.003.otra_encore", "final_scene", 101,
+              "El público grita"),
+        stage("tag.001.y_ya", "tag", 101, "Y YA"),
+        stage("aftermath.001.not_present", "aftermath"),
+    ]
+    actors = {
+        stage_id: row["actor"]
+        for stage_id, row in cosquillitas_literal_rows().items()
+    }
+    for stage_row in stages:
+        stage_row["canonical_actor"] = actors[stage_row["stage_id"]]
+    canonical_claims = {
+        "climax.001.chavos_perfect_score":
+            "10, 10, 10, 10, calificación perfecta.",
+        "climax.002.cosquillitas_enter_hostile_stage":
+            "Por el pasillo vemos entrar a Cosquillitas, lo hacen lento.",
+        "climax.003.performance_changes_crowd":
+            "Comienzan a bailar y cantar y lo hacen bastante bien.",
+        "climax.004.juanito_freezes":
+            "Javierín se da cuenta que Juan no va poder cantar, Juan está paralizado.",
+        "climax.005.javierin_steps_forward":
+            "Javierín da un paso al frente, al parecer él va a sacar adelante el show.",
+        "climax.006.juanito_raw_voice":
+            "Juanito está cantando algo que oído humano jamás había escuchado.",
+        "climax.007.angelic_voice_and_ovation":
+            "La ovación es mas fuerte que la que le dieron a los Chavos.",
+        "climax.008.first_three_scores":
+            "Las primeras tres calificaciones son 10, 10 y 5.",
+        "climax.009.final_score_and_chavos_win":
+            "Los Chavos ganan con la cuarta calificación de 2.",
+        "climax.010.chavos_taunt_rejected":
+            "Los Chavos se burlan, pero el público no los apoya.",
+        "climax.011.richie_declares_love":
+            "Richie dice que no ha podido dejar de quererte.",
+        "climax.012.lucesita_kisses_richie": "Lucesita lo besa.",
+        "climax.013.wig_reveal_and_payoff":
+            "Lucesita le hizo una peluca.",
+        "climax.014.dante_tony_video_exposure":
+            "El video falso muestra a Dante junto con Tony.",
+        "climax.015.dante_tony_escape_blocked":
+            "El escape de Dante junto con Tony queda bloqueado por las puertas cerradas.",
+        "climax.016.judges_bribes_exposed":
+            "El video muestra a los jueces recibiendo sobornos junto con regalos.",
+        "climax.017.judges_captured":
+            "Los elementos de seguridad los atrapan.",
+        "climax.018.trophy_awarded_to_cosquillitas":
+            "El conductor entrega el trofeo como premio del CINLTT.",
+        "ending.001.richie_private_video_continues":
+            "El video privado de Richie continúa.",
+        "ending.002.group_reunion_and_chavos_removed":
+            "Cosquillitas se reúne y sacan a Los Chavos del escenario.",
+        "ending.003.juanito_explains_voice":
+            "Juanito explica que cantó con una voz que sólo aparece una vez al año.",
+        "ending.004.pregnancy_reveal":
+            "La prueba de embarazo de Lucyfer revela que Juanito será padre.",
+        "ending.005.vehicle_prize":
+            "El premio del concurso es un auto último modelo.",
+        "ending.006.peso_three_dollars": "Un peso vale 3 dólares.",
+        "ending.007.anita_father_returns": "Anita, soy tu padre.",
+        "ending.008.world_peace_announced":
+            "La paz mundial por fin es una realidad.",
+        "ending.009.cure_announced":
+            "La pastilla que cura en minutos la sífilis es anunciada.",
+        "ending.010.cure_retracted":
+            "Perdón leí mal la cura no es un hecho.",
+        "final_scene.001.celebration_theme":
+            "Comienza y termina el tema musical de Cosquillitas.",
+        "final_scene.002.audience_requests_encore":
+            "El público pide otra canción.",
+        "final_scene.003.otra_encore":
+            "El público grita Otra y Cosquillitas canta otra canción.",
+        "tag.001.y_ya": "Y YA",
+    }
+    return {
+        "contract_version": cv.LITERAL_SEQUENCE_CONTRACT_VERSION,
+        "content_sha256": content_sha256,
+        "normalized_text_sha256": cv._literal_sequence_text_sha256(text),
+        "canonical_source_claims": {
+            stage_row["required_source_ids"][0]: [{
+                "field": "action",
+                "text": canonical_claims[stage_row["stage_id"]],
+            }]
+            for stage_row in stages
+            if stage_row["required_source_ids"]
+        },
+        "stages": stages,
+    }
+
+
+def cosquillitas_literal_inventory():
+    contract = cosquillitas_literal_contract(COSQUILLITAS_LITERAL_SOURCE)
+    with patch.object(
+        cv, "_load_literal_sequence_contract", return_value=contract
+    ):
+        return cv.build_literal_sequence_stage_inventory(
+            COSQUILLITAS_LITERAL_SOURCE, "f" * 64
+        )
+
+
+def cosquillitas_literal_candidate():
+    sequence = {
+        "climax": [
+            literal_beat(
+                "Cosquillitas ensemble",
+                "Enter the final stage facing a hostile crowd.",
+                "Cosquillitas take their places amid booing.",
+                90,
+            ),
+            literal_beat(
+                "Cosquillitas ensemble",
+                "Begin performing while singing and dancing.",
+                "The public gradually pays attention.",
+                91,
+            ),
+            literal_beat(
+                "Juanito",
+                "Juanito freezes and cannot sing; Javierín steps forward to "
+                "cover for him; Juanito releases a vocal performance.",
+                "The audience is hypnotized and gives Juanito a stronger "
+                "ovation than Los Chavos.",
+                92,
+            ),
+            literal_beat(
+                "Three judges",
+                "First judge scores 10, second scores 10, third scores 5, "
+                "fourth scores 2.",
+                "Los Chavos win and are declared winners.",
+                93,
+            ),
+            literal_beat(
+                "Richie and Lucesita",
+                "Richie says he never stopped loving Lucesita; she kisses "
+                "him and gives him a wig.",
+                "Richie and Lucesita reconcile.",
+                96,
+            ),
+            literal_beat(
+                "Dante and Tony",
+                "A hidden-camera video plays on the enormous arena screen "
+                "showing Dante and Tony discussing the fabricated interview "
+                "video and Tony revealing he bribed judges with watches, "
+                "money, lingerie, and a Memo Ochoa poster.",
+                "Video exposure causes judges to attempt escape; security "
+                "detains all judges; conductor formally announces the result "
+                "will be overturned and trophy awarded to Cosquillitas; "
+                "public erupts in approval.",
+                97,
+            ),
+        ],
+        "ending": [
+            literal_beat(
+                "Lucyfer",
+                "Lucyfer waves a positive pregnancy test.",
+                "Juanito learns he will be a father.",
+                99,
+            ),
+            literal_beat(
+                "The conductor",
+                "The conductor announces a bonus car prize.",
+                "Cosquillitas receive the vehicle.",
+                99,
+            ),
+            literal_beat(
+                "Anita's father",
+                "Anita's long-absent father reappears.",
+                "He seeks reconciliation.",
+                100,
+            ),
+            literal_beat(
+                "The conductor",
+                "The conductor announces world peace and a cure for "
+                "syphilis, then corrects the cure announcement.",
+                "The crowd celebrates; one man sits down embarrassed.",
+                100,
+            ),
+        ],
+        "final_scene": [literal_beat(
+            "Cosquillitas ensemble",
+            "The crowd demands more, then Cosquillitas perform an encore "
+            "song called Otra.",
+            "Cosquillitas complete the encore.",
+            101,
+        )],
+        "tag": [literal_beat(
+            "The text Y YA",
+            "Text appears: Y YA.",
+            "The screenplay ends.",
+            101,
+        )],
+        "aftermath": [{
+            **literal_beat("NOT PRESENT", "NOT PRESENT", "NOT PRESENT", 101),
+            "character_knowledge": "NOT PRESENT",
+            "audience_knowledge": "NOT PRESENT",
+        }],
+    }
+    return cv.normalize_audit_tool_input(
+        {"verdicts": [], "sequence_ledger": sequence}, range(1, 102)
+    )
+
+
+def cosquillitas_literal_rows():
+    rows = {
+        "climax.001.chavos_perfect_score": literal_beat(
+            "The judges", "The four judges score 10, 10, 10, and 10.",
+            "Los Chavos receive a perfect score.", 89,
+        ),
+        "climax.002.cosquillitas_enter_hostile_stage": literal_beat(
+            "Cosquillitas", "Cosquillitas enter the hostile stage.",
+            "They take their places amid booing.", 90,
+        ),
+        "climax.003.performance_changes_crowd": literal_beat(
+            "Cosquillitas", "Cosquillitas perform by singing and dancing.",
+            "The crowd begins paying attention.", 91,
+        ),
+        "climax.004.juanito_freezes": literal_beat(
+            "Juanito", "Juanito freezes and cannot sing.",
+            "Juanito cannot perform.", 92,
+        ),
+        "climax.005.javierin_steps_forward": literal_beat(
+            "Javierín", "Javierín steps forward to cover for Juanito.",
+            "Javierín takes the lead.", 92,
+        ),
+        "climax.006.juanito_raw_voice": literal_beat(
+            "Juanito", "Juanito sings in his raw voice.",
+            "Juanito takes over the performance.", 92,
+        ),
+        "climax.007.angelic_voice_and_ovation": literal_beat(
+            "The audience", "The audience gives Juanito a stronger ovation.",
+            "His ovation exceeds the one given to Los Chavos.", 93,
+        ),
+        "climax.008.first_three_scores": literal_beat(
+            "The first three judges", "The judges score 10, 10, and 5.",
+            "Three scores are revealed.", 94,
+        ),
+        "climax.009.final_score_and_chavos_win": literal_beat(
+            "The fourth judge", "The fourth judge scores 2.",
+            "Los Chavos win and are declared winners.", 95,
+        ),
+        "climax.010.chavos_taunt_rejected": literal_beat(
+            "Los Chavos", "Los Chavos taunt Cosquillitas.",
+            "The audience rejects their taunt.", 95,
+        ),
+        "climax.011.richie_declares_love": literal_beat(
+            "Richie", "Richie says his love for Lucesita never stopped.",
+            "Richie chooses Lucesita before the exposé.", 96,
+        ),
+        "climax.012.lucesita_kisses_richie": literal_beat(
+            "Lucesita", "Lucesita kisses Richie.",
+            "They reconcile before the exposé.", 96,
+        ),
+        "climax.013.wig_reveal_and_payoff": literal_beat(
+            "Lucesita", "Lucesita gives Richie the wig she made.",
+            "Richie receives the wig before the exposé.", 96,
+        ),
+        "climax.014.dante_tony_video_exposure": literal_beat(
+            "Dante and Tony", "A video shows Dante and Tony discussing the "
+            "fabricated interview video.",
+            "The arena sees their involvement.", 97,
+        ),
+        "climax.015.dante_tony_escape_blocked": literal_beat(
+            "Dante and Tony", "Dante and Tony try to escape.",
+            "The closing doors block their escape.", 97,
+        ),
+        "climax.016.judges_bribes_exposed": literal_beat(
+            "The judges", "The video shows the judges receiving bribes.",
+            "Their corruption is exposed.", 97,
+        ),
+        "climax.017.judges_captured": literal_beat(
+            "Security", "Security captures the judges.",
+            "The judges are detained.", 97,
+        ),
+        "climax.018.trophy_awarded_to_cosquillitas": literal_beat(
+            "The conductor", "The conductor awards the trophy and prize.",
+            "Cosquillitas receive the trophy.", 97,
+        ),
+        "ending.001.richie_private_video_continues": literal_beat(
+            "The video", "The video continues with Richie's private footage.",
+            "The audience sees Richie's private footage.", 98,
+        ),
+        "ending.002.group_reunion_and_chavos_removed": literal_beat(
+            "Cosquillitas", "Cosquillitas reunite and remove Los Chavos.",
+            "Cosquillitas reclaim the stage.", 98,
+        ),
+        "ending.003.juanito_explains_voice": literal_beat(
+            "Juanito", "Juanito explains his rare voice.",
+            "The group learns why his voice changed.", 98,
+        ),
+        "ending.004.pregnancy_reveal": literal_beat(
+            "Lucyfer", "Lucyfer raises a positive pregnancy test.",
+            "Juanito learns he will be a father.", 99,
+        ),
+        "ending.005.vehicle_prize": literal_beat(
+            "The contest", "The contest awards Cosquillitas a car prize.",
+            "Cosquillitas receive the vehicle.", 99,
+        ),
+        "ending.006.peso_three_dollars": literal_beat(
+            "The conductor", "The conductor announces that one peso is worth "
+            "3 dollars.", "The currency relation is one peso to 3 dollars.",
+            100,
+        ),
+        "ending.007.anita_father_returns": literal_beat(
+            "Anita's father", "Anita's father returns.",
+            "He identifies himself and seeks reconciliation with Anita.", 100,
+        ),
+        "ending.008.world_peace_announced": literal_beat(
+            "The conductor", "The conductor announces world peace.",
+            "World peace is presented as real.", 100,
+        ),
+        "ending.009.cure_announced": literal_beat(
+            "The conductor", "The conductor announces a syphilis cure.",
+            "The cure is presented as real.", 100,
+        ),
+        "ending.010.cure_retracted": literal_beat(
+            "The conductor", "The conductor retracts the cure announcement.",
+            "He says the cure is not a fact.", 100,
+        ),
+        "final_scene.001.celebration_theme": literal_beat(
+            "Cosquillitas", "Cosquillitas' musical theme starts and ends.",
+            "The theme completes the celebration.", 101,
+        ),
+        "final_scene.002.audience_requests_encore": literal_beat(
+            "The audience", "The audience asks for another song.",
+            "Cosquillitas hear the request.", 101,
+        ),
+        "final_scene.003.otra_encore": literal_beat(
+            "Cosquillitas", "Cosquillitas perform another song called Otra.",
+            "They complete the encore.", 101,
+        ),
+        "tag.001.y_ya": {
+            **literal_beat(
+                "The text Y YA", "The text Y YA appears.",
+                "The screenplay ends.", 101,
+            ),
+            "character_knowledge": cv.SEQUENCE_KNOWLEDGE_NOT_APPLICABLE,
+        },
+        "aftermath.001.not_present": {
+            **literal_beat(
+                "NOT PRESENT", "NOT PRESENT", "NOT PRESENT", 101,
+            ),
+            "character_knowledge": "NOT PRESENT",
+            "audience_knowledge": "NOT PRESENT",
+        },
+    }
+    return rows
+
+
+def cosquillitas_literal_correction(_candidate, inventory):
+    rows = cosquillitas_literal_rows()
+    response = {"sequence_ledger": {
+        phase: [] for phase in cv.AUDIT_SEQUENCE_PHASES
+    }}
+    allowed = set(cv._AUDIT_SEQUENCE_BEAT_SCHEMA["required"])
+    for stage in inventory:
+        row = {
+            key: copy.deepcopy(value)
+            for key, value in rows[str(stage["stage_id"])].items()
+            if key in allowed
+        }
+        for field in ("action", "result"):
+            canonical_claims = [
+                str(required["canonical_claim"])
+                for required in stage.get("required_sources", [])
+                if required.get("canonical_field") == field
+            ]
+            if canonical_claims:
+                row[field] = "; ".join(canonical_claims)
+        row["stage_id"] = stage["stage_id"]
+        response["sequence_ledger"][stage["phase"]].append(row)
+    return response
 
 
 def screenplay_with_printed_headers() -> str:
@@ -4366,6 +4919,813 @@ El público pide otra canción
                 self.assertIsNone(decoded)
                 self.assertIn("does not identify", str(reason))
 
+    def test_sequence_actor_and_action_cannot_name_different_agents(self):
+        actions = (
+            "Carlos shoots Ana.",
+            "Carlos shoots Diego.",
+            "Carlos shoots Ana while Diego watches.",
+            "Ana gives Diego the gun.",
+            "Carlos and Diego shoot Ana.",
+            "Diego and Carlos shoot Ana.",
+            "Diego y Carlos disparan a Ana.",
+            "Diego is shot by Carlos.",
+        )
+        for action in actions:
+            with self.subTest(action=action):
+                source = (
+                    "[PAGE 1]\nDiego waits by the gate.\n" + action + "\n"
+                )
+                row = {
+                    "slot": "row_001",
+                    "kind": "sequence_evidence",
+                    "identifier": "sequence_ledger[0]",
+                    "subject": {
+                        "beat": {
+                            "order": 1,
+                            "phase": "climax",
+                            "page": 1,
+                            "actor": "Diego",
+                            "action": action,
+                            "result": "NOT LOCATED",
+                            "character_knowledge": "NOT LOCATED",
+                            "audience_knowledge": "NOT LOCATED",
+                        },
+                        "required_fields": ["actor", "action"],
+                        "claim_sha256": "a" * 64,
+                    },
+                }
+                value = {
+                    "classification": "supported",
+                    "checks": [
+                        {
+                            "field": field,
+                            "source_id": (
+                                f"{row['slot']}:{field}:p001-l001-l002"
+                            ),
+                            "supports": True,
+                        }
+                        for field in ("actor", "action")
+                    ],
+                    "note": "The same range is claimed for both fields.",
+                }
+
+                decoded, reason = cv._decode_grounded_detail_value(
+                    value, row, source
+                )
+
+                self.assertIsNone(decoded)
+                self.assertEqual(
+                    reason, "actor roles are absent from the claimed action"
+                )
+
+    def test_sequence_actor_rejects_unclaimed_leading_coagents(self):
+        for action in (
+            "Diego with Carlos dances.",
+            "Diego alongside Carlos dances.",
+            "Diego as well as Carlos shoots Ana.",
+            "Diego together with Carlos shoots Ana.",
+            "Diego plus Carlos shoot Ana.",
+            "Diego junto con Carlos canta.",
+            "Diego con Carlos baila.",
+        ):
+            with self.subTest(action=action):
+                source = (
+                    "[PAGE 1]\nDiego waits by the gate.\n" + action + "\n"
+                )
+                row = {
+                    "slot": "row_001",
+                    "kind": "sequence_evidence",
+                    "identifier": "sequence_ledger[0]",
+                    "subject": {
+                        "beat": {
+                            "order": 1,
+                            "phase": "climax",
+                            "page": 1,
+                            "actor": "Diego",
+                            "action": action,
+                            "result": "NOT LOCATED",
+                            "character_knowledge": "NOT LOCATED",
+                            "audience_knowledge": "NOT LOCATED",
+                        },
+                        "required_fields": ["actor", "action"],
+                        "claim_sha256": "a" * 64,
+                    },
+                }
+                value = {
+                    "classification": "supported",
+                    "checks": [
+                        {
+                            "field": "actor",
+                            "source_id": "row_001:actor:p001-l001",
+                            "supports": True,
+                        },
+                        {
+                            "field": "action",
+                            "source_id": "row_001:action:p001-l002",
+                            "supports": True,
+                        },
+                    ],
+                    "note": "The source is claimed to support both fields.",
+                }
+
+                decoded, reason = cv._decode_grounded_detail_value(
+                    value, row, source
+                )
+
+                self.assertIsNone(decoded)
+                self.assertEqual(
+                    reason, "actor roles are absent from the claimed action"
+                )
+
+        for actor, actor_line, action in (
+            (
+                "The judges",
+                "The judges wait by the gate.",
+                "The judges and Carlos shoot Ana.",
+            ),
+            (
+                "Los jueces",
+                "Los jueces esperan junto a la puerta.",
+                "Los jueces y Carlos disparan a Ana.",
+            ),
+            (
+                "The audience",
+                "The audience waits by the gate.",
+                "The audience and Carlos applaud.",
+            ),
+            (
+                "El público",
+                "El público espera junto a la puerta.",
+                "El público y Carlos aplauden.",
+            ),
+            (
+                "The crowd",
+                "The crowd waits by the gate.",
+                "The crowd and Carlos cheer.",
+            ),
+            (
+                "The police",
+                "The police wait by the gate.",
+                "The police and Carlos arrest Tony.",
+            ),
+            (
+                "The audience",
+                "The audience waits by the gate.",
+                "Together, the audience and Carlos applaud.",
+            ),
+            (
+                "The audience",
+                "The audience waits by the gate.",
+                "Carlos and the audience applaud.",
+            ),
+            (
+                "El público",
+                "El público espera junto a la puerta.",
+                "Juntos, el público y Carlos aplauden.",
+            ),
+            (
+                "El público",
+                "El público espera junto a la puerta.",
+                "Carlos y el público aplauden.",
+            ),
+            (
+                "The crowd",
+                "The crowd waits by the gate.",
+                "At once, the crowd and Carlos cheer.",
+            ),
+            (
+                "The police",
+                "The police wait by the gate.",
+                "Outside, the police and Carlos arrest Tony.",
+            ),
+            (
+                "The audience",
+                "The audience waits by the gate.",
+                "The audience and also Carlos applaud.",
+            ),
+            (
+                "El público",
+                "El público espera junto a la puerta.",
+                "El público y también Carlos aplauden.",
+            ),
+            (
+                "The audience",
+                "The audience waits by the gate.",
+                "The audience versus Carlos compete.",
+            ),
+            (
+                "Carlos and the audience",
+                "Carlos and the audience wait by the gate.",
+                "Carlos greets the audience.",
+            ),
+            (
+                "Carlos and the crowd",
+                "Carlos and the crowd wait by the gate.",
+                "Carlos addresses the crowd.",
+            ),
+            (
+                "Carlos y el público",
+                "Carlos y el público esperan junto a la puerta.",
+                "Carlos saluda al público.",
+            ),
+            (
+                "Carlos",
+                "Carlos waits by the gate.",
+                "Carlos leaves. That night, Diego attacks Ana.",
+            ),
+            (
+                "Carlos",
+                "Carlos waits by the gate.",
+                "Carlos leaves; That night, Diego attacks Ana.",
+            ),
+            (
+                "The audience",
+                "The audience waits by the gate.",
+                "The audience along with Carlos applaud.",
+            ),
+            (
+                "The audience",
+                "The audience waits by the gate.",
+                "The audience and even Carlos applaud.",
+            ),
+            (
+                "El público",
+                "El público espera junto a la puerta.",
+                "El público además de Carlos aplaude.",
+            ),
+            (
+                "El público",
+                "El público espera junto a la puerta.",
+                "El público e incluso Carlos aplaude.",
+            ),
+            (
+                "Carlos and Ana",
+                "Carlos and Ana wait by the gate.",
+                "Carlos with a knife attacks Ana.",
+            ),
+            (
+                "Carlos y Ana",
+                "Carlos y Ana esperan junto a la puerta.",
+                "Carlos con furia ataca a Ana.",
+            ),
+            (
+                "Carlos and the audience",
+                "Carlos and the audience wait by the gate.",
+                "Carlos with a microphone addresses the audience.",
+            ),
+            (
+                "Carlos",
+                "Carlos waits by the gate.",
+                "Carlos leaves while the audience applauds.",
+            ),
+            (
+                "Carlos",
+                "Carlos waits by the gate.",
+                "Carlos leaves. The audience applauds.",
+            ),
+            (
+                "Carlos",
+                "Carlos waits by the gate.",
+                "Carlos leaves as the crowd cheers.",
+            ),
+            (
+                "Carlos",
+                "Carlos waits by the gate.",
+                "Carlos leaves while the police arrest Tony.",
+            ),
+            (
+                "Carlos",
+                "Carlos waits by the gate.",
+                "Carlos leaves while a masked man attacks Ana.",
+            ),
+            (
+                "Carlos",
+                "Carlos waits by the gate.",
+                "Carlos leaves. The video appears.",
+            ),
+            (
+                "Carlos",
+                "Carlos waits by the gate.",
+                "Carlos leaves while security arrests Tony.",
+            ),
+            (
+                "Carlos",
+                "Carlos espera junto a la puerta.",
+                "Carlos sale mientras seguridad detiene a Tony.",
+            ),
+            (
+                "Carlos",
+                "Carlos espera junto a la puerta.",
+                "Carlos sale mientras el público aplaude.",
+            ),
+            (
+                "Carlos",
+                "Carlos waits by the gate.",
+                "Carlos leaves while police arrest Tony.",
+            ),
+            (
+                "Carlos",
+                "Carlos waits by the gate.",
+                "Carlos leaves while his audience applauds.",
+            ),
+            (
+                "Carlos",
+                "Carlos waits by the gate.",
+                "Carlos leaves while suddenly the audience applauds.",
+            ),
+            (
+                "Carlos",
+                "Carlos waits by the gate.",
+                "Carlos leaves and security arrests Tony.",
+            ),
+            (
+                "The judges",
+                "The judges wait by the gate.",
+                "The judges leave while he attacks Ana.",
+            ),
+            (
+                "Los jueces",
+                "Los jueces esperan junto a la puerta.",
+                "Los jueces salen mientras ella ataca a Ana.",
+            ),
+            (
+                "Carlos and Ana",
+                "Carlos and Ana wait by the gate.",
+                "Carlos and Ana leave while he attacks Tony.",
+            ),
+            (
+                "Carlos",
+                "Carlos waits by the gate.",
+                "Carlos leaves after security arrests Tony.",
+            ),
+            (
+                "Carlos",
+                "Carlos waits by the gate.",
+                "Carlos leaves because security arrests Tony.",
+            ),
+            (
+                "Carlos",
+                "Carlos espera junto a la puerta.",
+                "Carlos sale después de que seguridad detiene a Tony.",
+            ),
+            (
+                "Carlos",
+                "Carlos espera junto a la puerta.",
+                "Carlos sale porque seguridad detiene a Tony.",
+            ),
+            (
+                "Carlos",
+                "Carlos waits by the gate.",
+                "Carlos leaves: security arrests Tony.",
+            ),
+            (
+                "Carlos",
+                "Carlos waits by the gate.",
+                "Carlos leaves — security arrests Tony.",
+            ),
+            (
+                "Carlos",
+                "Carlos waits by the gate.",
+                "Carlos leaves, security arrests Tony.",
+            ),
+            (
+                "Carlos",
+                "Carlos waits by the gate.",
+                "Carlos leaves, fans wave.",
+            ),
+            (
+                "Carlos",
+                "Carlos waits by the gate.",
+                "Carlos leaves – fans wave.",
+            ),
+            (
+                "Carlos",
+                "Carlos waits by the gate.",
+                "Carlos grabs the camera, the police arrest Tony, and the "
+                "audience applauds.",
+            ),
+            (
+                "Carlos",
+                "Carlos waits by the gate.",
+                "Carlos sees the judges, the police arrest Tony, and the "
+                "audience applauds.",
+            ),
+            (
+                "Carlos",
+                "Carlos waits by the gate.",
+                "Carlos takes the cup, the crew move, and the band play.",
+            ),
+            (
+                "Carlos",
+                "Carlos waits by the gate.",
+                "Carlos grabs the cup, the team win, and the crew move.",
+            ),
+            (
+                "Carlos",
+                "Carlos waits by the gate.",
+                "Carlos takes the ball, the red wins, and the trophy.",
+            ),
+            (
+                "Carlos",
+                "Carlos waits by the gate.",
+                "Carlos takes the cup, the red runs, and the coat.",
+            ),
+            (
+                "Ana",
+                "Ana espera junto a la puerta.",
+                "Ana toma la copa, él canta, y el abrigo.",
+            ),
+            (
+                "Carlos",
+                "Carlos waits by the gate.",
+                "Carlos leaves and fans wave.",
+            ),
+            (
+                "Carlos",
+                "Carlos waits by the gate.",
+                "Carlos leaves but crew move.",
+            ),
+            (
+                "Carlos",
+                "Carlos waits by the gate.",
+                "Carlos leaves plus fans wave.",
+            ),
+            (
+                "Carlos",
+                "Carlos waits by the gate.",
+                "Carlos leaves yet fans wave.",
+            ),
+            (
+                "Carlos",
+                "Carlos waits by the gate.",
+                "Carlos leaves or fans wave.",
+            ),
+            (
+                "Carlos",
+                "Carlos waits by the gate.",
+                "Carlos leaves nor fans wave.",
+            ),
+            (
+                "Carlos",
+                "Carlos waits by the gate.",
+                "Carlos leaves with the audience applauding.",
+            ),
+            (
+                "Carlos",
+                "Carlos waits by the gate.",
+                "Carlos leaves with the police arresting Tony.",
+            ),
+            (
+                "Carlos",
+                "Carlos waits by the gate.",
+                "Carlos leaves upon security arresting Tony.",
+            ),
+            (
+                "Carlos",
+                "Carlos waits by the gate.",
+                "Carlos leaves (security arrests Tony).",
+            ),
+            (
+                "Carlos",
+                "Carlos waits by the gate.",
+                "Carlos leaves [security arrests Tony].",
+            ),
+            (
+                "Carlos",
+                "Carlos waits by the gate.",
+                "Carlos leaves (the crew move equipment).",
+            ),
+            (
+                "Carlos",
+                "Carlos waits by the gate.",
+                "Carlos leaves (fans wave).",
+            ),
+            (
+                "Carlos",
+                "Carlos waits by the gate.",
+                "Carlos leaves (security arrests Tony.",
+            ),
+            (
+                "Carlos",
+                "Carlos waits by the gate.",
+                "Carlos leaves [security arrests Tony.",
+            ),
+            (
+                "Carlos",
+                "Carlos waits by the gate.",
+                "Carlos leaves ([security arrests Tony)].",
+            ),
+            (
+                "Carlos",
+                "Carlos waits by the gate.",
+                "Carlos leaves).",
+            ),
+            (
+                "Carlos and security",
+                "Carlos and security wait by the gate.",
+                "Carlos leaves (security arrests Tony.",
+            ),
+            (
+                "Carlos and security",
+                "Carlos and security wait by the gate.",
+                "Carlos leaves [security arrests Tony.",
+            ),
+            (
+                "Carlos and security",
+                "Carlos and security wait by the gate.",
+                "Carlos leaves ([security arrests Tony)].",
+            ),
+            (
+                "Carlos",
+                "Carlos waits by the gate.",
+                'Carlos leaves "security arrests Tony.',
+            ),
+            (
+                "Carlos",
+                "Carlos waits by the gate.",
+                "Carlos leaves “security arrests Tony.",
+            ),
+            (
+                "Carlos",
+                "Carlos waits by the gate.",
+                "Carlos leaves ‘security arrests Tony.",
+            ),
+            (
+                "Carlos",
+                "Carlos waits by the gate.",
+                'Carlos leaves “security arrests Tony".',
+            ),
+            (
+                "Carlos and security",
+                "Carlos and security wait by the gate.",
+                'Carlos leaves "security arrests Tony.',
+            ),
+            (
+                "Carlos and security",
+                "Carlos and security wait by the gate.",
+                "Carlos leaves “security arrests Tony.",
+            ),
+            (
+                "Carlos",
+                "Carlos espera junto a la puerta.",
+                "Carlos sale con el público aplaudiendo.",
+            ),
+        ):
+            with self.subTest(actor=actor, action=action):
+                source = f"[PAGE 1]\n{actor_line}\n{action}\n"
+                row = {
+                    "slot": "row_001",
+                    "kind": "sequence_evidence",
+                    "identifier": "sequence_ledger[0]",
+                    "subject": {
+                        "beat": {
+                            "order": 1,
+                            "phase": "climax",
+                            "page": 1,
+                            "actor": actor,
+                            "action": action,
+                            "result": "NOT LOCATED",
+                            "character_knowledge": "NOT LOCATED",
+                            "audience_knowledge": "NOT LOCATED",
+                        },
+                        "required_fields": ["actor", "action"],
+                        "claim_sha256": "a" * 64,
+                    },
+                }
+                decoded, reason = cv._decode_grounded_detail_value(
+                    {
+                        "classification": "supported",
+                        "checks": [
+                            {
+                                "field": "actor",
+                                "source_id": "row_001:actor:p001-l001",
+                                "supports": True,
+                            },
+                            {
+                                "field": "action",
+                                "source_id": "row_001:action:p001-l002",
+                                "supports": True,
+                            },
+                        ],
+                        "note": "The source is claimed to support both fields.",
+                    },
+                    row,
+                    source,
+                )
+
+                self.assertIsNone(decoded)
+                self.assertEqual(
+                    reason, "actor roles are absent from the claimed action"
+                )
+
+        for actor, action in (
+            ("The audience", "The audience applauds."),
+            ("The audience", "Together, the audience applauds."),
+            ("El público", "El público aplaude."),
+            ("El público", "Juntos, el público aplaude."),
+            ("The crowd", "At once, the crowd cheers."),
+            ("The police", "Outside, the police arrest Tony."),
+            (
+                "Carlos and the audience",
+                "Carlos and the audience greet Ana.",
+            ),
+            (
+                "Carlos y el público",
+                "Carlos y el público saludan a Ana.",
+            ),
+            (
+                "The audience and Carlos",
+                "The audience along with Carlos applaud.",
+            ),
+            (
+                "El público y Carlos",
+                "El público además de Carlos aplaude.",
+            ),
+            ("Carlos and Ana", "Carlos and Ana attack Tony."),
+            (
+                "Carlos and the audience",
+                "Carlos leaves while the audience applauds.",
+            ),
+            (
+                "Carlos and the crowd",
+                "Carlos leaves as the crowd cheers.",
+            ),
+            (
+                "Carlos and the police",
+                "Carlos leaves while the police arrest Tony.",
+            ),
+            (
+                "Carlos and a masked man",
+                "Carlos leaves while a masked man attacks Ana.",
+            ),
+            (
+                "Carlos and the video",
+                "Carlos leaves. The video appears.",
+            ),
+            ("Carlos", "Carlos works as the police liaison."),
+            (
+                "Carlos and security",
+                "Carlos leaves while security arrests Tony.",
+            ),
+            (
+                "Carlos y seguridad",
+                "Carlos sale mientras seguridad detiene a Tony.",
+            ),
+            ("Carlos", "Carlos leaves and returns home."),
+            ("Carlos", "Carlos takes the bag and the red gun."),
+            ("Carlos", "Carlos leaves while he watches Tony."),
+            ("Carlos", "Carlos sale mientras él observa a Tony."),
+            (
+                "The judges",
+                "The judges leave while they watch Tony.",
+            ),
+            (
+                "Los jueces",
+                "Los jueces salen mientras ellos observan a Tony.",
+            ),
+            (
+                "Carlos and Ana",
+                "Carlos and Ana leave while they watch Tony.",
+            ),
+            (
+                "Carlos and security",
+                "Carlos leaves after security arrests Tony.",
+            ),
+            (
+                "Carlos and the audience",
+                "Carlos leaves with the audience applauding.",
+            ),
+            (
+                "Carlos and the police",
+                "Carlos leaves with the police arresting Tony.",
+            ),
+            (
+                "Carlos and security",
+                "Carlos leaves upon security arresting Tony.",
+            ),
+            (
+                "Carlos y el público",
+                "Carlos sale con el público aplaudiendo.",
+            ),
+            (
+                "Carlos y seguridad",
+                "Carlos sale después de que seguridad detiene a Tony.",
+            ),
+            (
+                "Carlos and security",
+                "Carlos leaves (security arrests Tony).",
+            ),
+            (
+                "Carlos and security",
+                "Carlos leaves [security arrests Tony].",
+            ),
+            (
+                "Carlos and the crew",
+                "Carlos leaves (the crew move equipment).",
+            ),
+            (
+                "Carlos and fans",
+                "Carlos leaves (fans wave).",
+            ),
+            ("Carlos", "Carlos leaves (quietly)."),
+            ("Carlos", "Carlos leaves (without warning)."),
+            ("Carlos", "Carlos performs ('Otra!')."),
+            ("Carlos", "Carlos enters (The Final Show)."),
+            ("Carlos", 'Carlos says "security arrests Tony."'),
+            ("Carlos", "Carlos says ‘Fans’ wave."),
+            ("Carlos", "Carlos says ‘don’t leave.’"),
+            ("Carlos", "Carlos doesn't leave."),
+            ("Carlos", "Carlos reads James' note."),
+            ("Carlos", "Carlos leaves after the ceremony."),
+            ("Carlos", "Carlos has worked as the police liaison."),
+            ("Carlos", "Carlos leaves before the result changes."),
+            ("Carlos", "Carlos waits before God's order."),
+            ("Carlos and fans", "Carlos leaves, fans wave."),
+            ("Carlos and fans", "Carlos leaves plus fans wave."),
+            ("Carlos and fans", "Carlos leaves yet fans wave."),
+            ("Carlos and fans", "Carlos leaves or fans wave."),
+            ("Carlos and fans", "Carlos leaves nor fans wave."),
+            (
+                "Carlos and security",
+                "Carlos leaves: security arrests Tony.",
+            ),
+            (
+                "Carlos",
+                "Carlos grabs the camera, the trophy, and the wig.",
+            ),
+            ("Carlos", "Carlos takes the bag, the red gun, and the coat."),
+            (
+                "Public, Juanito, and Cosquillitas",
+                "Public demands encore ('Otra!'); Juanito announces the "
+                "song is titled Otra; Cosquillitas performs it.",
+            ),
+        ):
+            with self.subTest(actor=actor, action=action):
+                self.assertTrue(
+                    cv._sequence_named_actor_roster_matches_action(
+                        actor, action
+                    )
+                )
+
+    def test_parenthetical_clause_accepts_complete_actor_roster(self):
+        for actor, action in (
+            (
+                "Carlos and security",
+                "Carlos leaves (security arrests Tony).",
+            ),
+            (
+                "Carlos and the crew",
+                "Carlos leaves (the crew move equipment).",
+            ),
+            ("Carlos and fans", "Carlos leaves (fans wave)."),
+        ):
+            with self.subTest(actor=actor, action=action):
+                source = (
+                    f"[PAGE 1]\n{actor} wait by the gate.\n{action}\n"
+                )
+                row = {
+                    "slot": "row_001",
+                    "kind": "sequence_evidence",
+                    "identifier": "sequence_ledger[0]",
+                    "subject": {
+                        "beat": {
+                            "order": 1,
+                            "phase": "climax",
+                            "page": 1,
+                            "actor": actor,
+                            "action": action,
+                            "result": "NOT LOCATED",
+                            "character_knowledge": "NOT LOCATED",
+                            "audience_knowledge": "NOT LOCATED",
+                        },
+                        "required_fields": ["actor", "action"],
+                        "claim_sha256": "a" * 64,
+                    },
+                }
+                decoded, reason = cv._decode_grounded_detail_value(
+                    {
+                        "classification": "supported",
+                        "checks": [
+                            {
+                                "field": "actor",
+                                "source_id": "row_001:actor:p001-l001",
+                                "supports": True,
+                            },
+                            {
+                                "field": "action",
+                                "source_id": "row_001:action:p001-l002",
+                                "supports": True,
+                            },
+                        ],
+                        "note": "Both agents are explicitly claimed.",
+                    },
+                    row,
+                    source,
+                )
+
+                self.assertIsNotNone(decoded)
+                self.assertIsNone(reason)
+
     def test_collective_actor_anchors_preserve_english_and_spanish_number(self):
         for actor, excerpt in (
             ("The judges", "The judges raise the red card."),
@@ -4569,13 +5929,13 @@ El público pide otra canción
             (
                 "Diego questions Carlos about the contest.",
                 "Carlos knows Diego cheated in the contest.",
-                "Diego and Carlos",
+                "Diego",
                 "Diego knows Carlos cheated in the contest.",
             ),
             (
                 "Diego interroga a Carlos sobre el concurso.",
                 "Carlos sabe que Diego hizo trampa en el concurso.",
-                "Diego y Carlos",
+                "Diego",
                 "Diego sabe que Carlos hizo trampa en el concurso.",
             ),
         )
@@ -4954,21 +6314,21 @@ El público pide otra canción
                 ),
             },
             {
-                "actor": "Diego and Carlos",
+                "actor": "Diego",
                 "action": "Diego questions Carlos about the contest.",
                 "field": "character_knowledge",
                 "claim": "Diego knows Carlos murdered Ana.",
                 "source_field": "Diego knows Carlos greeted Ana.",
             },
             {
-                "actor": "Diego y Carlos",
+                "actor": "Diego",
                 "action": "Diego pregunta a Carlos sobre el concurso.",
                 "field": "character_knowledge",
                 "claim": "Diego sabe que Carlos golpeó a Ana.",
                 "source_field": "Diego sabe que Carlos abrazó a Ana.",
             },
             {
-                "actor": "Diego and Carlos",
+                "actor": "Diego",
                 "action": "Diego questions Carlos about the contest.",
                 "field": "character_knowledge",
                 "claim": "Diego knows Carlos murdered Ana.",
@@ -5761,8 +7121,8 @@ El público pide otra canción
         ])
         self.assertEqual(stats, {
             "object_count": 8,
-            "property_count": 42,
-            "optional_parameter_count": 2,
+            "property_count": 44,
+            "optional_parameter_count": 4,
             "union_parameter_count": 0,
             "maximum_depth": 5,
         })
@@ -7207,6 +8567,959 @@ El público pide otra canción
         self.assertIn("relationship reversal before the decisive exposure", prompt)
         self.assertIn("official corrected result or trophy", prompt)
         self.assertNotIn("# SCREENPLAY TEXT", prompt)
+
+    def test_cosquillitas_correction_inventory_is_source_bound_and_ordered(self):
+        inventory = cosquillitas_literal_inventory()
+
+        self.assertEqual(
+            [stage["stage_id"] for stage in inventory],
+            [
+                "climax.001.chavos_perfect_score",
+                "climax.002.cosquillitas_enter_hostile_stage",
+                "climax.003.performance_changes_crowd",
+                "climax.004.juanito_freezes",
+                "climax.005.javierin_steps_forward",
+                "climax.006.juanito_raw_voice",
+                "climax.007.angelic_voice_and_ovation",
+                "climax.008.first_three_scores",
+                "climax.009.final_score_and_chavos_win",
+                "climax.010.chavos_taunt_rejected",
+                "climax.011.richie_declares_love",
+                "climax.012.lucesita_kisses_richie",
+                "climax.013.wig_reveal_and_payoff",
+                "climax.014.dante_tony_video_exposure",
+                "climax.015.dante_tony_escape_blocked",
+                "climax.016.judges_bribes_exposed",
+                "climax.017.judges_captured",
+                "climax.018.trophy_awarded_to_cosquillitas",
+                "ending.001.richie_private_video_continues",
+                "ending.002.group_reunion_and_chavos_removed",
+                "ending.003.juanito_explains_voice",
+                "ending.004.pregnancy_reveal",
+                "ending.005.vehicle_prize",
+                "ending.006.peso_three_dollars",
+                "ending.007.anita_father_returns",
+                "ending.008.world_peace_announced",
+                "ending.009.cure_announced",
+                "ending.010.cure_retracted",
+                "final_scene.001.celebration_theme",
+                "final_scene.002.audience_requests_encore",
+                "final_scene.003.otra_encore",
+                "tag.001.y_ya",
+                "aftermath.001.not_present",
+            ],
+        )
+        self.assertEqual(inventory[0]["page"], 89)
+        self.assertEqual(inventory[0]["required_digit_counts"], {"10": 4})
+        self.assertEqual(
+            [
+                stage["stage_id"] for stage in inventory
+                if stage["page"] == 97
+            ],
+            [
+                "climax.014.dante_tony_video_exposure",
+                "climax.015.dante_tony_escape_blocked",
+                "climax.016.judges_bribes_exposed",
+                "climax.017.judges_captured",
+                "climax.018.trophy_awarded_to_cosquillitas",
+            ],
+        )
+        self.assertEqual(
+            [
+                stage["stage_id"] for stage in inventory
+                if stage["page"] == 100
+            ],
+            [
+                "ending.006.peso_three_dollars",
+                "ending.007.anita_father_returns",
+                "ending.008.world_peace_announced",
+                "ending.009.cure_announced",
+                "ending.010.cure_retracted",
+            ],
+        )
+        currency = inventory[23]
+        self.assertEqual(currency["required_digit_counts"], {"3": 1})
+        self.assertEqual(currency["required_concepts"], ["currency"])
+        self.assertEqual(
+            [
+                stage["stage_id"] for stage in inventory
+                if stage["requires_negation"]
+            ],
+            [
+                "climax.004.juanito_freezes",
+                "climax.011.richie_declares_love",
+                "ending.010.cure_retracted",
+            ],
+        )
+        for stage in inventory:
+            for source_id in stage["source_ids"]:
+                self.assertIsNotNone(
+                    cv._sequence_source_anchor(
+                        COSQUILLITAS_LITERAL_SOURCE, source_id
+                    )
+                )
+
+    def test_source_bound_correction_rejects_missing_duplicate_and_reorder(self):
+        candidate = cosquillitas_literal_candidate()
+        inventory = cosquillitas_literal_inventory()
+        response = cosquillitas_literal_correction(candidate, inventory)
+
+        merged = cv._merge_literal_sequence_correction(
+            candidate,
+            response,
+            inventory,
+            range(1, 102),
+            COSQUILLITAS_LITERAL_SOURCE,
+        )
+        self.assertEqual(merged["sequence_ledger"][0]["page"], 89)
+
+        missing_opening = copy.deepcopy(response)
+        missing_opening["sequence_ledger"]["climax"].pop(0)
+        collapsed_capture = copy.deepcopy(response)
+        collapsed_capture["sequence_ledger"]["climax"].pop(16)
+        duplicate = copy.deepcopy(response)
+        duplicate["sequence_ledger"]["climax"][16]["stage_id"] = (
+            duplicate["sequence_ledger"]["climax"][15]["stage_id"]
+        )
+        richie_after_exposure = copy.deepcopy(response)
+        rows = richie_after_exposure["sequence_ledger"]["climax"]
+        rows[10], rows[13] = rows[13], rows[10]
+        for label, changed in (
+            ("missing p.89", missing_opening),
+            ("collapsed p.97", collapsed_capture),
+            ("duplicate stage", duplicate),
+            ("Richie after exposure", richie_after_exposure),
+        ):
+            with self.subTest(label=label), self.assertRaisesRegex(
+                cv.CoverageContractError,
+                "stage identity or source order",
+            ):
+                cv._merge_literal_sequence_correction(
+                    candidate,
+                    changed,
+                    inventory,
+                    range(1, 102),
+                    COSQUILLITAS_LITERAL_SOURCE,
+                )
+
+        def row_for(payload, stage_id):
+            return next(
+                row
+                for phase_rows in payload["sequence_ledger"].values()
+                for row in phase_rows
+                if row["stage_id"] == stage_id
+            )
+
+        missing_four_tens = copy.deepcopy(response)
+        opening = row_for(
+            missing_four_tens, "climax.001.chavos_perfect_score"
+        )
+        opening["action"] = "The judges give a perfect score."
+        opening["result"] = "Los Chavos receive a perfect score."
+
+        changed_four_tens = copy.deepcopy(response)
+        row_for(
+            changed_four_tens, "climax.001.chavos_perfect_score"
+        )["action"] = "The four judges score 1, 1, 1, and 1."
+
+        father_in_currency_stage = copy.deepcopy(response)
+        currency = row_for(
+            father_in_currency_stage, "ending.006.peso_three_dollars"
+        )
+        currency["action"] = "Anita's father returns with 3 letters."
+        currency["result"] = "He seeks reconciliation."
+
+        missing_currency_value = copy.deepcopy(response)
+        currency = row_for(
+            missing_currency_value, "ending.006.peso_three_dollars"
+        )
+        currency["action"] = "The conductor says the dollar fell."
+        currency["result"] = "The currency changed."
+
+        collapsed_exposure = copy.deepcopy(response)
+        exposure = row_for(
+            collapsed_exposure, "climax.014.dante_tony_video_exposure"
+        )
+        exposure["result"] += (
+            " Security captures the judges and awards Cosquillitas the trophy."
+        )
+
+        lost_negation = copy.deepcopy(response)
+        love = row_for(
+            lost_negation, "climax.011.richie_declares_love"
+        )
+        love["action"] = "Richie says his love for Lucesita continues."
+
+        mutations = (
+            (missing_four_tens, "deleted a required numeric source fact"),
+            (changed_four_tens, "deleted a required numeric source fact"),
+            (father_in_currency_stage, "required source event"),
+            (missing_currency_value, "deleted a required numeric source fact"),
+            (collapsed_exposure, "combines a separately bound source event"),
+            (lost_negation, "deleted required source polarity"),
+        )
+        for changed, error in mutations:
+            with self.subTest(error=error), self.assertRaisesRegex(
+                cv.CoverageContractError, error
+            ):
+                cv._merge_literal_sequence_correction(
+                    candidate,
+                    changed,
+                    inventory,
+                    range(1, 102),
+                    COSQUILLITAS_LITERAL_SOURCE,
+                )
+
+        public = cv._public_sequence_ledger(merged["sequence_ledger"])
+        self.assertTrue(any(
+            cv._LITERAL_SEQUENCE_BINDING_KEY in row
+            for row in merged["sequence_ledger"]
+        ))
+        self.assertTrue(all(
+            cv._LITERAL_SEQUENCE_BINDING_KEY not in row for row in public
+        ))
+
+    def test_real_cosquillitas_contract_compiles_and_merges_all_claims(self):
+        source = real_cosquillitas_source()
+        inventory = cv.build_literal_sequence_stage_inventory(
+            source, COSQUILLITAS_SOURCE_SHA256
+        )
+
+        self.assertEqual(len(inventory), 33)
+        self.assertEqual(
+            sum(len(stage["required_sources"]) for stage in inventory), 87
+        )
+        for stage in inventory:
+            for field in ("action", "result"):
+                expected = [
+                    required["canonical_claim"]
+                    for required in stage["required_sources"]
+                    if required["canonical_field"] == field
+                ]
+                if not expected:
+                    continue
+                atoms = cv._sequence_material_claim_atoms({
+                    field: "; ".join(expected),
+                })
+                self.assertEqual(
+                    [(atom["field"], atom["text"]) for atom in atoms],
+                    [(field, claim) for claim in expected],
+                    stage["stage_id"],
+                )
+
+        candidate = cosquillitas_literal_candidate()
+        response = cosquillitas_literal_correction(candidate, inventory)
+        conservative_output_tokens = (
+            len(json.dumps(response, ensure_ascii=False)) + 2
+        ) // 3
+        self.assertLessEqual(
+            conservative_output_tokens,
+            cv.LITERAL_SEQUENCE_CORRECTION_MAX_TOKENS,
+        )
+        merged = cv._merge_literal_sequence_correction(
+            candidate, response, inventory, range(1, 102), source
+        )
+        self.assertIsNone(cv._literal_sequence_contract_problem(
+            merged, source, COSQUILLITAS_SOURCE_SHA256
+        ))
+        legacy_core = copy.deepcopy(merged)
+        for row in legacy_core["sequence_ledger"]:
+            row.pop(cv._LITERAL_SEQUENCE_BINDING_KEY, None)
+        self.assertIn(
+            "hash-bound source",
+            cv._literal_sequence_contract_problem(
+                legacy_core, source, COSQUILLITAS_SOURCE_SHA256
+            ),
+        )
+        stage_ids = [
+            row[cv._LITERAL_SEQUENCE_BINDING_KEY]["stage_id"]
+            for row in merged["sequence_ledger"]
+            if cv._LITERAL_SEQUENCE_BINDING_KEY in row
+        ]
+        critical_order = [
+            "climax.008.first_three_scores",
+            "climax.009.final_score_and_chavos_win",
+            "climax.011.richie_declares_love",
+            "climax.012.lucesita_kisses_richie",
+            "climax.013.wig_reveal_and_payoff",
+            "climax.014.dante_tony_video_exposure",
+            "climax.017.judges_captured",
+            "climax.018.trophy_awarded_to_cosquillitas",
+        ]
+        self.assertEqual(
+            [stage_id for stage_id in stage_ids if stage_id in critical_order],
+            critical_order,
+        )
+
+        def bound_row(stage_id):
+            return next(
+                row for row in merged["sequence_ledger"]
+                if row.get(cv._LITERAL_SEQUENCE_BINDING_KEY, {}).get(
+                    "stage_id"
+                ) == stage_id
+            )
+
+        chavos_score = bound_row("climax.001.chavos_perfect_score")
+        self.assertIn(
+            "Los jueces muestran a Los Chavos sus calificaciones",
+            chavos_score["action"],
+        )
+        self.assertLess(
+            chavos_score["action"].index("Los jueces muestran"),
+            chavos_score["action"].index("10, 10, 10, 10"),
+        )
+        pregnancy = bound_row("ending.004.pregnancy_reveal")
+        self.assertLess(
+            pregnancy["action"].index("JUANITO repite"),
+            pregnancy["action"].index("Lucyfer corre"),
+        )
+        encore = bound_row("final_scene.002.audience_requests_encore")
+        self.assertLess(
+            encore["action"].index("El público se vuelve loco"),
+            encore["action"].index("El público pide otra canción"),
+        )
+
+        public = cv._public_sequence_ledger(merged["sequence_ledger"])
+        exposure = next(
+            row for row in public
+            if "conversación de Dante con Tony" in row["action"]
+        )
+        self.assertIn(
+            "video falso que incrimina a Cosquillitas", exposure["action"]
+        )
+        bribes = next(
+            row for row in public if "un primer juez" in row["action"]
+        )
+        bribe_text = " ".join(
+            str(bribes[field]) for field in ("actor", "action", "result")
+        ).casefold()
+        self.assertIn("otro recibe", bribe_text)
+        for unsupported in (
+            "all judges", "four judges", "todos los jueces", "cuatro jueces"
+        ):
+            self.assertNotIn(unsupported, bribe_text)
+
+        def response_row(payload, stage_id):
+            return next(
+                row
+                for phase_rows in payload["sequence_ledger"].values()
+                for row in phase_rows
+                if row["stage_id"] == stage_id
+            )
+
+        added_obligations = {
+            "p093-l008-l009": (
+                "result", "Los oyentes se empiezan a destapar los oídos."
+            ),
+            "p093-l017-l018": (
+                "result", "No pueden creer lo ocurrido."
+            ),
+            "p097-l026-l027": (
+                "action", "Los Jueces se paran de sus asientos."
+            ),
+            "p097-l030-l034": (
+                "action",
+                "La disculpa responde a haber hecho pasar a Cosquillitas "
+                "por la peor semana de sus vidas.",
+            ),
+            "p099-l027-l028": (
+                "action", "Lucyfer corre hacia Juanito."
+            ),
+            "p100-l010-l015": (
+                "action",
+                "El regreso busca enmendar todo aunque ya sea innecesario.",
+            ),
+            "p101-l011-l013": (
+                "action", "El público se vuelve loco."
+            ),
+        }
+        for source_id, (field, claim) in added_obligations.items():
+            stage = next(
+                stage for stage in inventory
+                if any(
+                    required["source_id"] == source_id
+                    and required["canonical_field"] == field
+                    and required["canonical_claim"] == claim
+                    for required in stage["required_sources"]
+                )
+            )
+            siblings = [
+                required for required in stage["required_sources"]
+                if required["source_id"] == source_id
+            ]
+            self.assertEqual(len(siblings), 2, source_id)
+            self.assertEqual(
+                [required["obligation_id"] for required in siblings],
+                [f"{source_id}.o01", f"{source_id}.o02"],
+            )
+
+            changed = copy.deepcopy(response)
+            changed_row = response_row(changed, stage["stage_id"])
+            clauses = changed_row[field].split("; ")
+            clauses.remove(claim)
+            changed_row[field] = "; ".join(clauses)
+            with self.subTest(source_id=source_id), self.assertRaisesRegex(
+                cv.CoverageContractError,
+                "changed, moved, reordered, or omitted a canonical source claim",
+            ):
+                cv._merge_literal_sequence_correction(
+                    candidate, changed, inventory, range(1, 102), source
+                )
+
+        omitted = copy.deepcopy(response)
+        ovation = next(
+            stage for stage in inventory
+            if stage["stage_id"] == "climax.007.angelic_voice_and_ovation"
+        )
+        rony_claim = next(
+            required["canonical_claim"]
+            for required in ovation["required_sources"]
+            if required["source_id"] == "p093-l027"
+        )
+        ovation_row = response_row(
+            omitted, "climax.007.angelic_voice_and_ovation"
+        )
+        ovation_row["result"] = ovation_row["result"].replace(
+            f"; {rony_claim}", ""
+        )
+
+        moved = copy.deepcopy(response)
+        exposure_row = response_row(
+            moved, "climax.014.dante_tony_video_exposure"
+        )
+        canonical_exposure = exposure_row["action"]
+        exposure_row["action"] = exposure_row["result"]
+        exposure_row["result"] = (
+            canonical_exposure + "; " + exposure_row["result"]
+        )
+
+        reordered = copy.deepcopy(response)
+        ovation_row = response_row(
+            reordered, "climax.007.angelic_voice_and_ovation"
+        )
+        ovation_row["result"] = "; ".join(reversed(
+            ovation_row["result"].split("; ")
+        ))
+
+        for label, changed in (
+            ("omitted p.93 source fact", omitted),
+            ("moved p.97 source fact", moved),
+            ("reordered p.93 source facts", reordered),
+        ):
+            with self.subTest(label=label), self.assertRaisesRegex(
+                cv.CoverageContractError,
+                "changed, moved, reordered, or omitted a canonical source "
+                "claim",
+            ):
+                cv._merge_literal_sequence_correction(
+                    candidate, changed, inventory, range(1, 102), source
+                )
+
+        changed_actor = copy.deepcopy(response)
+        richie = next(
+            row for row in changed_actor["sequence_ledger"]["climax"]
+            if row["stage_id"] == "climax.011.richie_declares_love"
+        )
+        richie["actor"] = "Richie (murders Juanito)"
+        with self.assertRaisesRegex(
+            cv.CoverageContractError, "changed its canonical actor"
+        ):
+            cv._merge_literal_sequence_correction(
+                candidate, changed_actor, inventory, range(1, 102), source
+            )
+
+    def test_real_cosquillitas_p93_p94_detail_is_atom_authoritative(self):
+        source = real_cosquillitas_source()
+        inventory = cv.build_literal_sequence_stage_inventory(
+            source, COSQUILLITAS_SOURCE_SHA256
+        )
+        candidate = cosquillitas_literal_candidate()
+        merged = cv._merge_literal_sequence_correction(
+            candidate,
+            cosquillitas_literal_correction(candidate, inventory),
+            inventory,
+            range(1, 102),
+            source,
+        )
+        rows = cv.build_detail_audit_rows(
+            {}, [], merged["sequence_ledger"]
+        )
+
+        for stage_id, required_count in (
+            ("climax.007.angelic_voice_and_ovation", 8),
+            ("climax.008.first_three_scores", 3),
+        ):
+            with self.subTest(stage_id=stage_id):
+                row = next(
+                    value for value in rows
+                    if value["kind"] == "sequence_evidence"
+                    and value["subject"].get(
+                        "literal_source_binding", {}
+                    ).get("stage_id") == stage_id
+                )
+                subject = row["subject"]
+                binding = subject["literal_source_binding"]
+                required_by_claim = {
+                    (
+                        required["canonical_field"],
+                        required["canonical_claim"],
+                    ): required
+                    for required in binding["required_sources"]
+                }
+                atom_ids_by_obligation = {}
+                material_results = []
+                for atom in subject["material_claim_atoms"]:
+                    required = required_by_claim.get(
+                        (atom["field"], atom["text"])
+                    )
+                    if required is None:
+                        material_results.append({
+                            "atom_id": atom["atom_id"],
+                            "disposition": "not_located",
+                            "source_id": cv.SEQUENCE_SOURCE_NOT_LOCATED,
+                        })
+                        continue
+                    atom_ids_by_obligation[
+                        required["obligation_id"]
+                    ] = atom["atom_id"]
+                    material_results.append({
+                        "atom_id": atom["atom_id"],
+                        "disposition": "supported",
+                        "source_id": (
+                            f"{row['slot']}:{atom['atom_id']}:"
+                            f"{required['source_id']}"
+                        ),
+                    })
+                value = {
+                    "classification": "partially_supported",
+                    "checks": [
+                        {
+                            "field": field,
+                            "source_id": cv.SEQUENCE_SOURCE_NOT_LOCATED,
+                            "supports": False,
+                        }
+                        for field in subject["required_fields"]
+                    ],
+                    "note": "Canonical material facts are source-bound.",
+                    "material_atom_results": material_results,
+                    "required_source_results": [
+                        f"{required['obligation_id']}|"
+                        f"{atom_ids_by_obligation[required['obligation_id']]}"
+                        for required in binding["required_sources"]
+                    ],
+                }
+
+                decoded, reason = cv._decode_grounded_detail_value(
+                    value, row, source
+                )
+
+                self.assertIsNone(reason)
+                self.assertEqual(decoded["classification"], "partially_supported")
+                represented = decoded["required_source_results"]
+                self.assertEqual(len(represented), required_count)
+                self.assertTrue(all(item["represented"] for item in represented))
+
+        out_of_order = cosquillitas_literal_correction(candidate, inventory)
+        angelic = next(
+            value for value in out_of_order["sequence_ledger"]["climax"]
+            if value["stage_id"]
+            == "climax.007.angelic_voice_and_ovation"
+        )
+        angelic["result"] = "Juan abre los ojos.; " + angelic["result"]
+        merged = cv._merge_literal_sequence_correction(
+            candidate, out_of_order, inventory, range(1, 102), source
+        )
+        row = next(
+            value for value in cv.build_detail_audit_rows(
+                {}, [], merged["sequence_ledger"]
+            )
+            if value["kind"] == "sequence_evidence"
+            and value["subject"].get(
+                "literal_source_binding", {}
+            ).get("stage_id") == "climax.007.angelic_voice_and_ovation"
+        )
+        subject = row["subject"]
+        binding = subject["literal_source_binding"]
+        required_by_claim = {
+            (required["canonical_field"], required["canonical_claim"]): required
+            for required in binding["required_sources"]
+        }
+        atom_ids_by_obligation = {}
+        material_results = []
+        for atom in subject["material_claim_atoms"]:
+            required = required_by_claim.get((atom["field"], atom["text"]))
+            source_id = (
+                required["source_id"] if required is not None
+                else "p093-l014"
+            )
+            if required is not None:
+                atom_ids_by_obligation[
+                    required["obligation_id"]
+                ] = atom["atom_id"]
+            material_results.append({
+                "atom_id": atom["atom_id"],
+                "disposition": "supported",
+                "source_id": (
+                    f"{row['slot']}:{atom['atom_id']}:{source_id}"
+                ),
+            })
+        value = {
+            "classification": "partially_supported",
+            "checks": [
+                {
+                    "field": field,
+                    "source_id": cv.SEQUENCE_SOURCE_NOT_LOCATED,
+                    "supports": False,
+                }
+                for field in subject["required_fields"]
+            ],
+            "note": "All atoms are supported but their source order is wrong.",
+            "material_atom_results": material_results,
+            "required_source_results": [
+                f"{required['obligation_id']}|"
+                f"{atom_ids_by_obligation[required['obligation_id']]}"
+                for required in binding["required_sources"]
+            ],
+        }
+
+        decoded, reason = cv._decode_grounded_detail_value(
+            value, row, source
+        )
+
+        self.assertIsNone(decoded)
+        self.assertIn("reverse source order", reason)
+
+    def test_universal_judge_claim_requires_universal_source_evidence(self):
+        source = (
+            "El video muestra regalos al primero y al otro juez."
+        )
+
+        self.assertFalse(cv._sequence_numeric_claim_matches(
+            "Todos los jueces reciben regalos.", source
+        ))
+        self.assertFalse(cv._sequence_numeric_claim_matches(
+            "All judges receive gifts.", source
+        ))
+        self.assertTrue(cv._sequence_numeric_claim_matches(
+            "Un primer juez y otro juez reciben regalos.", source
+        ))
+
+    def test_literal_stage_binding_rejects_sibling_source_provenance(self):
+        candidate = cosquillitas_literal_candidate()
+        inventory = cosquillitas_literal_inventory()
+        merged = cv._merge_literal_sequence_correction(
+            candidate,
+            cosquillitas_literal_correction(candidate, inventory),
+            inventory,
+            range(1, 102),
+            COSQUILLITAS_LITERAL_SOURCE,
+        )
+        exposure = next(
+            row for row in merged["sequence_ledger"]
+            if row[cv._LITERAL_SEQUENCE_BINDING_KEY]["stage_id"]
+            == "climax.014.dante_tony_video_exposure"
+        )
+        detail_row = next(
+            row for row in cv.build_detail_audit_rows(
+                {}, [], merged["sequence_ledger"]
+            )
+            if row["kind"] == "sequence_evidence"
+            and row["subject"]["beat"]["order"] == exposure["order"]
+        )
+        capture_source = next(
+            stage["source_ids"][0] for stage in inventory
+            if stage["stage_id"] == "climax.017.judges_captured"
+        )
+        checks = []
+        for field in cv.GROUNDED_SEQUENCE_FIELDS:
+            source_id = (
+                f"{detail_row['slot']}:{field}:{capture_source}"
+                if field == "action" else cv.SEQUENCE_SOURCE_NOT_LOCATED
+            )
+            checks.append({
+                "field": field,
+                "source_id": source_id,
+                "supports": field == "action",
+            })
+        value = {
+            "classification": "unsupported",
+            "checks": checks,
+            "note": "The exposure row cannot borrow capture evidence.",
+        }
+
+        decoded, error = cv._decode_grounded_detail_value(
+            value, detail_row, COSQUILLITAS_LITERAL_SOURCE
+        )
+
+        self.assertIsNone(decoded)
+        self.assertIn("outside its engine-bound literal stage", error)
+
+    def test_literal_stage_contract_fails_closed_on_unknown_or_changed_source(self):
+        with self.assertRaisesRegex(
+            cv.CoverageContractError, "no hash-bound source contract"
+        ):
+            cv.build_literal_sequence_stage_inventory(
+                COSQUILLITAS_LITERAL_SOURCE, "0" * 64
+            )
+
+        contract = cosquillitas_literal_contract(
+            COSQUILLITAS_LITERAL_SOURCE
+        )
+        contract["normalized_text_sha256"] = "0" * 64
+        with (
+            patch.object(
+                cv, "_load_literal_sequence_contract", return_value=contract
+            ),
+            self.assertRaisesRegex(
+                cv.CoverageContractError, "does not match this screenplay"
+            ),
+        ):
+            cv.build_literal_sequence_stage_inventory(
+                COSQUILLITAS_LITERAL_SOURCE, "f" * 64
+            )
+
+    def test_literal_correction_settlement_replays_without_rebuy(self):
+        coverage = valid_coverage()
+        bad_core = provider_audit_core(coverage)
+        bad_core["sequence_ledger"]["tag"] = []
+        good_core = provider_audit_core(coverage)
+        good_normalized = cv.normalize_audit_tool_input(
+            copy.deepcopy(good_core), range(1, 7)
+        )
+        inventory = []
+        correction = {"sequence_ledger": {
+            phase: [] for phase in cv.AUDIT_SEQUENCE_PHASES
+        }}
+        for phase in cv.AUDIT_SEQUENCE_PHASES:
+            row = copy.deepcopy(good_core["sequence_ledger"][phase][0])
+            stage = {
+                "stage_id": f"{phase}:fixture",
+                "kind": f"{phase}_fixture",
+                "phase": phase,
+                "canonical_actor": row["actor"],
+                "source_ids": [f"p{row['page']:03d}-l001"],
+                "page": row["page"],
+                "source_excerpts": ["fixture"],
+            }
+            inventory.append(stage)
+            row["stage_id"] = stage["stage_id"]
+            correction["sequence_ledger"][phase].append(row)
+        rejected = {"sequence_ledger": good_core["sequence_ledger"]}
+        store = new_store()
+        first = FakeTransport([
+            (coverage, settled_usage()),
+            (bad_core, settled_usage()),
+            (rejected, settled_usage()),
+            (correction, settled_usage()),
+        ])
+        rejection = cv.CoverageContractError(
+            "Literal sequence retry omitted or collapsed prior material "
+            "events: fixture"
+        )
+        with (
+            patch.object(
+                cv,
+                "build_literal_sequence_stage_inventory",
+                return_value=inventory,
+            ),
+            patch.object(
+                cv, "_merge_literal_sequence_retry", side_effect=rejection
+            ),
+            patch.object(
+                cv,
+                "_merge_literal_sequence_correction",
+                side_effect=RuntimeError("crash after correction settlement"),
+            ),
+            self.assertRaisesRegex(RuntimeError, "after correction settlement"),
+        ):
+            run_engine(store, first, max_cost_usd=5.0)
+
+        self.assertEqual(
+            [call["stage"] for call in first.calls],
+            [
+                "coverage_v1.coverage",
+                "coverage_v1.fact_audit",
+                "coverage_v1.literal_sequence_retry",
+                "coverage_v1.literal_sequence_correction",
+            ],
+        )
+        self.assertEqual(
+            first.calls[2]["max_tokens"], cv.LITERAL_SEQUENCE_MAX_TOKENS
+        )
+        self.assertEqual(
+            first.calls[3]["max_tokens"],
+            cv.LITERAL_SEQUENCE_CORRECTION_MAX_TOKENS,
+        )
+        [checkpoint] = list(
+            store.root.glob("*/literal_sequence_correction_request.json")
+        )
+        checkpoint_record = json.loads(checkpoint.read_text(encoding="utf-8"))
+        checkpoint_payload = checkpoint_record["payload"]
+        self.assertEqual(
+            checkpoint_payload["contract_version"],
+            cv.LITERAL_SEQUENCE_CORRECTION_CHECKPOINT_VERSION,
+        )
+        [receipts_path] = list(store.root.glob("*/call_receipts.json"))
+        receipts = json.loads(receipts_path.read_text(encoding="utf-8"))[
+            "payload"
+        ]["receipts"]
+        fingerprints_by_stage = {
+            receipt["stage"]: fingerprint
+            for fingerprint, receipt in receipts.items()
+        }
+        self.assertEqual(
+            checkpoint_payload["first_retry_fingerprint"],
+            fingerprints_by_stage["coverage_v1.literal_sequence_retry"],
+        )
+        self.assertEqual(
+            checkpoint_payload["correction_request_fingerprint"],
+            fingerprints_by_stage["coverage_v1.literal_sequence_correction"],
+        )
+        current_checkpoint_payload = copy.deepcopy(checkpoint_payload)
+        legacy_checkpoint_payload = copy.deepcopy(checkpoint_payload)
+        legacy_checkpoint_payload.update({
+            "contract_version": (
+                cv.PRIOR_LITERAL_SEQUENCE_CORRECTION_CHECKPOINT_VERSION
+            ),
+            "inventory_sha256": "1" * 64,
+            "source_focus_sha256": "2" * 64,
+            "correction_request_fingerprint": "3" * 64,
+        })
+        self.assertTrue(
+            cv._is_prior_literal_sequence_correction_checkpoint(
+                legacy_checkpoint_payload, current_checkpoint_payload
+            )
+        )
+        for field in (
+            "first_retry_fingerprint", "rejected_payload_sha256"
+        ):
+            with self.subTest(field=field):
+                changed_lineage = copy.deepcopy(legacy_checkpoint_payload)
+                changed_lineage[field] = "4" * 64
+                self.assertFalse(
+                    cv._is_prior_literal_sequence_correction_checkpoint(
+                        changed_lineage, current_checkpoint_payload
+                    )
+                )
+        checkpoint.write_text(
+            json.dumps(
+                cv._sealed_record(
+                    checkpoint_record["binding"], legacy_checkpoint_payload
+                ),
+                sort_keys=True,
+            ),
+            encoding="utf-8",
+        )
+
+        resume = FakeTransport([(
+            supported_detail_payload(coverage, good_normalized),
+            settled_usage(),
+        )])
+        with (
+            patch.object(
+                cv,
+                "build_literal_sequence_stage_inventory",
+                return_value=inventory,
+            ),
+            patch.object(
+                cv, "_merge_literal_sequence_retry", side_effect=rejection
+            ),
+            patch.object(
+                cv,
+                "_merge_literal_sequence_correction",
+                return_value=good_normalized,
+            ),
+        ):
+            report, _usage = run_engine(store, resume, max_cost_usd=5.0)
+
+        self.assertEqual(report["status"], "sealed")
+        self.assertEqual(len(resume.calls), 1)
+        self.assertEqual(
+            resume.calls[0]["stage"], "coverage_v1.fact_audit_details"
+        )
+        migrated_payload = json.loads(
+            checkpoint.read_text(encoding="utf-8")
+        )["payload"]
+        self.assertEqual(migrated_payload, current_checkpoint_payload)
+
+    def test_legacy_audit_core_routes_through_source_contract_without_rebuy(self):
+        coverage = valid_coverage()
+        core = provider_audit_core(coverage)
+        store = new_store()
+        stop = RuntimeError("stop after audit core checkpoint")
+        first = FakeTransport([
+            (coverage, settled_usage()),
+            (core, settled_usage()),
+            stop,
+        ])
+        with self.assertRaisesRegex(RuntimeError, "audit core checkpoint"):
+            run_engine(store, first, max_cost_usd=5.0)
+
+        normalized = cv.normalize_audit_tool_input(
+            copy.deepcopy(core), range(1, 7)
+        )
+        inventory = [
+            {
+                "stage_id": f"{phase}.fixture",
+                "phase": phase,
+                "canonical_actor": rows[0]["actor"],
+                "source_ids": ["p006-l003"],
+                "required_source_ids": ["p006-l003"],
+                "required_obligation_ids": ["p006-l003.o01"],
+                "required_sources": [],
+                "required_digit_counts": {},
+                "required_concepts": [],
+                "requires_negation": False,
+                "allowed_concepts": [],
+                "page": rows[0]["page"],
+                "source_excerpts": ["fixture"],
+            }
+            for phase, rows in core["sequence_ledger"].items()
+        ]
+        bound = {**normalized, "_fixture_bound": True}
+
+        def contract_problem(payload, _text, _content_sha256):
+            return None if payload.get("_fixture_bound") else (
+                "sequence_ledger lacks current hash-bound source bindings"
+            )
+
+        retry = {"sequence_ledger": copy.deepcopy(core["sequence_ledger"])}
+        correction = {"sequence_ledger": {
+            phase: [] for phase in cv.AUDIT_SEQUENCE_PHASES
+        }}
+        resume = FakeTransport([
+            (retry, settled_usage()),
+            (correction, settled_usage()),
+            RuntimeError("stop before fresh detail"),
+        ])
+        with (
+            patch.object(
+                cv,
+                "_literal_sequence_contract_problem",
+                side_effect=contract_problem,
+            ),
+            patch.object(
+                cv,
+                "build_literal_sequence_stage_inventory",
+                return_value=inventory,
+            ),
+            patch.object(
+                cv,
+                "_merge_literal_sequence_correction",
+                return_value=bound,
+            ),
+            self.assertRaisesRegex(RuntimeError, "fresh detail"),
+        ):
+            run_engine(store, resume, max_cost_usd=5.0)
+
+        self.assertEqual(
+            [call["stage"] for call in resume.calls],
+            [
+                "coverage_v1.literal_sequence_retry",
+                "coverage_v1.literal_sequence_correction",
+                "coverage_v1.fact_audit_details",
+            ],
+        )
 
     def test_literal_sequence_schema_can_preserve_call12_stage_count(self):
         phase = cv.LITERAL_SEQUENCE_TOOL["input_schema"]["properties"][
@@ -13265,6 +15578,7 @@ Dante hands cash to the judges as Tony watches.
                 item = properties[group]["items"]
                 item_properties = item["properties"]
                 item_properties.pop("material_atom_results", None)
+                item_properties.pop("required_source_results", None)
                 source_keys = [
                     key for key in item_properties
                     if key.endswith("_source_id")
@@ -15783,6 +18097,74 @@ Security leaves.
 
 
 class TestBudget(unittest.TestCase):
+    def test_sequential_receipts_repair_missing_budget_settlement(self):
+        store = new_store()
+        binding = {"fixture": "receipt-reconciliation"}
+        key = cv.canonical_json_hash(binding)
+        store.save(key, "budget", cv._sealed_record(binding, {
+            "budget_ledger_version": cv.BUDGET_LEDGER_VERSION,
+            "calls_started": 0,
+            "usage": {},
+            "in_flight": None,
+        }))
+        fingerprint = "1" * 64
+        store.save(key, "call_receipts", cv._sealed_record(binding, {
+            "call_receipt_version": cv.CALL_RECEIPT_VERSION,
+            "receipts": {
+                fingerprint: {
+                    "stage": "coverage_v1.literal_sequence_retry",
+                    "call_number": 1,
+                    "tool_input": {"sequence_ledger": {}},
+                    "text": "",
+                    "usage": settled_usage(109_035),
+                    "failure": None,
+                },
+            },
+        }))
+
+        guard = cv._CostGuard(0.2, 2, store, key, binding)
+
+        self.assertEqual(guard.calls_started, 1)
+        self.assertEqual(guard.charged_microusd, 109_035)
+        self.assertTrue(guard.capacity_exhausted_for(100_000))
+        self.assertIsNotNone(guard.replay_call(
+            fingerprint, "coverage_v1.literal_sequence_retry"
+        ))
+        self.assertEqual(guard.charged_microusd, 109_035)
+
+        gap_store = new_store()
+        gap_key = cv.canonical_json_hash({"fixture": "receipt-gap"})
+        gap_binding = {"fixture": "receipt-gap"}
+        gap_store.save(gap_key, "budget", cv._sealed_record(
+            gap_binding,
+            {
+                "budget_ledger_version": cv.BUDGET_LEDGER_VERSION,
+                "calls_started": 0,
+                "usage": {},
+                "in_flight": None,
+            },
+        ))
+        gap_store.save(gap_key, "call_receipts", cv._sealed_record(
+            gap_binding,
+            {
+                "call_receipt_version": cv.CALL_RECEIPT_VERSION,
+                "receipts": {
+                    "2" * 64: {
+                        "stage": "coverage_v1.literal_sequence_retry",
+                        "call_number": 2,
+                        "tool_input": {},
+                        "text": "",
+                        "usage": settled_usage(),
+                        "failure": None,
+                    },
+                },
+            },
+        ))
+        with self.assertRaisesRegex(
+            cv.CheckpointTamperedError, "settlement gap"
+        ):
+            cv._CostGuard(1.0, 3, gap_store, gap_key, gap_binding)
+
     def test_request_ceiling_uses_declared_cache_ttl(self):
         request = {
             "model_key": "sonnet",
@@ -17247,7 +19629,6 @@ class TestPostDetailSequenceRepair(unittest.TestCase):
             "phase": "final_scene",
             "page": 101,
             **finale,
-            "actor": "Juanito",
             "character_knowledge": cv.SEQUENCE_KNOWLEDGE_NOT_APPLICABLE,
             "audience_knowledge": (
                 "The audience hears the request and performance."
@@ -17262,7 +19643,7 @@ class TestPostDetailSequenceRepair(unittest.TestCase):
                     {
                         "field": "actor",
                         "source_id": (
-                            f"{decoded_slot}:actor:p101-l004"
+                            f"{decoded_slot}:actor:p101-l001-l008"
                         ),
                         "supports": True,
                     },

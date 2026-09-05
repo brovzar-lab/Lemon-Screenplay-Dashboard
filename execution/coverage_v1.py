@@ -44,6 +44,7 @@ import math
 import os
 import re
 import unicodedata
+from collections import Counter
 from decimal import Decimal
 from functools import lru_cache
 from pathlib import Path
@@ -85,6 +86,7 @@ AUDIT_MAX_TOKENS = 8_000
 AUDIT_THINKING_BUDGET = 4_000
 LITERAL_SEQUENCE_MAX_TOKENS = 4_000
 LITERAL_SEQUENCE_THINKING_BUDGET = 2_000
+LITERAL_SEQUENCE_CORRECTION_MAX_TOKENS = 8_000
 REPAIR_MAX_TOKENS = 4_000
 REPAIR_THINKING_BUDGET = 2_000
 
@@ -101,13 +103,14 @@ MAX_SEQUENCE_FIELD_REPAIR_SLOTS = 40
 MAX_POST_DETAIL_SEQUENCE_REPAIR_FIELDS = 100
 AUDIT_CORE_CONTRACT_VERSION = "coverage-v1.2-audit-core-2"
 PRIOR_AUDIT_CORE_CONTRACT_VERSION = "coverage-v1.2-audit-core-1"
-DETAIL_AUDIT_CONTRACT_VERSION = "coverage-v1.2-detail-19"
+DETAIL_AUDIT_CONTRACT_VERSION = "coverage-v1.2-detail-23"
 SEQUENCE_REPAIR_CONTRACT_VERSION = "coverage-v1.2-sequence-repair-6"
 PARTIAL_TYPED_B_PROGRESS_VERSION = "coverage-v1.2-detail-15"
 LEGACY_FIELD_SOURCE_PROGRESS_VERSION = "coverage-v1.2-detail-16"
 SEQUENCE_RANGE_MIGRATION_VERSION = "coverage-v1.2-detail-17"
 SEQUENCE_SOURCE_NOT_LOCATED = "NOT_LOCATED"
 SEQUENCE_KNOWLEDGE_NOT_APPLICABLE = "NOT APPLICABLE"
+LITERAL_SOURCE_NOT_REPRESENTED = "NOT_REPRESENTED"
 SEQUENCE_MATERIAL_ATOM_DISPOSITIONS = (
     "supported", "contradicted", "not_located", "unresolved",
 )
@@ -115,6 +118,9 @@ SEQUENCE_SOURCE_RANGE_MAX_LINES = 24
 _SEQUENCE_SOURCE_ANCHOR_ID = (
     r"p[0-9]{3}-l[0-9]{3}(?:w[0-9]{2})?"
     r"(?:(?:-l[0-9]{3})|(?:-p[0-9]{3}-l[0-9]{3}))?"
+)
+_LITERAL_SOURCE_OBLIGATION_ID = (
+    rf"{_SEQUENCE_SOURCE_ANCHOR_ID}\.o[0-9]{{2}}"
 )
 DETAIL_16_GROUNDED_GUIDANCE = (
     "If no allowed beat-page source ID literally proves an actor or knower, "
@@ -177,6 +183,7 @@ GROUNDED_SEQUENCE_FIELDS = (
     "actor", "action", "result", "character_knowledge",
     "audience_knowledge",
 )
+LITERAL_SOURCE_REPRESENTATION_ATOM_ID = r"(?:action|result)_[0-9]{3}"
 COUNT_EVIDENCE_MIN_WORDS = 2
 AUDIT_SEQUENCE_PHASES = (
     "climax", "ending", "final_scene", "tag", "aftermath",
@@ -225,6 +232,9 @@ STRICT_BUDGET = {
 }
 
 LENSES_ROOT = Path(__file__).parent / "lenses"
+LITERAL_SEQUENCE_CONTRACTS_ROOT = (
+    Path(__file__).parent / "literal_sequence_contracts"
+)
 MAX_LENS_CARD_BYTES = 4_500
 MAX_LENSES_PER_RUN = 6
 
@@ -600,6 +610,64 @@ for _literal_sequence_phase in AUDIT_SEQUENCE_PHASES:
     LITERAL_SEQUENCE_TOOL["input_schema"]["properties"]["sequence_ledger"][
         "properties"
     ][_literal_sequence_phase]["maxItems"] = 16
+
+
+def build_literal_sequence_correction_tool(
+    inventory: Sequence[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Bind one correction row to every code-generated source stage."""
+    by_phase = {
+        phase: [
+            str(stage["stage_id"])
+            for stage in inventory
+            if stage.get("phase") == phase
+        ]
+        for phase in AUDIT_SEQUENCE_PHASES
+    }
+    if any(not ids or len(ids) != len(set(ids)) for ids in by_phase.values()):
+        raise CoverageContractError(
+            "Literal sequence correction requires unique stages in every phase"
+        )
+    ledger_properties: Dict[str, Any] = {}
+    for phase, stage_ids in by_phase.items():
+        beat = copy.deepcopy(_AUDIT_SEQUENCE_BEAT_SCHEMA)
+        beat["properties"]["stage_id"] = {
+            "type": "string",
+            "enum": stage_ids,
+        }
+        beat["required"].append("stage_id")
+        ledger_properties[phase] = {
+            "type": "array",
+            "items": beat,
+            "minItems": len(stage_ids),
+            "maxItems": len(stage_ids),
+        }
+    tool = {
+        "name": "submit_literal_sequence_correction_v1_2",
+        "description": (
+            "Return exactly one literal ledger row for every engine-bound "
+            "source stage, using its stage_id in screenplay order."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "sequence_ledger": {
+                    "type": "object",
+                    "properties": ledger_properties,
+                    "required": list(AUDIT_SEQUENCE_PHASES),
+                },
+            },
+            "required": ["sequence_ledger"],
+        },
+    }
+    stats = strict_schema_complexity(tool["input_schema"])
+    for metric, ceiling in STRICT_BUDGET.items():
+        if stats[metric] > ceiling:
+            raise CoverageContractError(
+                f"{tool['name']} exceeds strict budget: "
+                f"{metric}={stats[metric]} > {ceiling}"
+            )
+    return tool
 
 REPAIR_TOOL: Dict[str, Any] = {
     "name": "submit_coverage_repair_v1",
@@ -1291,11 +1359,17 @@ def build_detail_audit_rows(
                 "subject": count_subject,
             })
         required_fields = list(GROUNDED_SEQUENCE_FIELDS)
+        public_beat = {
+            key: copy.deepcopy(value)
+            for key, value in beat.items()
+            if key != _LITERAL_SEQUENCE_BINDING_KEY
+        }
+        literal_source_binding = beat.get(_LITERAL_SEQUENCE_BINDING_KEY)
         rows.append({
             "kind": "sequence_evidence",
             "identifier": f"sequence_ledger[{beat.get('order')}]",
             "subject": {
-                "beat": copy.deepcopy(beat),
+                "beat": public_beat,
                 "material_claim_atoms": _sequence_material_claim_atoms(beat),
                 "source_page_range": [range_start, range_end],
                 "required_fields": required_fields,
@@ -1305,6 +1379,14 @@ def build_detail_audit_rows(
                         "order", "phase", "page", *GROUNDED_SEQUENCE_FIELDS,
                     )
                 }),
+                **(
+                    {
+                        "literal_source_binding": copy.deepcopy(
+                            literal_source_binding
+                        )
+                    }
+                    if literal_source_binding is not None else {}
+                ),
             },
         })
     for index, row in enumerate(rows, start=1):
@@ -1543,13 +1625,38 @@ def build_detail_audit_tool(rows: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
                 },
                 "maxItems": 40,
                 "description": (
-                    "Required whenever action or result is NOT_LOCATED. "
+                    "Required whenever action or result is NOT_LOCATED or "
+                    "literal_source_binding is present. "
                     "Return every engine-provided material atom exactly once."
+                ),
+            },
+            "required_source_results": {
+                "type": "array",
+                "items": {
+                    "type": "string",
+                    "pattern": (
+                        rf"^(?:{_LITERAL_SOURCE_OBLIGATION_ID})\|(?:"
+                        + LITERAL_SOURCE_REPRESENTATION_ATOM_ID
+                        + rf"|{LITERAL_SOURCE_NOT_REPRESENTED})$"
+                    ),
+                    "description": (
+                        "<engine-bound-obligation-id>|<represented-atom> "
+                        f"or |{LITERAL_SOURCE_NOT_REPRESENTED}."
+                    ),
+                },
+                "maxItems": 12,
+                "description": (
+                    "For a literal_source_binding, return every required "
+                    "obligation ID exactly once in supplied order and name the "
+                    "supported frozen material atom that represents its "
+                    "complete material fact. "
+                    "Return an empty array when no binding exists."
                 ),
             },
         }
         return properties, [
-            key for key in properties if key != "material_atom_results"
+            key for key in properties
+            if key not in {"material_atom_results", "required_source_results"}
         ]
 
     def result_array(
@@ -1898,6 +2005,9 @@ def _expand_detail_audit_payload(
                 has_material_atoms = "material_atom_results" in value
                 if has_material_atoms:
                     expected_keys.add("material_atom_results")
+                has_required_sources = "required_source_results" in value
+                if has_required_sources:
+                    expected_keys.add("required_source_results")
                 legacy_field_sources = "unsupported_fields" in value
                 if legacy_field_sources:
                     expected_keys.add("unsupported_fields")
@@ -1929,13 +2039,54 @@ def _expand_detail_audit_payload(
                     field: value[f"{field}_source_id"]
                     for field in required_fields
                 }
+                literal_source_bound = (
+                    subject.get("literal_source_binding") is not None
+                )
+                atom_field_support: Dict[str, bool] = {}
+                if literal_source_bound:
+                    expected_atoms = subject.get("material_claim_atoms", [])
+                    raw_atoms = value.get("material_atom_results", [])
+                    dispositions = {
+                        parts[0]: parts[1]
+                        for raw_atom in raw_atoms
+                        if isinstance(raw_atom, str)
+                        and len(parts := raw_atom.split("|", 2)) == 3
+                    }
+                    for field in ("action", "result"):
+                        field_atoms = [
+                            str(atom.get("atom_id"))
+                            for atom in expected_atoms
+                            if isinstance(atom, dict)
+                            and atom.get("field") == field
+                        ]
+                        atom_field_support[field] = bool(
+                            field_atoms
+                            and all(
+                                dispositions.get(atom_id) == "supported"
+                                for atom_id in field_atoms
+                            )
+                        )
+                        source_ids[field] = SEQUENCE_SOURCE_NOT_LOCATED
                 located = [
-                    source_ids[field] != SEQUENCE_SOURCE_NOT_LOCATED
+                    atom_field_support.get(
+                        field,
+                        source_ids[field] != SEQUENCE_SOURCE_NOT_LOCATED,
+                    )
                     for field in required_fields
                 ]
+                required_sources_located = [
+                    isinstance(result, str)
+                    and not result.endswith(
+                        f"|{LITERAL_SOURCE_NOT_REPRESENTED}"
+                    )
+                    for result in value.get("required_source_results", [])
+                ]
+                obligations_supported = all(required_sources_located)
                 value["classification"] = (
-                    "supported" if all(located)
-                    else "partially_supported" if any(located)
+                    "supported" if all(located) and obligations_supported
+                    else "partially_supported" if (
+                        any(located) or any(required_sources_located)
+                    )
                     else "unsupported"
                 )
                 if legacy_field_sources:
@@ -1984,6 +2135,14 @@ def _expand_detail_audit_payload(
                             ]
                         }
                         if has_material_atoms else {}
+                    ),
+                    **(
+                        {
+                            "required_source_results": copy.deepcopy(
+                                value["required_source_results"]
+                            )
+                        }
+                        if has_required_sources else {}
                     ),
                 }
             elif group == "count_results":
@@ -2261,11 +2420,13 @@ _SUPPORTED_NOTE_CONTRADICTION = re.compile(
     re.IGNORECASE,
 )
 _SEQUENCE_ACTOR_STOPWORDS = frozenset(
-    "A Alongside An And Announces Arena Audience Award Before Breaks Celebrate "
-    "Characters Con El Ella Emerges Enter Entire Final He Junto Juntos Juntas "
-    "La Las Los Moment N/A No None Not One Only Perform Peso Present Public "
-    "Rises Screenplay Solo Sólo Steps Surveillance The They Total Touches We "
-    "With Y Yo"
+    "A Afuera Al Alongside An And Announces Arena At Audience Award Before "
+    "Breaks Celebrate Characters Con De Después El Ella Emerges En Enter "
+    "Entire Final Finalmente Finally He Here In Inside Junto Juntos Juntas La "
+    "Las Later Los Luego Meanwhile Mientras Moment N/A Nearby No None Not On "
+    "Once One Only Onstage Outside Perform Peso Present Public Rises "
+    "Screenplay Solo Sólo Steps Suddenly Surveillance The Then There They "
+    "Together Total Touches We With Y Ya Yo"
     .casefold()
     .split()
 )
@@ -3558,7 +3719,8 @@ _SEQUENCE_SEMANTIC_EQUIVALENTS = {
     "venue": re.compile(r"\b(?:arena|arenas|estadio|estadios|stadiums?)\b"),
     "win": re.compile(
         r"\b(?:gana|ganaba|ganaban|ganada|ganadas|ganado|ganados|ganan|"
-        r"ganaron|gano|ganar|takes?\s+first\s+place|took\s+first\s+place|"
+        r"ganador\w*|ganaron|gano|ganar|takes?\s+first\s+place|"
+        r"took\s+first\s+place|"
         r"triunf\w*|victoria|victorias|victorious|victory|win|winning|wins|won)\b"
     ),
     "lose": re.compile(
@@ -3625,28 +3787,48 @@ def _sequence_has_material_predicate(value: str) -> bool:
     )
 
 
+_SEQUENCE_QUOTE_CLOSING = {
+    '"': '"',
+    "'": "'",
+    "‘": "’",
+    "“": "”",
+}
+
+
+def _sequence_quote_mark_is_apostrophe(
+    value: str, index: int, *, inside_quote: bool = False
+) -> bool:
+    if value[index] not in {"'", "’"} or index == 0:
+        return False
+    previous = value[index - 1]
+    following = value[index + 1] if index + 1 < len(value) else ""
+    if previous.isalnum() and following.isalnum():
+        return True
+    if inside_quote:
+        return False
+    if previous.casefold() != "s" or not following.isspace():
+        return False
+    return any(character.isalnum() for character in value[index + 1:])
+
+
 def _sequence_material_boundary_is_nested(value: str, position: int) -> bool:
     """Ignore punctuation/conjunctions inside quoted or parenthetical text."""
     parenthesis_depth = 0
     quote: Optional[str] = None
-    closing = {'“': '”', '‘': '’' }
     for index, character in enumerate(value[:position]):
         if quote is not None:
-            if character == quote:
+            if character == quote and not _sequence_quote_mark_is_apostrophe(
+                value, index, inside_quote=True
+            ):
                 quote = None
             continue
-        if character in {'"', '“', '‘'}:
-            quote = closing.get(character, character)
-        elif character == "'" and not (
-            index > 0
-            and index + 1 < len(value)
-            and value[index - 1].isalnum()
-            and value[index + 1].isalnum()
-        ):
-            quote = "'"
-        elif character == "(":
+        if _sequence_quote_mark_is_apostrophe(value, index):
+            continue
+        if character in _SEQUENCE_QUOTE_CLOSING:
+            quote = _SEQUENCE_QUOTE_CLOSING[character]
+        elif character in "([":
             parenthesis_depth += 1
-        elif character == ")" and parenthesis_depth:
+        elif character in ")]" and parenthesis_depth:
             parenthesis_depth -= 1
     return parenthesis_depth > 0 or quote is not None
 
@@ -3667,9 +3849,20 @@ def _sequence_material_claim_atoms(
         ]
         start = 0
         spans: List[Tuple[int, int]] = []
-        for boundary in boundaries:
+        for boundary_index, boundary in enumerate(boundaries):
             left = scalar[start:boundary.start()]
-            right = scalar[boundary.end():]
+            right_end = len(scalar)
+            for following in boundaries[boundary_index + 1:]:
+                if (
+                    following.group().strip() in {";", ":"}
+                    or (
+                        following.start() > 0
+                        and scalar[following.start() - 1] in ".!?"
+                    )
+                ):
+                    right_end = following.start()
+                    break
+            right = scalar[boundary.end():right_end]
             strong_boundary = bool(
                 boundary.group().strip() in {";", ":"}
                 or (
@@ -3873,22 +4066,260 @@ _SEQUENCE_RELATION_SKIP_WORDS = (
     _SEQUENCE_ROLE_STOPWORDS
     | frozenset(
         "am are be been being did do does esta estan that had has have is "
-        "during never no not nunca only otra otras otro otros que sido siendo "
-        "sin solo estaba estaban was were without".split()
+        "alongside also as con during junto juntas juntos never no not nunca "
+        "only otra otras otro otros plus que sido siendo sin solo estaba "
+        "estaban tambien together versus was well were with without".split()
     )
 )
+_SEQUENCE_CLAUSE_COORDINATORS = (
+    "and then", "y luego", "and", "but", "e", "luego", "mas", "ni",
+    "nor", "o", "or", "pero", "plus", "then", "y", "yet",
+)
+_SEQUENCE_CLAUSE_COORDINATOR_PATTERN = "|".join(
+    re.escape(value).replace(r"\ ", r"\s+")
+    for value in sorted(_SEQUENCE_CLAUSE_COORDINATORS, key=len, reverse=True)
+)
 _SEQUENCE_RELATION_COORDINATION = re.compile(
-    r"\s*(?:(?:,|&)\s*|\b(?:and|e|y)\b\s*"
+    r"\s*(?:(?:,|&)\s*|"
+    r"\b(?:ademas\s+de|along\s+with|as\s+well\s+as|"
+    r"junto(?:s|as)?\s+con|together\s+with)\b\s*|"
+    rf"\b(?:alongside|also|con|tambien|versus|with|"
+    rf"{_SEQUENCE_CLAUSE_COORDINATOR_PATTERN})\b\s*"
     r"(?:(?:el|la|las|los|the)\s+)*)+"
 )
+_SEQUENCE_ACTION_COACTOR_SEPARATOR = re.compile(
+    r"\s*,?\s*(?:accompanied\s+by|acompanad[ao]s?\s+por|"
+    r"ademas\s+de|along\s+with|alongside|and(?:\s+(?:also|even))?|"
+    r"as\s+well\s+as|con|e(?:\s+incluso)?|in\s+company\s+with|"
+    r"incluso|junto(?:s|as)?\s+con|plus|together\s+with|with|"
+    r"y(?:\s+(?:incluso|tambien))?)\s*"
+    r"(?:(?:el|la|las|los|the)\s+)?"
+)
+_SEQUENCE_ACTION_DISJUNCTION = re.compile(
+    r"^\s*,?\s*(?:o|or|versus)\b"
+)
+_SEQUENCE_PARALLEL_CLAUSE_BOUNDARY = re.compile(
+    r"(?:(?P<hard>[.!?;:—]+)\s*|(?P<soft>,|\s[-–/]\s)\s*|"
+    r"\b(?P<absolute>amid|con|upon|with)\b\s+"
+    r"(?=(?:(?:a|an|el|la|las|los|the|un|una|unos|unas)\s+)?"
+    r"[a-záéíóúüñ]+(?:\s+[a-záéíóúüñ]+){0,2}\s+"
+    r"[a-záéíóúüñ]+(?:ando|iendo|ing)\b)|"
+    r"\b(?P<connector>antes\s+de\s+que|"
+    r"despues\s+de\s+que|desde\s+que|hasta\s+que|mientras\s+que|"
+    r"para\s+que|una\s+vez\s+que|and\s+then|so\s+that|after|although|"
+    r"aunque|as|before|because|but|cuando|luego|mientras|once|pero|"
+    rf"porque|since|until|when|whereas|while|"
+    rf"{_SEQUENCE_CLAUSE_COORDINATOR_PATTERN})\b\s+)"
+)
+_SEQUENCE_LEADING_CLAUSE_ADJUNCT = re.compile(
+    r"^(?:(?:at\s+once|afuera|al\s+mismo\s+tiempo|de\s+pronto|despues|finally|"
+    r"finalmente|inside|juntos?|juntas?|later|luego|meanwhile|mientras\s+tanto|"
+    r"nearby|onstage|outside|suddenly|that\s+night|the\s+next\s+morning|"
+    r"together)\s*,?\s*)+"
+)
+_SEQUENCE_LEADING_ARTICLE = re.compile(
+    r"^(?:a|an|el|la|las|los|the|un|una|unos|unas)\s+(?P<subject>.+)"
+)
+_SEQUENCE_LEADING_POSSESSIVE = re.compile(
+    r"^(?:her|his|its|my|our|su|sus|their|tu|tus|your)\s+(?P<subject>.+)"
+)
+_SEQUENCE_SINGULAR_SUBJECT_PRONOUNS = frozenset(
+    "ella he it she yo".split()
+)
+_SEQUENCE_PLURAL_SUBJECT_PRONOUNS = frozenset(
+    "ellas ellos nosotras nosotros they ustedes we".split()
+)
+_SEQUENCE_COORDINATING_CLAUSES = frozenset(_SEQUENCE_CLAUSE_COORDINATORS)
+_SEQUENCE_PREDICATE_REQUIRED_CLAUSES = (
+    _SEQUENCE_COORDINATING_CLAUSES
+    | frozenset((
+        "after", "although", "antes de que", "aunque", "as", "because",
+        "before", "despues de que", "desde que", "hasta que", "once",
+        "para que", "porque", "since", "so that", "una vez que", "until",
+        "whereas",
+    ))
+)
+_SEQUENCE_SPANISH_CLAUSE_CONNECTORS = frozenset((
+    "antes de que", "aunque", "con", "cuando", "despues de que", "desde que",
+    "e", "hasta que", "luego", "mas", "mientras", "mientras que", "ni",
+    "o", "para que", "pero", "porque", "una vez que", "y", "y luego",
+))
+_SEQUENCE_COMMON_CLAUSE_PREDICATES = frozenset(
+    "address addresses aplaude aplauden applaud applauds arrest arrests "
+    "ataca atacan attack attacks buy buys cheer cheers close closes detiene "
+    "detienen die dies enter enters escape escapes exit exits greet greets "
+    "leave leaves lose loses move moves open opens overturn overturns play "
+    "plays regresa regresan return returns run runs saluda saludan stay stays "
+    "wave waves win wins".split()
+)
+_SEQUENCE_NON_AGENT_CLAUSE_SUBJECTS = frozenset(
+    "outcome result score situation state time".split()
+)
+_SEQUENCE_NON_AGENT_STATE_PREDICATES = frozenset(
+    "begin change end remain start".split()
+)
+_SEQUENCE_AS_NOMINAL_PREDICATE = re.compile(
+    r"\b(?:act(?:ed|ing|s)?|cast|credit(?:ed|s)?|describe(?:d|s)?|"
+    r"known|regard(?:ed|s)?|serve(?:d|s)?|work(?:ed|ing|s)?)\s*$"
+)
+_SEQUENCE_ARTICLED_LIST_ITEM = re.compile(
+    r"(?:a|an|el|la|las|los|the|un|una|unos|unas)\s+"
+    r"[a-záéíóúüñ]+(?:\s+[a-záéíóúüñ]+){0,3}"
+)
+_SEQUENCE_OBJECT_LIST_MULTIWORD_ITEMS = frozenset((("red", "gun"),))
 _SEQUENCE_RELATION_IRREGULAR_PREDICATES = {
     "gave": "give",
     "given": "give",
 }
 
 
+def _sequence_structural_clause_starts(
+    value: str,
+) -> Optional[set[int]]:
+    """Validate grouping and find bracketed explicit subject-predicate spans."""
+    def is_clause(span: str) -> bool:
+        raw = span.strip()
+        if not raw or _SEQUENCE_QUOTE_CLOSING.get(raw[0]) == raw[-1]:
+            return False
+        folded = _SEQUENCE_LEADING_CLAUSE_ADJUNCT.sub(
+            "", _fold_evidence_text(raw)
+        )
+        folded = re.sub(
+            r"^(?:amid|con|sin|upon|with|without)\s+", "", folded
+        )
+        article = _SEQUENCE_LEADING_ARTICLE.match(folded)
+        words = re.findall(
+            r"[a-z\u00e1\u00e9\u00ed\u00f3\u00fa\u00fc\u00f1]+",
+            article.group("subject") if article else folded,
+        )
+        if len(words) < 2:
+            return False
+        predicates = [
+            word for word in words[1:]
+            if word not in _SEQUENCE_ROLE_STOPWORDS and word != "s"
+        ]
+        known = any(
+            word in _SEQUENCE_COMMON_CLAUSE_PREDICATES
+            or _sequence_has_material_predicate(word)
+            for word in predicates
+        )
+        title_words = re.findall(
+            r"[A-Za-z\u00c1\u00c9\u00cd\u00d3\u00da\u00dc\u00d1"
+            r"\u00e1\u00e9\u00ed\u00f3\u00fa\u00fc\u00f1]+",
+            raw,
+        )
+        if (
+            not known
+            and len(title_words) > 1
+            and all(word[0].isupper() for word in title_words)
+        ):
+            return False
+        return known or any(
+            word.endswith((
+                "a", "aba", "aban", "an", "ando", "e", "ed", "en",
+                "iendo", "ieron", "ing", "io", "o", "s",
+            ))
+            for word in predicates
+        )
+
+    starts: set[int] = set()
+    stack: List[Tuple[str, int]] = []
+    closing = {")": "(", "]": "["}
+    quote: Optional[str] = None
+    for index, character in enumerate(value):
+        if quote is not None:
+            if character == quote and not _sequence_quote_mark_is_apostrophe(
+                value, index, inside_quote=True
+            ):
+                quote = None
+            continue
+        if _sequence_quote_mark_is_apostrophe(value, index):
+            continue
+        if character in _SEQUENCE_QUOTE_CLOSING:
+            quote = _SEQUENCE_QUOTE_CLOSING[character]
+            continue
+        if character in {"’", "”"}:
+            return None
+        if character in "([":
+            stack.append((character, index))
+        elif character in closing:
+            if not stack:
+                return None
+            opening, start = stack.pop()
+            if opening != closing[character]:
+                return None
+            if is_clause(value[start + 1:index]):
+                starts.add(start)
+    return None if stack or quote is not None else starts
+
+
+def _sequence_boundary_continues_object_list(
+    value: str, boundary: re.Match[str]
+) -> bool:
+    """Recognize an explicit, positively bounded object list."""
+    def nonclausal_item(item: str) -> bool:
+        item = re.sub(r"^(?:and|o|or|y)\s+", "", item)
+        if _SEQUENCE_ARTICLED_LIST_ITEM.fullmatch(item) is None:
+            return False
+        words = re.findall(r"[a-záéíóúüñ]+", item)[1:]
+        if len(words) == 1:
+            return True
+        return tuple(words) in _SEQUENCE_OBJECT_LIST_MULTIWORD_ITEMS
+
+    if re.search(r"\bél\b", value, re.IGNORECASE):
+        return False
+    folded = _fold_evidence_text(value)
+    sentence_start = max(
+        folded.rfind(marker, 0, boundary.start())
+        for marker in ".!?;:—"
+    ) + 1
+    sentence_end_match = re.search(r"[.!?;:—]", folded[boundary.end():])
+    sentence_end = (
+        boundary.end() + sentence_end_match.start()
+        if sentence_end_match is not None
+        else len(folded)
+    )
+    sentence = folded[sentence_start:sentence_end].strip()
+    parts = [part.strip() for part in sentence.split(",")]
+    if (
+        len(parts) == 1
+        and boundary.group("connector") in {"and", "o", "or", "y"}
+    ):
+        left = folded[sentence_start:boundary.start()].strip()
+        right = folded[boundary.end():sentence_end].strip()
+        first_item = re.search(
+            rf"\b({_SEQUENCE_ARTICLED_LIST_ITEM.pattern})$", left
+        )
+        return bool(
+            first_item is not None
+            and len(left[:first_item.start()].split()) >= 2
+            and nonclausal_item(first_item.group(1))
+            and nonclausal_item(right)
+        )
+    if len(parts) < 3:
+        return False
+    first_item = re.search(
+        rf"\b({_SEQUENCE_ARTICLED_LIST_ITEM.pattern})$", parts[0]
+    )
+    if (
+        first_item is None
+        or len(parts[0][:first_item.start()].split()) < 2
+        or not nonclausal_item(first_item.group(1))
+    ):
+        return False
+    if any(
+        not nonclausal_item(part)
+        for part in parts[1:-1]
+    ):
+        return False
+    return nonclausal_item(parts[-1]) and re.match(
+        r"^(?:and|o|or|y)\s+", parts[-1]
+    ) is not None
+
+
 def _sequence_relation_identity_mentions(
     value: str,
+    opaque_identities: Sequence[str] = (),
 ) -> List[Tuple[int, int, str]]:
     """Locate names and canonical generic roles without treating roles as names."""
     folded = _fold_evidence_text(value)
@@ -3907,6 +4338,14 @@ def _sequence_relation_identity_mentions(
                 rf"(?<!\w){re.escape(alias)}(?!\w)", folded
             ):
                 mentions[match.span()] = f"role:{index}"
+    for raw_identity in opaque_identities:
+        identity = _fold_evidence_text(raw_identity).strip()
+        if not identity:
+            continue
+        for match in re.finditer(
+            rf"(?<!\w){re.escape(identity)}(?!\w)", folded
+        ):
+            mentions[match.span()] = f"opaque:{identity}"
     for name in _sequence_named_actors(value):
         identity = _fold_evidence_text(name)
         if (
@@ -3917,6 +4356,11 @@ def _sequence_relation_identity_mentions(
         for match in re.finditer(
             rf"(?<!\w){re.escape(identity)}(?!\w)", folded
         ):
+            if any(
+                start < match.end() and match.start() < end
+                for start, end in mentions
+            ):
+                continue
             if (
                 match.start() > 0
                 and folded[match.start() - 1] in "'\"‘’“”"
@@ -3948,10 +4392,13 @@ def _sequence_relation_predicate_keys(word: str) -> set[str]:
 
 def _sequence_relation_agents(
     value: str,
+    opaque_identities: Sequence[str] = (),
 ) -> Dict[str, Dict[str, set[str]]]:
     """Map each short-clause predicate to its acting and receiving roles."""
     folded = _fold_evidence_text(value)
-    mentions = _sequence_relation_identity_mentions(value)
+    mentions = _sequence_relation_identity_mentions(
+        value, opaque_identities
+    )
     relations: Dict[str, Dict[str, set[str]]] = {}
     for index, (start, end, identity) in enumerate(mentions):
         next_start = (
@@ -4056,6 +4503,239 @@ def _sequence_relation_agents(
                 "patients": {patient},
             }
     return relations
+
+
+def _sequence_named_actor_roster_matches_action(
+    actor: str, action: str
+) -> bool:
+    """Bind a beat actor to the action's first explicit agent roster."""
+    primary = actor.split("(", 1)[0].strip()
+    if _fold_evidence_text(primary) == "not present":
+        return _fold_evidence_text(action).strip() == "not present"
+    components = [
+        component.strip()
+        for component in re.split(
+            r"\s*(?:,|&|\b(?:alongside|as\s+well\s+as|con|"
+            r"junto(?:s|as)?\s+con|together\s+with|with|"
+            rf"{_SEQUENCE_CLAUSE_COORDINATOR_PATTERN})\b)\s*",
+            primary,
+            flags=re.IGNORECASE,
+        )
+        if component.strip()
+    ]
+    expected: set[str] = set()
+    opaque_identities: List[str] = []
+    component_identities: List[Tuple[str, set[str]]] = []
+    for component in components:
+        named = {
+            f"name:{_fold_evidence_text(name)}"
+            for name in _sequence_primary_actor_names(component)
+            if _fold_evidence_text(name)
+            not in _SEQUENCE_ROLE_IDENTITY_WORDS
+        }
+        known = {
+            identity
+            for _start, _end, identity
+            in _sequence_relation_identity_mentions(component)
+            if identity.startswith("role:") or identity in named
+        }
+        if known:
+            expected.update(known)
+            identities = known
+        else:
+            folded = _fold_evidence_text(component)
+            identities = {f"opaque:{folded}"}
+            expected.update(identities)
+            opaque_identities.append(component)
+        component_identities.append((
+            re.sub(
+                r"^(?:a|an|el|la|las|los|the|un|una|unos|unas)\s+",
+                "",
+                _fold_evidence_text(component),
+            ),
+            identities,
+        ))
+    if not expected:
+        return False
+    actor_number = _sequence_actor_number(actor)
+    parenthetical_clause_starts = _sequence_structural_clause_starts(
+        action
+    )
+    if parenthetical_clause_starts is None:
+        return False
+    scan_characters = list(action)
+    for start in parenthetical_clause_starts:
+        scan_characters[start] = "."
+    scan_action = "".join(scan_characters)
+    folded_action = _fold_evidence_text(scan_action)
+    forced_clause_agents: set[str] = set()
+    for boundary in _SEQUENCE_PARALLEL_CLAUSE_BOUNDARY.finditer(
+        folded_action
+    ):
+        if _sequence_material_boundary_is_nested(
+            scan_action, boundary.start()
+        ):
+            continue
+        if _sequence_boundary_continues_object_list(scan_action, boundary):
+            continue
+        raw_tail = scan_action[boundary.end():].lstrip()
+        if re.match(r"^él\b", raw_tail, re.IGNORECASE):
+            if boundary.group("soft") is not None or actor_number != "singular":
+                return False
+            continue
+        tail = _SEQUENCE_LEADING_CLAUSE_ADJUNCT.sub(
+            "", folded_action[boundary.end():]
+        )
+        words = re.findall(r"[a-záéíóúüñ]+", tail)
+        if not words:
+            continue
+        if words[0] in _SEQUENCE_SINGULAR_SUBJECT_PRONOUNS:
+            if boundary.group("soft") is not None or actor_number != "singular":
+                return False
+            continue
+        if words[0] in _SEQUENCE_PLURAL_SUBJECT_PRONOUNS:
+            if actor_number != "plural":
+                return False
+            continue
+        if words[0] in {"se", "you"}:
+            continue
+        determiner = (
+            _SEQUENCE_LEADING_ARTICLE.match(tail)
+            or _SEQUENCE_LEADING_POSSESSIVE.match(tail)
+        )
+        subject_tail = determiner.group("subject") if determiner else tail
+        claimed_identities = next((
+            identities
+            for component, identities in component_identities
+            if re.match(rf"{re.escape(component)}(?!\w)", subject_tail)
+        ), None)
+        if claimed_identities:
+            forced_clause_agents.update(claimed_identities)
+            continue
+        connector = boundary.group("connector") or boundary.group("absolute")
+        if boundary.group("connector") == "as":
+            prior = folded_action[:boundary.start()]
+            if _SEQUENCE_AS_NOMINAL_PREDICATE.search(prior):
+                continue
+        subject_words = re.findall(r"[a-záéíóúüñ]+", subject_tail)
+        first = subject_words[0] if subject_words else ""
+        if (
+            first in _SEQUENCE_NON_AGENT_CLAUSE_SUBJECTS
+            and any(
+                _sequence_stem_word(word)
+                in _SEQUENCE_NON_AGENT_STATE_PREDICATES
+                for word in subject_words[1:]
+            )
+        ):
+            continue
+        if (
+            determiner is None
+            and (
+                first.endswith(("ando", "iendo", "ing"))
+                or first in _SEQUENCE_COMMON_CLAUSE_PREDICATES
+            )
+        ):
+            continue
+        if (
+            connector in _SEQUENCE_PREDICATE_REQUIRED_CLAUSES
+            or boundary.group("soft") is not None
+            or boundary.group("absolute") is not None
+        ):
+            language = (
+                "es"
+                if connector in _SEQUENCE_SPANISH_CLAUSE_CONNECTORS
+                else "en"
+            )
+            possible_predicates = [
+                word for word in subject_words[1:]
+                if word not in _SEQUENCE_ROLE_STOPWORDS and word != "s"
+            ]
+            named_after_subject = bool(
+                _sequence_named_actors(" ".join(possible_predicates))
+            )
+            has_predicate = any(
+                word in _SEQUENCE_COMMON_CLAUSE_PREDICATES
+                or _sequence_has_material_predicate(word)
+                or _sequence_stem_word(word) in _SEQUENCE_AUDIENCE_GENERIC_TERMS
+                or (
+                    language == "en"
+                    and word.endswith(("ed", "ing", "s"))
+                )
+                or (
+                    language == "es"
+                    and word.endswith((
+                        "a", "aba", "aban", "an", "ando", "e", "en",
+                        "iendo", "ieron", "io", "o",
+                    ))
+                )
+                for word in possible_predicates
+            )
+            if not has_predicate and not (
+                named_after_subject
+                and len(subject_words) > 1
+                and subject_words[1] not in _SEQUENCE_ROLE_STOPWORDS
+            ):
+                if (
+                    (
+                        boundary.group("soft") is not None
+                        or connector in _SEQUENCE_COORDINATING_CLAUSES
+                    )
+                    and len(subject_words) > 1
+                    and not first.endswith(("ed", "ing", "ly", "mente"))
+                ):
+                    return False
+                continue
+        return False
+    clauses = re.split(r"([;.!?])", action)
+    for index in range(0, len(clauses), 2):
+        marker = re.search(
+            r"\b(?:que|that)\b", clauses[index], re.IGNORECASE
+        )
+        if (
+            marker is not None
+            and _SEQUENCE_EXPLICIT_KNOWLEDGE_VERB.search(
+                clauses[index][:marker.start()]
+            )
+        ):
+            clauses[index] = clauses[index][:marker.start()]
+    roster_action = "".join(clauses)
+    relations = _sequence_relation_agents(
+        roster_action, opaque_identities
+    )
+    if relations:
+        forced_agents: set[str] = set()
+        folded_action = _fold_evidence_text(roster_action)
+        mentions = _sequence_relation_identity_mentions(
+            roster_action, opaque_identities
+        )
+        for left, right in zip(mentions, mentions[1:]):
+            separator = folded_action[left[1]:right[0]]
+            if _SEQUENCE_ACTION_DISJUNCTION.match(separator):
+                return False
+            if (
+                _SEQUENCE_RELATION_COORDINATION.fullmatch(separator)
+                or _SEQUENCE_ACTION_COACTOR_SEPARATOR.fullmatch(separator)
+            ):
+                forced_agents.update((left[2], right[2]))
+        agents = set().union(*(
+            relation["agents"] for relation in relations.values()
+        ))
+        agents.update(forced_agents)
+        agents.update(forced_clause_agents)
+        return agents == expected
+    if not _sequence_actor_leads_clause(actor, action):
+        return False
+    folded = _fold_evidence_text(action)
+    mentions = _sequence_relation_identity_mentions(action)
+    leading = {mentions[0][2]} if mentions else set()
+    for left, right in zip(mentions, mentions[1:]):
+        separator = folded[left[1]:right[0]]
+        if separator.strip() and _SEQUENCE_RELATION_COORDINATION.fullmatch(
+            separator
+        ) is None:
+            break
+        leading.add(right[2])
+    return not leading or leading == expected
 
 
 def _sequence_has_role_relation_swap(claim: str, excerpt: str) -> bool:
@@ -4399,6 +5079,8 @@ _SEQUENCE_ORDINAL_WORDS = {
 def _sequence_numeric_values(value: str) -> List[Tuple[str, int]]:
     """Normalize explicit numbers while retaining ambiguous Spanish articles."""
     folded = _fold_evidence_text(_PROSE_PAGE_REFERENCE.sub(" ", value))
+    folded = re.sub(r"\bc\W*i\W*n\W*c\W*o+\b", " cinco ", folded)
+    folded = re.sub(r"\bd\W*o\W*s\b", " dos ", folded)
     tokens = re.findall(
         r"\d+(?:st|nd|rd|th|er|ro|ra|do|da|to|ta|mo|ma|vo|va|no|na|º|ª|°)?"
         r"|[a-záéíóúüñ]+",
@@ -4434,6 +5116,14 @@ def _sequence_numeric_values(value: str) -> List[Tuple[str, int]]:
 
 def _sequence_numeric_claim_matches(claim: str, excerpt: str) -> bool:
     """Require every explicit claimed number in its bound source excerpt."""
+    universal_judges = re.compile(
+        r"\b(?:all|each|every|cada|todos?|todas?)\s+"
+        r"(?:(?:of\s+)?the\s+|(?:los|las)\s+)?"
+        r"(?:judges?|jueces?|jurados?)\b",
+        re.IGNORECASE,
+    )
+    if universal_judges.search(claim) and not universal_judges.search(excerpt):
+        return False
     claim_values = _sequence_numeric_values(claim)
     source_values = _sequence_numeric_values(excerpt)
     claim_strong = [value for value in claim_values if value[0] != "weak_one"]
@@ -4866,6 +5556,29 @@ def _sequence_field_can_inherit_actor(
     )
 
 
+def _sequence_material_atom_support(
+    beat: Dict[str, Any], field: str, claim: str, excerpt: str,
+) -> Tuple[bool, bool]:
+    """Return relevance and support using the runtime atom verifier."""
+    synthetic = {**beat, field: claim}
+    relevant = bool(
+        _sequence_atomic_fact_matches(claim, excerpt)
+        or _sequence_compound_range_matches(synthetic, field, excerpt)
+        or _sequence_field_relevance_terms(synthetic, field, excerpt)
+    )
+    supported = bool(
+        relevant
+        and _sequence_numeric_claim_matches(claim, excerpt)
+        and _sequence_negation_matches(claim, excerpt)
+        and not _sequence_has_opposite_action(claim, excerpt)
+        and not _sequence_has_role_relation_swap(claim, excerpt)
+        and not _sequence_omits_claimed_participant(
+            str(beat.get("actor", "")), claim, excerpt
+        )
+    )
+    return relevant, supported
+
+
 def _decode_sequence_material_atom_results(
     candidate: Dict[str, Any],
     row: Dict[str, Any],
@@ -4886,9 +5599,10 @@ def _decode_sequence_material_atom_results(
         if checks_by_field.get(field, {}).get("supports") is False
     }
     required_reaudit = subject.get("required_material_atom_reaudit") is True
+    literal_source_bound = subject.get("literal_source_binding") is not None
     if raw is None:
-        if failed_material or required_reaudit:
-            return None, "failed material field requires atomic provenance"
+        if failed_material or required_reaudit or literal_source_bound:
+            return None, "sequence row requires atomic provenance"
         return [], None
     if not isinstance(raw, list) or len(raw) != len(expected):
         return None, "material atom results must cover every atom exactly once"
@@ -4958,25 +5672,16 @@ def _decode_sequence_material_atom_results(
         if source_id is None:
             return None, f"material atom {atom_id} requires source evidence"
         anchor = _sequence_source_anchor(source_text, source_id)
-        if anchor is None or anchor.get("page") not in allowed_pages:
+        if (
+            anchor is None
+            or anchor.get("page") not in allowed_pages
+            or not _literal_sequence_binding_allows(subject, source_id)
+        ):
             return None, f"material atom {atom_id} source is invalid"
         claim = str(atom.get("text", ""))
         excerpt = str(anchor.get("excerpt", ""))
-        synthetic = {**beat, field: claim}
-        relevant = bool(
-            _sequence_atomic_fact_matches(claim, excerpt)
-            or _sequence_compound_range_matches(synthetic, field, excerpt)
-            or _sequence_field_relevance_terms(synthetic, field, excerpt)
-        )
-        supported = bool(
-            relevant
-            and _sequence_numeric_claim_matches(claim, excerpt)
-            and _sequence_negation_matches(claim, excerpt)
-            and not _sequence_has_opposite_action(claim, excerpt)
-            and not _sequence_has_role_relation_swap(claim, excerpt)
-            and not _sequence_omits_claimed_participant(
-                str(beat.get("actor", "")), claim, excerpt
-            )
+        relevant, supported = _sequence_material_atom_support(
+            beat, field, claim, excerpt
         )
         if disposition == "supported" and not supported:
             return None, f"material atom {atom_id} source does not support it"
@@ -5014,6 +5719,98 @@ def _decode_sequence_material_atom_results(
     return normalized, None
 
 
+def _decode_literal_required_source_results(
+    candidate: Dict[str, Any],
+    row: Dict[str, Any],
+    source_text: str,
+    material_atoms: Sequence[Dict[str, Any]],
+) -> Tuple[Optional[List[Dict[str, Any]]], Optional[str]]:
+    """Require an independently grounded claim atom for every source fact."""
+    subject = row.get("subject")
+    if not isinstance(subject, dict):
+        return None, "literal source subject is malformed"
+    required_sources, binding_error = _literal_required_sources(subject)
+    if binding_error:
+        return None, binding_error
+    raw = candidate.get("required_source_results")
+    if not required_sources:
+        if raw in (None, []):
+            return [], None
+        return None, "unbound row returned literal source results"
+    if not isinstance(raw, list) or len(raw) != len(required_sources):
+        return None, "literal source results must cover every required source"
+    material_order_problem = _literal_material_atom_order_problem(
+        material_atoms, subject
+    )
+    if material_order_problem:
+        return None, material_order_problem
+
+    atoms_by_id = {
+        str(atom.get("atom_id")): atom
+        for atom in material_atoms if isinstance(atom, dict)
+    }
+    atom_positions = {
+        str(atom.get("atom_id")): index
+        for index, atom in enumerate(material_atoms)
+        if isinstance(atom, dict)
+    }
+    normalized: List[Dict[str, Any]] = []
+    represented_atom_ids: set[str] = set()
+    represented_atom_positions: List[int] = []
+    for required, token in zip(required_sources, raw):
+        if not isinstance(token, str) or token.count("|") != 1:
+            return None, "literal source result token is malformed"
+        obligation_id, represented_in = token.split("|", 1)
+        if obligation_id != required["obligation_id"]:
+            return None, (
+                "literal source results changed required identity or order"
+            )
+        source_id = required["source_id"]
+        anchor = _sequence_source_anchor(source_text, source_id)
+        if (
+            anchor is None
+            or str(anchor.get("excerpt", "")) != required["excerpt"]
+        ):
+            return None, "literal required source binding changed"
+        represented = represented_in != LITERAL_SOURCE_NOT_REPRESENTED
+        if represented:
+            if represented_in in represented_atom_ids:
+                return None, "literal source obligations reused a claim atom"
+            atom = atoms_by_id.get(represented_in, {})
+            evidence_span = _sequence_source_span(
+                atom.get("source_anchor_id")
+            )
+            required_span = _sequence_source_span(source_id)
+            if (
+                re.fullmatch(
+                    LITERAL_SOURCE_REPRESENTATION_ATOM_ID, represented_in
+                ) is None
+                or atom.get("disposition") != "supported"
+                or evidence_span is None
+                or required_span is None
+                or evidence_span != required_span
+            ):
+                return None, (
+                    "represented literal source lacks covering atom provenance"
+                )
+            claim_problem = _literal_required_source_claim_problem(
+                required, atom
+            )
+            if claim_problem:
+                return None, claim_problem
+            represented_atom_ids.add(represented_in)
+            represented_atom_positions.append(atom_positions[represented_in])
+        normalized.append({
+            "obligation_id": obligation_id,
+            "source_id": source_id,
+            "represented_in": represented_in,
+            "represented": represented,
+        })
+    if represented_atom_positions != sorted(represented_atom_positions):
+        return None, "literal source obligations reverse source order"
+    return normalized, None
+
+
 def _decode_grounded_detail_value(
     value: Any,
     row: Dict[str, Any],
@@ -5031,6 +5828,12 @@ def _decode_grounded_detail_value(
     material_result_fields = {
         *required_result_fields, "material_atom_results",
     }
+    source_result_fields = {
+        *required_result_fields, "required_source_results",
+    }
+    material_source_result_fields = {
+        *material_result_fields, "required_source_results",
+    }
     legacy_observed_people = bool(
         kind == "sequence_evidence"
         and isinstance(candidate, dict)
@@ -5039,7 +5842,12 @@ def _decode_grounded_detail_value(
         }
     )
     if not isinstance(candidate, dict) or (
-        set(candidate) not in (required_result_fields, material_result_fields)
+        set(candidate) not in (
+            required_result_fields,
+            material_result_fields,
+            source_result_fields,
+            material_source_result_fields,
+        )
         and not legacy_observed_people
     ):
         return None, "result does not contain the exact grounded fields"
@@ -5138,6 +5946,15 @@ def _decode_grounded_detail_value(
             )
             if source_anchor is None:
                 return None, f"check {index + 1} source_id is unknown"
+            if (
+                kind == "sequence_evidence"
+                and not _literal_sequence_binding_allows(
+                    subject, source_anchor_id
+                )
+            ):
+                return None, (
+                    f"{field} source is outside its engine-bound literal stage"
+                )
             page = source_anchor["page"]
             excerpt = source_anchor["excerpt"]
             if "page" in check and (
@@ -5252,6 +6069,55 @@ def _decode_grounded_detail_value(
         checks_by_field[field] = normalized_checks[-1]
     if len(fields) != len(set(fields)) or set(fields) != set(required_fields):
         return None, "checks must name every required field exactly once"
+    normalized_material_atoms: List[Dict[str, Any]] = []
+    normalized_required_sources: List[Dict[str, Any]] = []
+    literal_source_bound = bool(
+        kind == "sequence_evidence"
+        and subject.get("literal_source_binding") is not None
+    )
+    if kind == "sequence_evidence":
+        normalized_material_atoms, atom_error = (
+            _decode_sequence_material_atom_results(
+                candidate, row, source_text, checks_by_field
+            )
+        )
+        if atom_error:
+            return None, atom_error
+        if (
+            literal_source_bound
+            or subject.get("required_material_atom_reaudit") is True
+        ):
+            for field in ("action", "result"):
+                field_atoms = [
+                    atom for atom in normalized_material_atoms
+                    if atom.get("field") == field
+                ]
+                supported = bool(field_atoms) and all(
+                    atom.get("disposition") == "supported"
+                    for atom in field_atoms
+                )
+                check = checks_by_field[field]
+                check.clear()
+                check.update({"field": field, "supports": supported})
+                if supported:
+                    first = min(
+                        field_atoms,
+                        key=lambda atom: _sequence_source_span(
+                            str(atom.get("source_anchor_id", ""))
+                        ) or (10**9, 10**9, 10**9, 10**9),
+                    )
+                    check.update({
+                        "page": first["page"],
+                        "excerpt": first["excerpt"],
+                        "source_anchor_id": first["source_anchor_id"],
+                    })
+        normalized_required_sources, source_error = (
+            _decode_literal_required_source_results(
+                candidate, row, source_text, normalized_material_atoms
+            )
+        )
+        if source_error:
+            return None, source_error
     if kind == "sequence_evidence":
         beat = subject["beat"]
         actor_context = str(beat.get("action", ""))
@@ -5282,6 +6148,31 @@ def _decode_grounded_detail_value(
         for field in ("action", "result", "audience_knowledge"):
             field_check = checks_by_field.get(field, {})
             if field_check.get("supports") is True:
+                if literal_source_bound and field in {"action", "result"}:
+                    continue
+                if literal_source_bound and field == "audience_knowledge":
+                    excerpt = str(field_check.get("excerpt", ""))
+                    claim = str(beat.get(field, ""))
+                    if (
+                        not _sequence_numeric_claim_matches(claim, excerpt)
+                        or not _sequence_negation_matches(claim, excerpt)
+                        or _sequence_has_opposite_action(claim, excerpt)
+                        or _sequence_has_role_relation_swap(claim, excerpt)
+                        or _sequence_omits_claimed_participant(
+                            "", claim, excerpt
+                        )
+                        or not (
+                            _sequence_atomic_fact_matches(claim, excerpt)
+                            or _sequence_field_relevance_terms(
+                                beat, field, excerpt
+                            )
+                        )
+                    ):
+                        return None, (
+                            "audience_knowledge source excerpt does not prove "
+                            "its literal-stage claim"
+                        )
+                    continue
                 actor_reason = _sequence_anchor_actor_reason(
                     beat, field, str(field_check.get("excerpt", ""))
                 )
@@ -5552,10 +6443,15 @@ def _decode_grounded_detail_value(
                         "the claimed reception"
                     )
         if checks_by_field.get("actor", {}).get("supports") is True:
-            if not _sequence_subject_matches_context(
-                str(beat.get("actor", "")),
-                actor_context,
-                allow_sentinel=allow_sentinel,
+            if not (
+                _sequence_subject_matches_context(
+                    str(beat.get("actor", "")),
+                    actor_context,
+                    allow_sentinel=allow_sentinel,
+                )
+                and _sequence_named_actor_roster_matches_action(
+                    str(beat.get("actor", "")), actor_context
+                )
             ) and not _sequence_action_can_inherit_actor(
                 beat,
                 checks_by_field["actor"],
@@ -5588,19 +6484,20 @@ def _decode_grounded_detail_value(
                         "not-applicable character knowledge contradicts staged "
                         "actor knowledge in the source"
                     )
-                page_text = pages.get(knowledge_check.get("page"), "")
-                distance = _sequence_anchor_line_distance(
-                    action_check, knowledge_check, page_text
-                )
-                if (
-                    action_check.get("supports") is not True
-                    or distance is None
-                    or distance > 1
-                ):
-                    return None, (
-                        "not-applicable character knowledge must be checked "
-                        "against the bound action event"
+                if not literal_source_bound:
+                    page_text = pages.get(knowledge_check.get("page"), "")
+                    distance = _sequence_anchor_line_distance(
+                        action_check, knowledge_check, page_text
                     )
+                    if (
+                        action_check.get("supports") is not True
+                        or distance is None
+                        or distance > 1
+                    ):
+                        return None, (
+                            "not-applicable character knowledge must be checked "
+                            "against the bound action event"
+                        )
             elif _SEQUENCE_EXPLICIT_KNOWLEDGE_VERB.search(
                 knowledge_excerpt
             ) is None:
@@ -5727,56 +6624,22 @@ def _decode_grounded_detail_value(
                     allow_sentinel=allow_sentinel,
                 ):
                     return None, "knower roles are absent from the source excerpt"
-    normalized_material_atoms: List[Dict[str, Any]] = []
-    if kind == "sequence_evidence":
-        normalized_material_atoms, atom_error = (
-            _decode_sequence_material_atom_results(
-                candidate, row, source_text, checks_by_field
-            )
-        )
-        if atom_error:
-            return None, atom_error
-        if subject.get("required_material_atom_reaudit") is True:
-            for field in ("action", "result"):
-                field_atoms = [
-                    atom for atom in normalized_material_atoms
-                    if atom.get("field") == field
-                ]
-                if not field_atoms or any(
-                    atom.get("disposition") != "supported"
-                    for atom in field_atoms
-                ):
-                    continue
-                anchored = [
-                    atom for atom in field_atoms
-                    if isinstance(atom.get("source_anchor_id"), str)
-                ]
-                if not anchored:
-                    return None, f"repaired {field} has no atomic source"
-                first = min(
-                    anchored,
-                    key=lambda atom: _sequence_source_span(
-                        str(atom["source_anchor_id"])
-                    ) or (10**9, 10**9, 10**9, 10**9),
-                )
-                check = checks_by_field[field]
-                check.update({
-                    "supports": True,
-                    "page": first["page"],
-                    "excerpt": first["excerpt"],
-                    "source_anchor_id": first["source_anchor_id"],
-                })
     supported_fields = [check["supports"] for check in normalized_checks]
-    if classification == "supported" and not all(supported_fields):
+    supported_obligations = [
+        bool(result["represented"])
+        for result in normalized_required_sources
+    ]
+    all_decisions = [*supported_fields, *supported_obligations]
+    if classification == "supported" and not all(all_decisions):
         return None, "a supported row contains a failed field check"
     if kind == "sequence_evidence":
         if classification == "contradicted":
             return None, "sequence contradiction requires contrary evidence"
         if classification == "partially_supported" and (
-            all(supported_fields) or not any(supported_fields)
+            all(all_decisions) or not any(all_decisions)
         ):
             return None, "a partially supported row must mix field decisions"
-        if classification == "unsupported" and any(supported_fields):
+        if classification == "unsupported" and any(all_decisions):
             return None, "an unsupported row contains a supported field check"
     normalized_result = {
         "classification": str(classification),
@@ -5787,6 +6650,10 @@ def _decode_grounded_detail_value(
         **(
             {"material_atom_results": normalized_material_atoms}
             if normalized_material_atoms else {}
+        ),
+        **(
+            {"required_source_results": normalized_required_sources}
+            if normalized_required_sources else {}
         ),
     }
     if kind == "sequence_evidence" and legacy_observed_people:
@@ -9253,6 +10120,871 @@ def build_literal_sequence_retry_user_blocks(
     ]
 
 
+LITERAL_SEQUENCE_CONTRACT_VERSION = "literal-sequence-contract-4"
+LITERAL_SEQUENCE_CORRECTION_CHECKPOINT_VERSION = (
+    "literal-sequence-correction-2"
+)
+PRIOR_LITERAL_SEQUENCE_CORRECTION_CHECKPOINT_VERSION = (
+    "literal-sequence-correction-1"
+)
+_LITERAL_SEQUENCE_BINDING_KEY = "_literal_source_binding"
+_LITERAL_STAGE_EXCLUSIVE_CONCEPTS = frozenset({
+    "award", "bribe", "close", "cure", "currency", "detain", "end",
+    "enter", "escape", "fabricate", "father", "kiss", "love", "peace",
+    "perform", "pregnancy", "request", "retract", "score", "trophy",
+    "vehicle", "video", "wig", "win",
+})
+
+
+def _is_prior_literal_sequence_correction_checkpoint(
+    prior: Dict[str, Any], current: Dict[str, Any],
+) -> bool:
+    """Allow one sealed lineage-preserving contract migration only."""
+    return (
+        set(prior) == set(current)
+        and prior.get("contract_version")
+        == PRIOR_LITERAL_SEQUENCE_CORRECTION_CHECKPOINT_VERSION
+        and prior.get("first_retry_fingerprint")
+        == current.get("first_retry_fingerprint")
+        and prior.get("rejected_payload_sha256")
+        == current.get("rejected_payload_sha256")
+    )
+
+
+def _literal_sequence_text_sha256(text: str) -> str:
+    import hashlib
+
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _load_literal_sequence_contract(content_sha256: str) -> Dict[str, Any]:
+    """Load an exact-source qualification contract, never a global heuristic."""
+    if re.fullmatch(r"[0-9a-f]{64}", content_sha256) is None:
+        raise CoverageContractError(
+            "Literal sequence correction has an invalid source hash"
+        )
+    path = LITERAL_SEQUENCE_CONTRACTS_ROOT / f"{content_sha256}.json"
+    if not path.is_file():
+        raise CoverageContractError(
+            "Literal sequence correction has no hash-bound source contract"
+        )
+    try:
+        contract = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as error:
+        raise CoverageContractError(
+            "Literal sequence source contract is unreadable"
+        ) from error
+    if not isinstance(contract, dict):
+        raise CoverageContractError(
+            "Literal sequence source contract is malformed"
+        )
+    return contract
+
+
+def _sequence_span_contains(
+    outer: Tuple[int, int, int, int],
+    inner: Tuple[int, int, int, int],
+) -> bool:
+    return outer[:2] <= inner[:2] and inner[2:] <= outer[2:]
+
+
+def _literal_sequence_binding_allows(
+    subject: Dict[str, Any], source_id: str,
+) -> bool:
+    binding = subject.get("literal_source_binding")
+    if binding is None:
+        return True
+    if not isinstance(binding, dict):
+        return False
+    allowed = binding.get("source_ids")
+    inner = _sequence_source_span(source_id)
+    return bool(
+        isinstance(allowed, list)
+        and inner is not None
+        and any(
+            isinstance(outer_id, str)
+            and (outer := _sequence_source_span(outer_id)) is not None
+            and _sequence_span_contains(outer, inner)
+            for outer_id in allowed
+        )
+    )
+
+
+def _literal_required_sources(
+    subject: Dict[str, Any],
+) -> Tuple[Optional[List[Dict[str, Any]]], Optional[str]]:
+    """Return the exact source obligations bound to one corrected stage."""
+    binding = subject.get("literal_source_binding")
+    if binding is None:
+        return [], None
+    if not isinstance(binding, dict):
+        return None, "literal source binding is malformed"
+    required_ids = binding.get("required_source_ids")
+    required_obligation_ids = binding.get("required_obligation_ids")
+    required_sources = binding.get("required_sources")
+    canonical_actor = binding.get("canonical_actor")
+    beat = subject.get("beat")
+    if (
+        not isinstance(canonical_actor, str)
+        or not canonical_actor.strip()
+        or not isinstance(beat, dict)
+        or beat.get("actor") != canonical_actor
+        or not isinstance(required_ids, list)
+        or not isinstance(required_obligation_ids, list)
+        or not isinstance(required_sources, list)
+        or any(not isinstance(source_id, str) for source_id in required_ids)
+        or any(
+            not isinstance(obligation_id, str)
+            for obligation_id in required_obligation_ids
+        )
+        or any(
+            not isinstance(source, dict)
+            or set(source) != {
+                "obligation_id", "source_id", "excerpt",
+                "required_digit_counts",
+                "required_concepts", "requires_negation",
+                "canonical_claim", "canonical_field",
+            }
+            or not isinstance(source.get("obligation_id"), str)
+            or re.fullmatch(
+                _LITERAL_SOURCE_OBLIGATION_ID,
+                source["obligation_id"],
+            ) is None
+            or not isinstance(source.get("source_id"), str)
+            or not source["obligation_id"].startswith(
+                source["source_id"] + ".o"
+            )
+            or not isinstance(source.get("excerpt"), str)
+            or not source["excerpt"].strip()
+            or not isinstance(source.get("required_digit_counts"), dict)
+            or any(
+                not isinstance(digit, str)
+                or not digit.isdigit()
+                or type(count) is not int
+                or count < 1
+                for digit, count in source["required_digit_counts"].items()
+            )
+            or not isinstance(source.get("required_concepts"), list)
+            or any(
+                not isinstance(concept, str)
+                or concept not in _LITERAL_STAGE_EXCLUSIVE_CONCEPTS
+                for concept in source["required_concepts"]
+            )
+            or len(source["required_concepts"])
+            != len(set(source["required_concepts"]))
+            or type(source.get("requires_negation")) is not bool
+            or not isinstance(source.get("canonical_claim"), str)
+            or not source["canonical_claim"].strip()
+            or source.get("canonical_field") not in {"action", "result"}
+            for source in required_sources
+        )
+        or list(dict.fromkeys(
+            source["source_id"] for source in required_sources
+        )) != required_ids
+        or [
+            source["obligation_id"] for source in required_sources
+        ] != required_obligation_ids
+        or len(required_ids) != len(set(required_ids))
+        or len(required_obligation_ids) != len(set(required_obligation_ids))
+    ):
+        return None, "literal required sources are malformed"
+    return copy.deepcopy(required_sources), None
+
+
+def _literal_required_source_claim_problem(
+    required: Dict[str, Any], atom: Dict[str, Any],
+) -> Optional[str]:
+    """Prove the mapped claim contains this source span's own material fact."""
+    claim = str(atom.get("text", ""))
+    if (
+        atom.get("field") != required["canonical_field"]
+        or claim != required["canonical_claim"]
+    ):
+        return "mapped claim changed field or omitted the canonical source fact"
+    claim_digits = Counter(re.findall(r"\d+", claim))
+    if any(
+        claim_digits[digit] < count
+        for digit, count in required["required_digit_counts"].items()
+    ):
+        return "mapped claim omitted a required source number"
+    if not set(required["required_concepts"]).issubset(
+        _literal_sequence_canonical_terms(claim)
+        & _LITERAL_STAGE_EXCLUSIVE_CONCEPTS
+    ):
+        return "mapped claim omitted a required source event"
+    if required["requires_negation"] and not _SEQUENCE_NEGATION.search(
+        _fold_evidence_text(claim)
+    ):
+        return "mapped claim omitted required source polarity"
+    return None
+
+
+def _literal_material_atom_order_problem(
+    material_atoms: Sequence[Dict[str, Any]],
+    subject: Dict[str, Any],
+) -> Optional[str]:
+    """Keep every supported action/result atom in literal source order."""
+    spans: List[Tuple[int, int, int, int]] = []
+    for atom in material_atoms:
+        if not isinstance(atom, dict) or atom.get("disposition") != "supported":
+            continue
+        source_id = atom.get("source_anchor_id")
+        span = _sequence_source_span(source_id)
+        if (
+            span is None
+            or not isinstance(source_id, str)
+            or not _literal_sequence_binding_allows(subject, source_id)
+        ):
+            return "supported literal material atom lacks bound source"
+        spans.append(span)
+    if spans != sorted(spans):
+        return "literal material atoms reverse source order"
+    return None
+
+
+def _literal_source_result_problem(
+    result: Dict[str, Any], subject: Dict[str, Any],
+) -> Optional[str]:
+    """Recheck stored obligation results without trusting checkpoint shape."""
+    required_sources, binding_error = _literal_required_sources(subject)
+    if binding_error:
+        return binding_error
+    raw = result.get("required_source_results")
+    if not required_sources:
+        return None if raw in (None, []) else "unbound row has source results"
+    if not isinstance(raw, list) or len(raw) != len(required_sources):
+        return "required sources were not all classified"
+    checks = result.get("checks")
+    material_atoms = result.get("material_atom_results")
+    if not isinstance(checks, list) or not isinstance(material_atoms, list):
+        return "required source field checks are malformed"
+    expected_atoms = subject.get("material_claim_atoms")
+    frozen_keys = ("atom_id", "field", "start", "end", "text", "claim_sha256")
+    if (
+        not isinstance(expected_atoms, list)
+        or len(material_atoms) != len(expected_atoms)
+        or any(
+            not isinstance(actual, dict)
+            or not isinstance(expected, dict)
+            or {
+                key: actual.get(key) for key in frozen_keys
+            } != {
+                key: expected.get(key) for key in frozen_keys
+            }
+            for actual, expected in zip(material_atoms, expected_atoms)
+        )
+    ):
+        return "required source material atoms changed"
+    material_order_problem = _literal_material_atom_order_problem(
+        material_atoms, subject
+    )
+    if material_order_problem:
+        return material_order_problem
+    required_fields = subject.get("required_fields")
+    if not isinstance(required_fields, list):
+        return "required source fields are malformed"
+    checks_by_field = {
+        str(check.get("field")): check
+        for check in checks if isinstance(check, dict)
+    }
+    atoms_by_id = {
+        str(atom.get("atom_id")): atom
+        for atom in material_atoms if isinstance(atom, dict)
+    }
+    atom_positions = {
+        str(atom.get("atom_id")): index
+        for index, atom in enumerate(material_atoms)
+        if isinstance(atom, dict)
+    }
+    represented: List[bool] = []
+    represented_atom_ids: set[str] = set()
+    represented_atom_positions: List[int] = []
+    for required, stored in zip(required_sources, raw):
+        if not isinstance(stored, dict) or set(stored) != {
+            "obligation_id", "source_id", "represented_in", "represented",
+        }:
+            return "required source result is malformed"
+        represented_in = stored.get("represented_in")
+        is_represented = stored.get("represented")
+        if (
+            stored.get("obligation_id") != required["obligation_id"]
+            or stored.get("source_id") != required["source_id"]
+            or type(is_represented) is not bool
+            or is_represented
+            != (represented_in != LITERAL_SOURCE_NOT_REPRESENTED)
+        ):
+            return "required source result changed identity or disposition"
+        if is_represented:
+            if represented_in in represented_atom_ids:
+                return "required source results reused a claim atom"
+            atom = atoms_by_id.get(str(represented_in), {})
+            evidence_span = _sequence_source_span(
+                atom.get("source_anchor_id")
+            )
+            required_span = _sequence_source_span(required["source_id"])
+            if (
+                not isinstance(represented_in, str)
+                or re.fullmatch(
+                    LITERAL_SOURCE_REPRESENTATION_ATOM_ID, represented_in
+                ) is None
+                or atom.get("disposition") != "supported"
+                or evidence_span is None
+                or required_span is None
+                or evidence_span != required_span
+            ):
+                return "required source result lacks covering atom provenance"
+            claim_problem = _literal_required_source_claim_problem(
+                required, atom
+            )
+            if claim_problem:
+                return claim_problem
+            represented_atom_ids.add(str(represented_in))
+            represented_atom_positions.append(
+                atom_positions[str(represented_in)]
+            )
+        represented.append(is_represented)
+    if represented_atom_positions != sorted(represented_atom_positions):
+        return "required source results reverse source order"
+    field_support = [
+        checks_by_field.get(field, {}).get("supports") is True
+        for field in required_fields
+    ]
+    decisions = [*field_support, *represented]
+    expected_classification = (
+        "supported" if all(decisions)
+        else "partially_supported" if any(decisions)
+        else "unsupported"
+    )
+    if result.get("classification") != expected_classification:
+        return "required source results disagree with row classification"
+    return None
+
+
+def _public_sequence_ledger(
+    ledger: Sequence[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    """Remove engine-only source bounds from the exported fact audit."""
+    return [
+        {
+            key: copy.deepcopy(value)
+            for key, value in beat.items()
+            if key != _LITERAL_SEQUENCE_BINDING_KEY
+        }
+        for beat in ledger
+        if isinstance(beat, dict)
+    ]
+
+
+def _literal_sequence_stage_obligations(
+    stage: Dict[str, Any], source_text: str,
+) -> Dict[str, Any]:
+    required_text = " ".join(
+        str(_sequence_source_anchor(source_text, source_id)["excerpt"])
+        for source_id in stage["required_source_ids"]
+    )
+    allowed_text = " ".join(
+        str(_sequence_source_anchor(source_text, source_id)["excerpt"])
+        for source_id in stage["source_ids"]
+    )
+    return {
+        "required_digit_counts": dict(Counter(re.findall(r"\d+", required_text))),
+        "required_concepts": sorted(
+            _literal_sequence_canonical_terms(required_text)
+            & _LITERAL_STAGE_EXCLUSIVE_CONCEPTS
+        ),
+        "allowed_concepts": sorted(
+            _literal_sequence_canonical_terms(allowed_text)
+            & _LITERAL_STAGE_EXCLUSIVE_CONCEPTS
+        ),
+        "requires_negation": bool(stage.get("requires_negation")),
+    }
+
+
+def _literal_required_source_obligation(
+    source_text: str,
+    source_id: str,
+    obligation_id: str,
+    canonical_spec: Any,
+) -> Dict[str, Any]:
+    if (
+        not isinstance(obligation_id, str)
+        or re.fullmatch(_LITERAL_SOURCE_OBLIGATION_ID, obligation_id) is None
+        or not obligation_id.startswith(source_id + ".o")
+        or not isinstance(canonical_spec, dict)
+        or set(canonical_spec) != {"field", "text"}
+        or canonical_spec.get("field") not in {"action", "result"}
+        or not isinstance(canonical_spec.get("text"), str)
+        or not canonical_spec["text"].strip()
+    ):
+        raise CoverageContractError(
+            f"Literal sequence obligation {source_id} canonical claim "
+            "is malformed"
+        )
+    canonical_field = str(canonical_spec["field"])
+    canonical_claim = str(canonical_spec["text"])
+    anchor = _sequence_source_anchor(source_text, source_id)
+    if anchor is None:
+        raise CoverageContractError(
+            f"Literal sequence obligation {source_id} is invalid"
+    )
+    excerpt = str(anchor["excerpt"])
+    canonical_beat = {"action": "", "result": ""}
+    canonical_beat[canonical_field] = canonical_claim
+    claim_atoms = _sequence_material_claim_atoms(canonical_beat)
+    if (
+        len(claim_atoms) != 1
+        or claim_atoms[0].get("field") != canonical_field
+        or claim_atoms[0].get("text") != canonical_claim
+    ):
+        raise CoverageContractError(
+            f"Literal sequence obligation {source_id} canonical claim "
+            "must be one material atom"
+        )
+    obligation = {
+        "obligation_id": obligation_id,
+        "source_id": source_id,
+        "excerpt": excerpt,
+        "required_digit_counts": dict(
+            Counter(re.findall(r"\d+", canonical_claim))
+        ),
+        "required_concepts": sorted(
+            _literal_sequence_canonical_terms(canonical_claim)
+            & _LITERAL_STAGE_EXCLUSIVE_CONCEPTS
+        ),
+        "requires_negation": bool(
+            _SEQUENCE_NEGATION.search(_fold_evidence_text(canonical_claim))
+        ),
+        "canonical_field": canonical_field,
+        "canonical_claim": canonical_claim,
+    }
+    _relevant, supported = _sequence_material_atom_support(
+        {"actor": "", **canonical_beat},
+        canonical_field,
+        canonical_claim,
+        excerpt,
+    )
+    claim_problem = _literal_required_source_claim_problem(
+        obligation, claim_atoms[0]
+    )
+    if not supported or claim_problem:
+        raise CoverageContractError(
+            f"Literal sequence obligation {source_id} canonical claim is "
+            "not supported by its bound source"
+        )
+    return obligation
+
+
+def build_literal_sequence_stage_inventory(
+    text: str,
+    content_sha256: str,
+) -> List[Dict[str, Any]]:
+    """Resolve a declarative stage contract against one exact screenplay."""
+    contract = _load_literal_sequence_contract(content_sha256)
+    contract_fields = {
+        "contract_version", "content_sha256", "normalized_text_sha256",
+        "stages",
+    }
+    if set(contract) != contract_fields | {"canonical_source_claims"} or (
+        contract.get("contract_version") != LITERAL_SEQUENCE_CONTRACT_VERSION
+        or contract.get("content_sha256") != content_sha256
+        or contract.get("normalized_text_sha256")
+        != _literal_sequence_text_sha256(text)
+    ):
+        raise CoverageContractError(
+            "Literal sequence source contract does not match this screenplay"
+        )
+    raw_stages = contract.get("stages")
+    if not isinstance(raw_stages, list) or not raw_stages:
+        raise CoverageContractError(
+            "Literal sequence source contract has no stages"
+        )
+    canonical_source_claims = contract.get("canonical_source_claims")
+    if (
+        not isinstance(canonical_source_claims, dict)
+        or any(
+            not isinstance(source_id, str)
+            or not isinstance(specs, list)
+            or not specs
+            or len(specs) > 99
+            or any(
+                not isinstance(spec, dict)
+                or set(spec) != {"field", "text"}
+                or spec.get("field") not in {"action", "result"}
+                or not isinstance(spec.get("text"), str)
+                or not spec["text"].strip()
+                for spec in specs
+            )
+            for source_id, specs in canonical_source_claims.items()
+        )
+    ):
+        raise CoverageContractError(
+            "Literal sequence canonical source claims are malformed"
+        )
+
+    phase_rank = {
+        phase: index for index, phase in enumerate(AUDIT_SEQUENCE_PHASES)
+    }
+    stage_ids: set[str] = set()
+    occupied: List[Tuple[Tuple[int, int, int, int], str]] = []
+    inventory: List[Dict[str, Any]] = []
+    prior_sort_key: Optional[Tuple[int, int, int, int, int]] = None
+    for raw in raw_stages:
+        base_fields = {
+            "stage_id", "phase", "canonical_actor", "source_ids",
+            "required_source_ids",
+        }
+        if not isinstance(raw, dict) or set(raw) not in {
+            frozenset(base_fields),
+            frozenset(base_fields | {"requires_negation"}),
+        }:
+            raise CoverageContractError(
+                "Literal sequence source contract stage is malformed"
+            )
+        stage_id = raw.get("stage_id")
+        phase = raw.get("phase")
+        canonical_actor = raw.get("canonical_actor")
+        source_ids = raw.get("source_ids")
+        required_ids = raw.get("required_source_ids")
+        requires_negation = raw.get("requires_negation", False)
+        if (
+            not isinstance(stage_id, str)
+            or not stage_id
+            or stage_id in stage_ids
+            or phase not in phase_rank
+            or not isinstance(canonical_actor, str)
+            or not canonical_actor.strip()
+            or not isinstance(source_ids, list)
+            or not isinstance(required_ids, list)
+            or len(source_ids) != len(set(source_ids))
+            or len(required_ids) != len(set(required_ids))
+            or any(not isinstance(source_id, str) for source_id in source_ids)
+            or any(not isinstance(source_id, str) for source_id in required_ids)
+            or type(requires_negation) is not bool
+        ):
+            raise CoverageContractError(
+                "Literal sequence source contract stage identity is invalid"
+            )
+        if not source_ids:
+            if (
+                phase != "aftermath"
+                or required_ids
+                or canonical_actor != "NOT PRESENT"
+            ):
+                raise CoverageContractError(
+                    "Only an aftermath absence stage may omit source spans"
+                )
+            page = max(_marked_page_contents(text)[1])
+            sort_key = (phase_rank[phase], page, 10_000, page, 10_000)
+        else:
+            anchors = [
+                _sequence_source_anchor(text, source_id)
+                for source_id in source_ids
+            ]
+            required_anchors = [
+                _sequence_source_anchor(text, source_id)
+                for source_id in required_ids
+            ]
+            if any(anchor is None for anchor in (*anchors, *required_anchors)):
+                raise CoverageContractError(
+                    f"Literal sequence stage {stage_id} has an invalid source span"
+                )
+            if requires_negation and not any(
+                _SEQUENCE_NEGATION.search(
+                    _fold_evidence_text(str(anchor["excerpt"]))
+                )
+                for anchor in required_anchors
+                if anchor is not None
+            ):
+                raise CoverageContractError(
+                    f"Literal sequence stage {stage_id} has no bound negation"
+                )
+            spans = [_sequence_source_span(source_id) for source_id in source_ids]
+            required_spans = [
+                _sequence_source_span(source_id) for source_id in required_ids
+            ]
+            if any(span is None for span in (*spans, *required_spans)) or any(
+                not any(_sequence_span_contains(outer, inner) for outer in spans)
+                for inner in required_spans
+            ):
+                raise CoverageContractError(
+                    f"Literal sequence stage {stage_id} has an unbound obligation"
+                )
+            if required_spans != sorted(required_spans):
+                raise CoverageContractError(
+                    f"Literal sequence stage {stage_id} has out-of-order "
+                    "required sources"
+                )
+            if any(
+                left[:2] <= right[2:] and right[:2] <= left[2:]
+                for index, left in enumerate(required_spans)
+                for right in required_spans[index + 1:]
+            ):
+                raise CoverageContractError(
+                    f"Literal sequence stage {stage_id} has overlapping "
+                    "required obligations"
+                )
+            for span in spans:
+                if any(
+                    span[:2] <= other[2:] and other[:2] <= span[2:]
+                    for other, _other_stage in occupied
+                ):
+                    raise CoverageContractError(
+                        f"Literal sequence stage {stage_id} overlaps another stage"
+                    )
+                occupied.append((span, stage_id))
+            first = min(spans)
+            page = first[0]
+            sort_key = (phase_rank[phase], *first)
+        if prior_sort_key is not None and sort_key <= prior_sort_key:
+            raise CoverageContractError(
+                "Literal sequence source stages are not in strict story order"
+            )
+        prior_sort_key = sort_key
+        stage_ids.add(stage_id)
+        stage = {
+            "stage_id": stage_id,
+            "phase": phase,
+            "canonical_actor": canonical_actor,
+            "source_ids": list(source_ids),
+            "required_source_ids": list(required_ids),
+            "required_sources": [
+                _literal_required_source_obligation(
+                    text,
+                    source_id,
+                    f"{source_id}.o{index + 1:02d}",
+                    spec,
+                )
+                for source_id in required_ids
+                for index, spec in enumerate(
+                    canonical_source_claims.get(source_id, [])
+                )
+            ],
+            "requires_negation": requires_negation,
+            "page": page,
+            "source_excerpts": [
+                str(anchor["excerpt"]) for anchor in (
+                    _sequence_source_anchor(text, source_id)
+                    for source_id in source_ids
+                )
+                if anchor is not None
+            ],
+        }
+        stage["required_obligation_ids"] = [
+            required["obligation_id"]
+            for required in stage["required_sources"]
+        ]
+        canonical_fields = [
+            required["canonical_field"]
+            for required in stage["required_sources"]
+        ]
+        canonical_atoms = [
+            (required["canonical_field"], required["canonical_claim"])
+            for required in stage["required_sources"]
+        ]
+        if len(canonical_atoms) != len(set(canonical_atoms)):
+            raise CoverageContractError(
+                f"Literal sequence stage {stage_id} repeats a canonical fact"
+            )
+        if canonical_fields != sorted(canonical_fields):
+            raise CoverageContractError(
+                f"Literal sequence stage {stage_id} canonical fields "
+                "reverse source chronology"
+            )
+        stage.update(_literal_sequence_stage_obligations(stage, text))
+        inventory.append(stage)
+    bound_requirement_ids = {
+        source_id
+        for stage in inventory
+        for source_id in stage["required_source_ids"]
+    }
+    if set(canonical_source_claims) != bound_requirement_ids:
+        raise CoverageContractError(
+            "Literal sequence canonical source claims do not exactly match "
+            "the required sources"
+        )
+    if {
+        str(stage["phase"]) for stage in inventory
+    } != set(AUDIT_SEQUENCE_PHASES):
+        raise CoverageContractError(
+            "Literal sequence source contract must cover every sequence phase"
+        )
+    return inventory
+
+
+def _literal_sequence_stage_binding(stage: Dict[str, Any]) -> Dict[str, Any]:
+    """Freeze the source-authored facts that one corrected row must retain."""
+    return {
+        "stage_id": stage["stage_id"],
+        "canonical_actor": stage["canonical_actor"],
+        "source_ids": copy.deepcopy(stage["source_ids"]),
+        "required_source_ids": copy.deepcopy(stage["required_source_ids"]),
+        "required_obligation_ids": copy.deepcopy(
+            stage["required_obligation_ids"]
+        ),
+        "required_sources": copy.deepcopy(stage["required_sources"]),
+        "required_digit_counts": copy.deepcopy(
+            stage.get("required_digit_counts", {})
+        ),
+        "required_concepts": copy.deepcopy(
+            stage.get("required_concepts", [])
+        ),
+        "requires_negation": bool(stage.get("requires_negation")),
+    }
+
+
+def _literal_sequence_inventory_if_available(
+    text: str, content_sha256: str,
+) -> Optional[List[Dict[str, Any]]]:
+    """Load an exact-source contract when this screenplay has one."""
+    path = LITERAL_SEQUENCE_CONTRACTS_ROOT / f"{content_sha256}.json"
+    if not path.is_file():
+        return None
+    return build_literal_sequence_stage_inventory(text, content_sha256)
+
+
+def _literal_sequence_contract_problem(
+    payload: Dict[str, Any], text: str, content_sha256: str,
+) -> Optional[str]:
+    """Reject a legacy core until every exact-source stage is code-bound."""
+    inventory = _literal_sequence_inventory_if_available(text, content_sha256)
+    if inventory is None:
+        return None
+    ledger = payload.get("sequence_ledger")
+    if not isinstance(ledger, list) or len(ledger) != len(inventory):
+        return "sequence_ledger lacks its complete hash-bound source contract"
+    for row, stage in zip(ledger, inventory):
+        if (
+            not isinstance(row, dict)
+            or row.get("phase") != stage["phase"]
+            or row.get("page") != stage["page"]
+            or row.get("actor") != stage["canonical_actor"]
+        ):
+            return "sequence_ledger differs from its hash-bound source contract"
+        if not stage["source_ids"]:
+            if not _is_strict_sequence_absence_marker(
+                row, phase=str(stage["phase"])
+            ):
+                return "sequence_ledger lost its bound absence stage"
+            continue
+        if row.get(_LITERAL_SEQUENCE_BINDING_KEY) != (
+            _literal_sequence_stage_binding(stage)
+        ):
+            return "sequence_ledger lacks current hash-bound source bindings"
+        canonical_atoms = [
+            (required["canonical_field"], required["canonical_claim"])
+            for required in stage["required_sources"]
+        ]
+        canonical_atom_set = set(canonical_atoms)
+        represented = [
+            (atom.get("field"), atom.get("text"))
+            for atom in _sequence_material_claim_atoms(row)
+            if (atom.get("field"), atom.get("text")) in canonical_atom_set
+        ]
+        if represented != canonical_atoms:
+            return "sequence_ledger changed its hash-bound canonical facts"
+    return None
+
+
+def build_literal_sequence_correction_user_blocks(
+    text: str,
+    title: str,
+    candidate: Dict[str, Any],
+    rejected: Dict[str, Any],
+    page_reference_map: PageReferenceMap,
+    sequence_focus: Dict[str, Any],
+    inventory: Sequence[Dict[str, Any]],
+    failures: Sequence[str],
+) -> List[Dict[str, Any]]:
+    """Build the one-use, source-bound correction packet."""
+    _numbers, pages = _marked_page_contents(text)
+    selected = sorted({
+        *(
+            page for page in sequence_focus.get("ending_pages", [])
+            if type(page) is int and page in pages
+        ),
+        *(
+            int(stage["page"]) for stage in inventory
+            if type(stage.get("page")) is int and int(stage["page"]) in pages
+        ),
+    })
+    source_packet = "\n\n".join(
+        f"[PAGE {page}]\n{pages[page].strip()}" for page in selected
+    )
+    page_packet = {
+        "mode": page_reference_map["mode"],
+        "valid_citation_pages": page_reference_map["valid_citation_pages"],
+        "selected_pages": [
+            row for row in page_reference_map["pages"]
+            if row.get("citation_page") in selected
+        ],
+    }
+    return [
+        {"type": "text", "text": "# TARGETED SOURCE PAGES\n\n" + source_packet},
+        _character_index_block(text),
+        {
+            "type": "text",
+            "text": (
+                "# PAGE REFERENCE MAP (code-generated; AUTHORITATIVE)\n\n"
+                + json.dumps(page_packet, ensure_ascii=False, indent=1)
+            ),
+        },
+        {
+            "type": "text",
+            "text": (
+                "# PRIOR LEDGER AND REJECTED FIRST PASS\n\n"
+                + json.dumps(
+                    {
+                        "prior": candidate.get("sequence_ledger", []),
+                        "rejected": rejected.get("sequence_ledger", {}),
+                    },
+                    ensure_ascii=False,
+                    indent=1,
+                )
+            ),
+        },
+        {
+            "type": "text",
+            "text": (
+                "# ENGINE-BOUND REQUIRED STAGES\n\n"
+                + json.dumps(list(inventory), ensure_ascii=False, indent=1)
+            ),
+        },
+        {
+            "type": "text",
+            "text": (
+                f"# ONE-USE LITERAL SEQUENCE CORRECTION — {title}\n\n"
+                "Return exactly one row for every required stage_id and no "
+                "other rows. Copy each stage_id exactly once, in the supplied "
+                "order and phase. Use its fixed page. Each stage occupies its "
+                "own row; never combine two stage_ids. The source_ids and "
+                "excerpts are code-bound evidence locations, not suggestions. "
+                "Copy each stage's canonical_actor byte-for-byte into actor. "
+                "Describe only what those source spans and their continuous "
+                "same-or-next-page event prove. Preserve named actors, counts, "
+                "polarity, cause, result, and who knows what. Never replace a "
+                "stage with a different true event. Every material fact in "
+                "every required_sources excerpt must appear explicitly in the "
+                "row's action or result. Copy each required_sources "
+                "canonical_claim byte-for-byte in its canonical_field as one "
+                "complete clause; never paraphrase, move, merge, split, or omit "
+                "it. Separate "
+                "canonical claims with semicolons so each remains one frozen "
+                "material atom. Partial summaries fail the independent detail "
+                "audit. Keep every supplied stage "
+                "in its own row and literal order. "
+                "Reuse prior wording byte-for-byte when one prior event already "
+                "fits one stage; when a compound prior event must split, move "
+                "its exact clauses into the bound rows without paraphrasing. "
+                "Use NOT PRESENT in all five text fields only for a "
+                "not-present stage. Every changed row will receive a fresh "
+                "full-source detail audit before sealing.\n\n"
+                "DETERMINISTIC REJECTION REASONS:\n- "
+                + "\n- ".join(failures)
+            ),
+        },
+    ]
+
+
 def build_rejected_sequence_field_retry_user_blocks(
     text: str,
     title: str,
@@ -9476,6 +11208,30 @@ def build_detail_audit_user_blocks(
                 "example `row_034:action:p097-l008-l024`. Never use a range "
                 "for actor or audience knowledge, cross a scene boundary, or "
                 f"span more than {SEQUENCE_SOURCE_RANGE_MAX_LINES} lines. "
+                "When a row contains literal_source_binding, every selected "
+                "field and material-atom source must fall entirely inside one "
+                "of that binding's source_ids. Those bounds are enforced by "
+                "code and may not be borrowed from another stage. For such a "
+                "row, return NOT_LOCATED for the whole action_source_id and "
+                "result_source_id placeholders. This does not make those "
+                "fields unsupported: code derives their support from the "
+                "mandatory material_atom_results, one frozen action/result "
+                "clause at a time. Also return "
+                "every literal_source_binding.required_sources item exactly "
+                "once, in supplied order, as "
+                "<obligation_id>|<supported-action-or-result-atom-id>. Each "
+                "obligation_id remains bound to its required source_id. Use "
+                "an atom "
+                "only when its text is byte-for-byte equal to that required "
+                "source's canonical_claim, its field equals canonical_field, "
+                "and the atom's source ID exactly equals that required source "
+                "ID. Never paraphrase or move a canonical "
+                "claim. Otherwise return "
+                f"<obligation_id>|{LITERAL_SOURCE_NOT_REPRESENTED}. One "
+                "omitted obligation makes the row fail; a different true fact "
+                "in the same source span or stage is not a substitute. Return "
+                "an empty "
+                "required_source_results array when no literal binding exists. "
                 "Character knowledge may join only three wrapped same-page "
                 "lines. If no allowed "
                 f"source proves the field, return `{SEQUENCE_SOURCE_NOT_LOCATED}`. The engine "
@@ -10741,6 +12497,13 @@ def validate_audit_payload(
                 problems.append(f"{field}[{index}] grounding is invalid")
             if row.get("claim_sha256") != subject.get("claim_sha256"):
                 problems.append(f"{field}[{index}] claim binding is invalid")
+            if field == "sequence_evidence" and not unresolved:
+                source_problem = _literal_source_result_problem(row, subject)
+                if source_problem:
+                    problems.append(
+                        f"sequence_evidence[{index}] literal source "
+                        f"verification failed: {source_problem}"
+                    )
 
     verdict_by_id = {
         str(row.get("claim_id", "")): row
@@ -11930,7 +13693,6 @@ def _literal_retry_preserves_prior_events(
         _sequence_allowed_page_range(prior_ledger, ledger_index)
         for ledger_index, _row in prior_entries
     ]
-
     def matches(
         prior_index: int,
         repaired_indexes: Tuple[int, ...],
@@ -12097,13 +13859,12 @@ def _literal_retry_preserves_prior_events(
     return not diagnostics, diagnostics
 
 
-def _merge_literal_sequence_retry(
+def _normalize_literal_sequence_retry(
     candidate: Dict[str, Any],
     repaired: Any,
     valid_pages: Sequence[int],
-    source_text: str,
 ) -> Dict[str, Any]:
-    """Replace only the fallible ledger and preserve the original verdicts."""
+    """Normalize only a complete replacement ledger, preserving verdicts."""
     if (
         not isinstance(repaired, dict)
         or set(repaired) != {"sequence_ledger"}
@@ -12124,15 +13885,30 @@ def _merge_literal_sequence_retry(
         "_sequence_repair_authorized_not_applicable_orders",
     ):
         merged.pop(field, None)
-    normalized = normalize_audit_tool_input(merged, valid_pages)
-    preserved, missing_events = _literal_retry_preserves_prior_events(
-        candidate, normalized, source_text
+    return normalize_audit_tool_input(merged, valid_pages)
+
+
+def _merge_literal_sequence_retry(
+    candidate: Dict[str, Any],
+    repaired: Any,
+    valid_pages: Sequence[int],
+    source_text: str,
+    *,
+    preserve_prior_events: bool = True,
+) -> Dict[str, Any]:
+    """Replace only the fallible ledger and preserve the original verdicts."""
+    normalized = _normalize_literal_sequence_retry(
+        candidate, repaired, valid_pages
     )
-    if not preserved:
-        raise CoverageContractError(
-            "Literal sequence retry omitted or collapsed prior material "
-            "events: " + json.dumps(missing_events, ensure_ascii=False)
+    if preserve_prior_events:
+        preserved, missing_events = _literal_retry_preserves_prior_events(
+            candidate, normalized, source_text
         )
+        if not preserved:
+            raise CoverageContractError(
+                "Literal sequence retry omitted or collapsed prior material "
+                "events: " + json.dumps(missing_events, ensure_ascii=False)
+            )
     authorized_orders = [
         int(beat["order"])
         for index, beat in enumerate(normalized.get("sequence_ledger", []))
@@ -12152,6 +13928,158 @@ def _merge_literal_sequence_retry(
             authorized_orders
         )
     return normalized
+
+
+def _merge_literal_sequence_correction(
+    candidate: Dict[str, Any],
+    repaired: Any,
+    inventory: Sequence[Dict[str, Any]],
+    valid_pages: Sequence[int],
+    source_text: str,
+) -> Dict[str, Any]:
+    """Bind every corrected row to its immutable source stage."""
+    if (
+        not isinstance(repaired, dict)
+        or set(repaired) != {"sequence_ledger"}
+        or not isinstance(repaired["sequence_ledger"], dict)
+        or set(repaired["sequence_ledger"]) != set(AUDIT_SEQUENCE_PHASES)
+    ):
+        raise CoverageContractError(
+            "Literal sequence correction must return every sequence phase only"
+        )
+    expected_by_phase = {
+        phase: [
+            stage for stage in inventory if stage.get("phase") == phase
+        ]
+        for phase in AUDIT_SEQUENCE_PHASES
+    }
+    stripped: Dict[str, List[Dict[str, Any]]] = {}
+    for phase in AUDIT_SEQUENCE_PHASES:
+        rows = repaired["sequence_ledger"].get(phase)
+        if not isinstance(rows, list) or any(
+            not isinstance(row, dict) for row in rows
+        ):
+            raise CoverageContractError(
+                f"Literal sequence correction {phase} must be an array of rows"
+            )
+        expected = expected_by_phase[phase]
+        actual_ids = [str(row.get("stage_id", "")) for row in rows]
+        expected_ids = [str(stage["stage_id"]) for stage in expected]
+        if actual_ids != expected_ids or len(actual_ids) != len(set(actual_ids)):
+            raise CoverageContractError(
+                f"Literal sequence correction changed {phase} stage identity "
+                "or source order"
+            )
+        clean_rows: List[Dict[str, Any]] = []
+        for row, stage in zip(rows, expected):
+            if row.get("page") != stage.get("page"):
+                raise CoverageContractError(
+                    f"Literal sequence correction moved stage "
+                    f"{stage['stage_id']} from its source page"
+                )
+            clean = {
+                key: copy.deepcopy(value)
+                for key, value in row.items()
+                if key != "stage_id"
+            }
+            if set(clean) != set(_AUDIT_SEQUENCE_BEAT_SCHEMA["required"]):
+                raise CoverageContractError(
+                    f"Literal sequence correction stage {stage['stage_id']} "
+                    "has unexpected or missing fields"
+                )
+            if clean.get("actor") != stage.get("canonical_actor"):
+                raise CoverageContractError(
+                    f"Literal sequence correction stage {stage['stage_id']} "
+                    "changed its canonical actor"
+                )
+            if not stage.get("source_ids") and not all(
+                clean.get(field) == "NOT PRESENT"
+                for field in GROUNDED_SEQUENCE_FIELDS
+            ):
+                raise CoverageContractError(
+                    f"Literal sequence correction stage {stage['stage_id']} "
+                    "must remain NOT PRESENT"
+                )
+            if stage.get("source_ids"):
+                material_atoms = _sequence_material_claim_atoms(clean)
+                material = " ".join(
+                    str(clean.get(field, ""))
+                    for field in ("actor", "action", "result")
+                )
+                digit_counts = Counter(re.findall(r"\d+", material))
+                if any(
+                    digit_counts[digit] < required
+                    for digit, required in stage.get(
+                        "required_digit_counts", {}
+                    ).items()
+                ):
+                    raise CoverageContractError(
+                        f"Literal sequence correction stage {stage['stage_id']} "
+                        "deleted a required numeric source fact"
+                    )
+                concepts = (
+                    _literal_sequence_canonical_terms(material)
+                    & _LITERAL_STAGE_EXCLUSIVE_CONCEPTS
+                )
+                required_concepts = set(stage.get("required_concepts", []))
+                if not required_concepts.issubset(concepts):
+                    raise CoverageContractError(
+                        f"Literal sequence correction stage {stage['stage_id']} "
+                        "does not represent its required source event"
+                    )
+                if stage.get("requires_negation") and not _SEQUENCE_NEGATION.search(
+                    _fold_evidence_text(material)
+                ):
+                    raise CoverageContractError(
+                        f"Literal sequence correction stage {stage['stage_id']} "
+                        "deleted required source polarity"
+                    )
+                foreign_concepts = concepts & (
+                    {
+                        concept
+                        for other in inventory
+                        if other.get("stage_id") != stage.get("stage_id")
+                        for concept in other.get("required_concepts", [])
+                    }
+                    - set(stage.get("allowed_concepts", []))
+                )
+                if foreign_concepts:
+                    raise CoverageContractError(
+                        f"Literal sequence correction stage {stage['stage_id']} "
+                        "combines a separately bound source event: "
+                        + ", ".join(sorted(foreign_concepts))
+                    )
+                canonical_atoms = [
+                    (
+                        required.get("canonical_field"),
+                        required.get("canonical_claim"),
+                    )
+                    for required in stage.get("required_sources", [])
+                ]
+                represented_canonical_atoms = [
+                    (atom.get("field"), atom.get("text"))
+                    for atom in material_atoms
+                    if (atom.get("field"), atom.get("text"))
+                    in set(canonical_atoms)
+                ]
+                if represented_canonical_atoms != canonical_atoms:
+                    raise CoverageContractError(
+                        f"Literal sequence correction stage "
+                        f"{stage['stage_id']} changed, moved, reordered, or "
+                        "omitted a canonical source claim"
+                    )
+                clean[_LITERAL_SEQUENCE_BINDING_KEY] = (
+                    _literal_sequence_stage_binding(stage)
+                )
+            clean_rows.append(clean)
+        stripped[phase] = clean_rows
+    return _merge_literal_sequence_retry(
+        candidate,
+        {"sequence_ledger": stripped},
+        valid_pages,
+        source_text,
+        preserve_prior_events=False,
+    )
 
 
 def _sequence_knower_subject(value: str) -> str:
@@ -14658,6 +16586,7 @@ def _legacy_detail_tool(tool: Any) -> Optional[Dict[str, Any]]:
         if not isinstance(item_properties, dict):
             continue
         item_properties.pop("material_atom_results", None)
+        item_properties.pop("required_source_results", None)
         source_keys = [
             key for key in item_properties if key.endswith("_source_id")
         ]
@@ -14785,6 +16714,7 @@ class _CostGuard:
         if not isinstance(raw_receipts, dict):
             raise CheckpointTamperedError("Call receipt ledger is malformed")
         self.receipts = copy.deepcopy(raw_receipts)
+        self._reconcile_settled_receipts()
 
     @property
     def charged_microusd(self) -> int:
@@ -14830,6 +16760,48 @@ class _CostGuard:
                 },
             ),
         )
+
+    def _reconcile_settled_receipts(self) -> None:
+        """Restore settled receipt usage missing from an older budget ledger."""
+        if self.in_flight is not None:
+            return
+        settled_count = int(self.usage.get("call_count", 0) or 0)
+        if settled_count != self.calls_started:
+            raise CheckpointTamperedError(
+                "Settled budget call count does not match calls started"
+            )
+        numbered: Dict[int, Dict[str, Any]] = {}
+        for fingerprint, receipt in self.receipts.items():
+            if (
+                not isinstance(fingerprint, str)
+                or re.fullmatch(r"[0-9a-f]{64}", fingerprint) is None
+                or not isinstance(receipt, dict)
+                or type(receipt.get("call_number")) is not int
+                or receipt["call_number"] < 1
+                or not isinstance(receipt.get("stage"), str)
+                or not isinstance(receipt.get("usage"), dict)
+                or int(receipt["usage"].get("call_count", 0) or 0) != 1
+                or receipt["call_number"] in numbered
+            ):
+                raise CheckpointTamperedError(
+                    "Call receipt accounting is malformed"
+                )
+            numbered[receipt["call_number"]] = receipt
+        changed = False
+        for call_number in sorted(numbered):
+            if call_number <= self.calls_started:
+                continue
+            if call_number != self.calls_started + 1:
+                raise CheckpointTamperedError(
+                    "Call receipt accounting has a settlement gap"
+                )
+            self.usage = _merge_usage(
+                self.usage, numbered[call_number]["usage"]
+            )
+            self.calls_started = call_number
+            changed = True
+        if changed:
+            self._persist()
 
     def begin_call(
         self,
@@ -15100,6 +17072,7 @@ def run_coverage_v1(
     repair_calls_used = 0
     coverage_repair_calls_used = 0
     audit_retry_calls_used = 0
+    literal_sequence_correction_calls_used = 0
     fact_repair_deferred_at_call_cap = 0
 
     # Renumber [PAGE N] markers to printed header numbers when the offset is
@@ -15354,6 +17327,11 @@ def run_coverage_v1(
             f"Only {len(claims)} auditable claims derived; minimum is "
             f"{MIN_AUDIT_CLAIMS}"
         )
+    canonical_fact_registry = build_canonical_fact_registry(coverage_payload)
+    existing_evidence_checks = build_existing_evidence_checks(
+        coverage_payload, text
+    )
+    sequence_focus = build_sequence_focus(text)
 
     audit_payload = _verified_payload(
         checkpoint_store.load(checkpoint_key, "audit"), binding, "audit"
@@ -15380,6 +17358,22 @@ def run_coverage_v1(
         )
     ):
         audit_payload = None
+    if audit_payload is not None:
+        audit_payload = _reconcile_complete_audit_details(
+            audit_payload, coverage_payload, existing_evidence_checks
+        )
+        replay_problems = validate_audit_payload(
+            audit_payload,
+            claims,
+            coverage_payload,
+            page_reference_map,
+            existing_evidence_checks,
+        )
+        replay_contract_problem = _literal_sequence_contract_problem(
+            audit_payload, text, content_sha256
+        )
+        if replay_problems or replay_contract_problem:
+            audit_payload = None
     audit_replayed = audit_payload is not None
     audit_core_payload = (
         _verified_payload(
@@ -15405,11 +17399,6 @@ def run_coverage_v1(
     audit_first_pass_problems: List[str] = []
     audit_model_effective = audit_model_key
     audit_core_repair_model: Optional[str] = None
-    canonical_fact_registry = build_canonical_fact_registry(coverage_payload)
-    existing_evidence_checks = build_existing_evidence_checks(
-        coverage_payload, text
-    )
-    sequence_focus = build_sequence_focus(text)
     audit_tool = build_audit_tool(claims)
     audit_system = [
         {
@@ -16900,10 +18889,12 @@ def run_coverage_v1(
             route: str,
             candidate: Dict[str, Any],
             validation_problems: Sequence[str],
+            require_source_contract: bool = False,
         ) -> Dict[str, Any]:
-            repaired, _text_out, usage = call(
-                system_blocks=audit_system,
-                user_blocks=build_literal_sequence_retry_user_blocks(
+            nonlocal repair_calls_used, literal_sequence_correction_calls_used
+            first_request = {
+                "system_blocks": audit_system,
+                "user_blocks": build_literal_sequence_retry_user_blocks(
                     text,
                     title,
                     coverage_payload,
@@ -16912,18 +18903,187 @@ def run_coverage_v1(
                     sequence_focus,
                     validation_problems,
                 ),
-                model_key=route,
-                tool=LITERAL_SEQUENCE_TOOL,
-                thinking_budget=LITERAL_SEQUENCE_THINKING_BUDGET,
-                max_tokens=LITERAL_SEQUENCE_MAX_TOKENS,
-                proxy_url=proxy_url,
-                job_id=job_id,
-                stage="coverage_v1.literal_sequence_retry",
-                pipeline_pass="coverage_v1",
-            )
-            return _merge_literal_sequence_retry(
+                "model_key": route,
+                "tool": LITERAL_SEQUENCE_TOOL,
+                "thinking_budget": LITERAL_SEQUENCE_THINKING_BUDGET,
+                "max_tokens": LITERAL_SEQUENCE_MAX_TOKENS,
+                "proxy_url": proxy_url,
+                "job_id": job_id,
+                "stage": "coverage_v1.literal_sequence_retry",
+                "pipeline_pass": "coverage_v1",
+                "retries": 1,
+            }
+            first_retry_fingerprint = _request_fingerprint(first_request)
+            repaired: Any = None
+            if require_source_contract:
+                prior_lineage = _verified_payload(
+                    checkpoint_store.load(
+                        checkpoint_key,
+                        "literal_sequence_correction_request",
+                    ),
+                    binding,
+                    "literal_sequence_correction_request",
+                )
+                if prior_lineage is not None:
+                    prior_version = prior_lineage.get("contract_version")
+                    prior_fingerprint = prior_lineage.get(
+                        "first_retry_fingerprint"
+                    )
+                    if (
+                        prior_version not in {
+                            LITERAL_SEQUENCE_CORRECTION_CHECKPOINT_VERSION,
+                            PRIOR_LITERAL_SEQUENCE_CORRECTION_CHECKPOINT_VERSION,
+                        }
+                        or not isinstance(prior_fingerprint, str)
+                    ):
+                        raise CheckpointTamperedError(
+                            "Literal sequence correction lineage is malformed"
+                        )
+                    replayed_retry = guard.replay_call(
+                        prior_fingerprint,
+                        "coverage_v1.literal_sequence_retry",
+                    )
+                    if replayed_retry is None:
+                        raise CheckpointTamperedError(
+                            "Literal sequence retry lineage has no receipt"
+                        )
+                    repaired = replayed_retry[0]
+                    if (
+                        not isinstance(repaired, dict)
+                        or canonical_json_hash(repaired)
+                        != prior_lineage.get("rejected_payload_sha256")
+                    ):
+                        raise CheckpointTamperedError(
+                            "Literal sequence retry receipt changed"
+                        )
+                    first_retry_fingerprint = prior_fingerprint
+            if repaired is None:
+                repaired, _text_out, usage = call(**first_request)
+            try:
+                merged_retry = _merge_literal_sequence_retry(
+                    candidate,
+                    repaired,
+                    page_reference_map["valid_citation_pages"],
+                    text,
+                )
+            except CoverageContractError as error:
+                merge_failure = str(error)
+                if not merge_failure.startswith(
+                    "Literal sequence retry omitted or collapsed prior "
+                    "material events:"
+                ):
+                    raise
+            else:
+                if not require_source_contract:
+                    return merged_retry
+                merge_failure = (
+                    "Literal sequence retry lacks the required hash-bound "
+                    "source contract"
+                )
+            if literal_sequence_correction_calls_used >= 1:
+                raise CoverageContractError(
+                    "Literal sequence correction call was already used"
+                )
+
+            rejected = _normalize_literal_sequence_retry(
                 candidate,
                 repaired,
+                page_reference_map["valid_citation_pages"],
+            )
+            sequence_problems = [
+                problem for problem in validate_audit_payload(
+                    rejected,
+                    claims,
+                    coverage_payload,
+                    page_reference_map,
+                    existing_evidence_checks,
+                )
+                if problem.startswith("sequence_ledger[")
+            ]
+            inventory = build_literal_sequence_stage_inventory(
+                text, content_sha256
+            )
+            failures = [merge_failure, *sequence_problems]
+            correction_blocks = build_literal_sequence_correction_user_blocks(
+                text,
+                title,
+                candidate,
+                repaired,
+                page_reference_map,
+                sequence_focus,
+                inventory,
+                failures,
+            )
+            correction_tool = build_literal_sequence_correction_tool(inventory)
+            correction_request = {
+                "system_blocks": audit_system,
+                "user_blocks": correction_blocks,
+                "model_key": route,
+                "tool": correction_tool,
+                "thinking_budget": LITERAL_SEQUENCE_THINKING_BUDGET,
+                "max_tokens": LITERAL_SEQUENCE_CORRECTION_MAX_TOKENS,
+                "proxy_url": proxy_url,
+                "job_id": job_id,
+                "stage": "coverage_v1.literal_sequence_correction",
+                "pipeline_pass": "coverage_v1",
+                "retries": 1,
+            }
+            correction_request_fingerprint = _request_fingerprint(
+                correction_request
+            )
+            correction_checkpoint = {
+                "contract_version": (
+                    LITERAL_SEQUENCE_CORRECTION_CHECKPOINT_VERSION
+                ),
+                "first_retry_fingerprint": first_retry_fingerprint,
+                "rejected_payload_sha256": canonical_json_hash(repaired),
+                "validation_failures": failures,
+                "source_focus_sha256": canonical_json_hash(
+                    correction_blocks[:3]
+                ),
+                "inventory_sha256": canonical_json_hash(inventory),
+                "correction_request_fingerprint": (
+                    correction_request_fingerprint
+                ),
+            }
+            correction_stage = "literal_sequence_correction_request"
+            prior_correction_checkpoint = _verified_payload(
+                checkpoint_store.load(checkpoint_key, correction_stage),
+                binding,
+                correction_stage,
+            )
+            if prior_correction_checkpoint is not None:
+                stale_prior_contract = (
+                    _is_prior_literal_sequence_correction_checkpoint(
+                        prior_correction_checkpoint, correction_checkpoint
+                    )
+                )
+                if (
+                    prior_correction_checkpoint != correction_checkpoint
+                    and not stale_prior_contract
+                ):
+                    raise CheckpointTamperedError(
+                        "Literal sequence correction checkpoint changed"
+                    )
+                if stale_prior_contract:
+                    checkpoint_store.save(
+                        checkpoint_key,
+                        correction_stage,
+                        _sealed_record(binding, correction_checkpoint),
+                    )
+            else:
+                checkpoint_store.save(
+                    checkpoint_key,
+                    correction_stage,
+                    _sealed_record(binding, correction_checkpoint),
+                )
+            literal_sequence_correction_calls_used += 1
+            repair_calls_used += 1
+            corrected, _text_out, usage = call(**correction_request)
+            return _merge_literal_sequence_correction(
+                candidate,
+                corrected,
+                inventory,
                 page_reference_map["valid_citation_pages"],
                 text,
             )
@@ -16959,6 +19119,32 @@ def run_coverage_v1(
             page_reference_map,
             existing_evidence_checks,
         )
+        literal_contract_problem = _literal_sequence_contract_problem(
+            tool_input, text, content_sha256
+        )
+        if literal_contract_problem:
+            literal_retry_problems = (
+                list(audit_first_pass_problems)
+                or [literal_contract_problem]
+            )
+            audit_first_pass_problems = [
+                literal_contract_problem, *problems[:7]
+            ]
+            repair_calls_used += 1
+            audit_core_repair_model = model_key
+            tool_input = _literal_sequence_retry_call(
+                model_key,
+                tool_input,
+                literal_retry_problems,
+                require_source_contract=True,
+            )
+            problems = validate_audit_payload(
+                tool_input,
+                claims,
+                coverage_payload,
+                page_reference_map,
+                existing_evidence_checks,
+            )
         if (
             audit_retry_calls_used < MAX_REPAIR_CALLS
             and _audit_problems_need_literal_sequence_retry(
@@ -18465,7 +20651,9 @@ def run_coverage_v1(
                 "ending_pages": sequence_focus["ending_pages"],
                 "focus_sha256": sequence_focus["focus_sha256"],
                 "ledger_sha256": canonical_json_hash(
-                    audit_payload.get("sequence_ledger", [])
+                    _public_sequence_ledger(
+                        audit_payload.get("sequence_ledger", [])
+                    )
                 ),
                 "guard": by_claim.get("guard.sequence_integrity"),
                 "normalizations": audit_payload.get(
@@ -18485,7 +20673,9 @@ def run_coverage_v1(
                 "existing_evidence_verdicts"
             ],
             "sequence_evidence": audit_payload["sequence_evidence"],
-            "sequence_ledger": audit_payload["sequence_ledger"],
+            "sequence_ledger": _public_sequence_ledger(
+                audit_payload["sequence_ledger"]
+            ),
             "sequence_normalization_diagnostics": audit_payload.get(
                 "sequence_normalization_diagnostics", []
             ),
