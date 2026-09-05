@@ -82,9 +82,13 @@ export const MODEL_OPTIONS: ModelInfo[] = [
 
 export const STATUS_LABELS: Record<UploadStatus, { label: string; color: string }> = {
   pending: { label: 'Pending', color: 'text-black-400' },
+  uploading: { label: 'Uploading', color: 'text-blue-400' },
+  uploaded: { label: 'Uploaded', color: 'text-blue-400' },
+  queued: { label: 'Queued', color: 'text-blue-400' },
   parsing: { label: 'Parsing PDF...', color: 'text-blue-400' },
   analyzing: { label: 'AI Analyzing...', color: 'text-gold-400' },
   promoting: { label: '\u2B06\uFE0F Promoted \u2192 Opus re-analysis...', color: 'text-purple-400' },
+  waiting_for_budget: { label: 'Waiting for Budget', color: 'text-amber-400' },
   complete: { label: 'Complete', color: 'text-emerald-400' },
   error: { label: 'Error', color: 'text-red-400' },
   skipped: { label: 'Skipped (duplicate)', color: 'text-black-400' },

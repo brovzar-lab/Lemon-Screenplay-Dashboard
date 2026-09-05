@@ -184,6 +184,7 @@ OUTPUT_COLLECTION = "uploaded_analyses"
 CALIBRATION_COLLECTION = "producer_profiles"
 CALIBRATION_PROFILE_ID = "admin"
 MAX_CALIBRATION_PROMPT_CHARS = 12_000
+VALID_JOB_ENGINES = {"v9", "coverage_v1"}
 
 
 class TerminalJobError(ValueError):
@@ -202,6 +203,21 @@ def resolve_model_route(requested_model: Any) -> str:
     raise TerminalJobError(
         f"Unsupported analysis model route {requested_model!r}; refusing silent fallback"
     )
+
+
+def resolve_engine_route(value: object) -> str:
+    """Keep legacy jobs on V9 while refusing every unknown explicit route."""
+    if value in (None, ""):
+        return "v9"
+    if isinstance(value, str) and value in VALID_JOB_ENGINES:
+        return value
+    raise TerminalJobError(
+        f"Unsupported analysis engine {value!r}; refusing silent fallback"
+    )
+
+
+def coverage_v1_enabled() -> bool:
+    return os.getenv("LEMON_ENGINE_COVERAGE_V1", "0") == "1"
 
 
 _active_job_ids: set[str] = set()
@@ -524,11 +540,17 @@ def claim_pending_job() -> Optional[dict]:
     Returns the job dict or None if queue is empty.
     Only claims status='pending' jobs — never touches 'complete' or 'failed'.
     """
-    # Budget waiters are outside the claimable queue until their UTC reset.
+    # Budget and disabled-engine waiters stay outside the claimable queue until
+    # their prerequisite changes.
     try:
         resume_due_budget_jobs()
     except Exception as error:
         log.warning(f"[budget] Could not release due waiters: {error}")
+    if coverage_v1_enabled():
+        try:
+            resume_waiting_for_engine_jobs()
+        except Exception as error:
+            log.warning(f"[engine] Could not release Coverage waiters: {error}")
 
     # Query: pending, ordered by priority desc then queued_at asc
     candidates = (
@@ -546,6 +568,25 @@ def claim_pending_job() -> Optional[dict]:
     # Try to claim each candidate until one succeeds (handles concurrent workers)
     for doc in docs:
         ref = doc.reference
+        candidate = doc.to_dict() or {}
+        try:
+            engine = resolve_engine_route(candidate.get("engine"))
+            if engine == "coverage_v1" and not coverage_v1_enabled():
+                mark_waiting_for_engine(doc.id)
+                continue
+            dependency, reason = same_batch_dependency_state(candidate)
+            if dependency == "waiting":
+                continue
+            if dependency == "failed":
+                mark_needs_review(
+                    doc.id,
+                    reason or "The same-batch parent did not become Ready.",
+                    failure_kind="parent_upload_not_ready",
+                )
+                continue
+        except TerminalJobError as error:
+            mark_terminal_failed(doc.id, error)
+            continue
 
         @fb_firestore.transactional
         def try_claim(transaction, ref):
@@ -575,6 +616,46 @@ def claim_pending_job() -> Optional[dict]:
             continue
 
     return None
+
+
+def same_batch_dependency_state(job: dict) -> tuple[str, Optional[str]]:
+    """Return ready/waiting/failed for a same-batch revision parent."""
+    depends_on = job.get("depends_on_upload_id")
+    if depends_on in (None, ""):
+        return "ready", None
+    if (
+        not isinstance(depends_on, str)
+        or not re.fullmatch(r"[a-zA-Z0-9_-]{8,128}", depends_on)
+        or depends_on == job.get("upload_id")
+    ):
+        raise TerminalJobError("depends_on_upload_id is invalid")
+
+    parents = list(
+        _db.collection(QUEUE_COLLECTION)
+        .where("upload_id", "==", depends_on)
+        .limit(5)
+        .stream()
+    )
+    if not parents:
+        return "waiting", None
+
+    target_project_id = job.get("target_project_id")
+    states = [parent.to_dict() or {} for parent in parents]
+    for parent in states:
+        if parent.get("status") != "complete":
+            continue
+        if (
+            isinstance(target_project_id, str)
+            and target_project_id
+            and parent.get("screenplay_doc_id") != target_project_id
+        ):
+            return "failed", "The same-batch parent completed under a different project."
+        return "ready", None
+
+    terminal = {"failed", "skipped", "needs_review"}
+    if states and all(parent.get("status") in terminal for parent in states):
+        return "failed", "The same-batch parent did not become Ready."
+    return "waiting", None
 
 # ── Heartbeat ─────────────────────────────────────────────────────────────────
 
@@ -883,7 +964,11 @@ def existing_version_completion_telemetry(
     }
 
 
-def resolve_target_project_id(value: object) -> Optional[str]:
+def resolve_target_project_id(
+    value: object,
+    *,
+    allow_coverage_parent: bool = False,
+) -> Optional[str]:
     """Validate that an explicitly targeted revision parent already exists."""
     if value is None:
         return None
@@ -899,11 +984,20 @@ def resolve_target_project_id(value: object) -> Optional[str]:
         raise TerminalJobError("target_project_id must be a Firestore document ID")
 
     parent = _db.collection(OUTPUT_COLLECTION).document(target_project_id).get()
-    if not parent.exists:
-        raise TerminalJobError(
-            f"target_project_id does not exist: {target_project_id}"
+    if parent.exists:
+        return target_project_id
+    if allow_coverage_parent:
+        reports = (
+            _db.collection(COVERAGE_V1_REPORTS_COLLECTION)
+            .where("project_id", "==", target_project_id)
+            .limit(10)
+            .stream()
         )
-    return target_project_id
+        if any((snapshot.to_dict() or {}).get("status") == "sealed" for snapshot in reports):
+            return target_project_id
+    raise TerminalJobError(
+        f"target_project_id does not exist: {target_project_id}"
+    )
 
 
 def choose_output_project_id(
@@ -1050,6 +1144,25 @@ def check_tmdb_for_job(title_hint: str) -> tuple[bool, str, dict | None]:
 COVERAGE_V1_REPORTS_COLLECTION = "coverage_v1_reports"
 
 
+def coverage_report_wrapper_matches(
+    wrapper: dict,
+    report: dict,
+    *,
+    screenplay_doc_id: str,
+    version_id: str,
+    content_hash: str,
+    report_sha256: str,
+) -> bool:
+    return (
+        report.get("analysis_version") == "coverage_v1"
+        and report.get("content_sha256") == content_hash
+        and wrapper.get("content_hash") == content_hash
+        and wrapper.get("project_id") == screenplay_doc_id
+        and wrapper.get("version_id") == version_id
+        and wrapper.get("report_sha256") == report_sha256
+    )
+
+
 def run_coverage_v1_job(
     *,
     job: dict,
@@ -1088,6 +1201,55 @@ def run_coverage_v1_job(
         max_cost_usd = float(job.get("max_cost_usd", coverage_v1.DEFAULT_MAX_COST_USD))
     except (TypeError, ValueError):
         max_cost_usd = coverage_v1.DEFAULT_MAX_COST_USD
+
+    report_doc_id = f"{screenplay_doc_id}__{version_id}"
+    report_ref = _db.collection(COVERAGE_V1_REPORTS_COLLECTION).document(report_doc_id)
+    existing_snapshot = report_ref.get()
+    if existing_snapshot.exists:
+        wrapper = existing_snapshot.to_dict() or {}
+        try:
+            report = json.loads(wrapper.get("report_json", ""))
+        except (TypeError, json.JSONDecodeError) as error:
+            mark_needs_review(
+                job_id,
+                f"Existing Coverage report is unreadable: {error}",
+                failure_kind="coverage_v1_existing_report_invalid",
+            )
+            return
+        if not isinstance(report, dict) or not coverage_report_wrapper_matches(
+            wrapper,
+            report,
+            screenplay_doc_id=screenplay_doc_id,
+            version_id=version_id,
+            content_hash=content_hash,
+            report_sha256=coverage_v1.canonical_json_hash(report),
+        ):
+            mark_needs_review(
+                job_id,
+                "Existing Coverage report failed its identity or payload hash check.",
+                failure_kind="coverage_v1_existing_report_invalid",
+            )
+            return
+        finish_coverage_v1_job(
+            job_id=job_id,
+            screenplay_doc_id=screenplay_doc_id,
+            version_id=version_id,
+            report_doc_id=report_doc_id,
+            report=report,
+            usage={"call_count": 0, "actual_cost_microusd": 0},
+            duration=round(time.time() - start_time),
+            archive_storage_path=archive_storage_path,
+            archive_storage_generation=archive_storage_generation,
+            idempotent_replay=True,
+        )
+        return
+
+    try:
+        check_daily_budget_available()
+    except BudgetExceededError as error:
+        mark_waiting_for_budget(job_id, error, attempt_count)
+        log.warning(f"[coverage_v1] Pausing for budget — {error}")
+        return
 
     usage_sink: dict = {}
     try:
@@ -1144,52 +1306,132 @@ def run_coverage_v1_job(
         mark_failed(job_id, e, attempt_count)
         return
 
-    report_doc_id = f"{screenplay_doc_id}__{version_id}"
-    report_ref = _db.collection(COVERAGE_V1_REPORTS_COLLECTION).document(report_doc_id)
-    if not report_ref.get().exists:
-        report_ref.create({
-            "report_json": json.dumps(report, ensure_ascii=False, sort_keys=True),
-            "report_sha256": coverage_v1.canonical_json_hash(report),
-            "project_id": screenplay_doc_id,
-            "version_id": version_id,
-            "job_id": job_id,
-            "title": title,
-            "status": report["status"],
-            "verdict": report["verdict"],
-            "confidence": report["confidence"],
-            "film_now_nominated": report["film_now_nominated"],
-            "human_review_recommended": report["human_review_recommended"],
-            "content_hash": content_hash,
-            "engine_version": report["engine_version"],
-            "lens_stack": report["lens_stack"],
-            "archived_storage_path": archive_storage_path,
-            "archived_storage_generation": archive_storage_generation,
-            "cost_settled_usd": report["cost"]["settled_usd"],
-            "cost_uncertain_usd": report["cost"]["uncertain_usd"],
-            "cost_charged_usd": report["cost"]["charged_usd"],
-            "created_at": fb_firestore.SERVER_TIMESTAMP,
-        })
+    report_sha256 = coverage_v1.canonical_json_hash(report)
+    report_wrapper = {
+        "report_json": json.dumps(report, ensure_ascii=False, sort_keys=True),
+        "report_sha256": report_sha256,
+        "analysis_version": "coverage_v1",
+        "project_id": screenplay_doc_id,
+        "version_id": version_id,
+        "job_id": job_id,
+        "title": title,
+        "source_file": f"coverage-v1/{title}",
+        "status": report["status"],
+        "verdict": report["verdict"],
+        "confidence": report["confidence"],
+        "film_now_nominated": report["film_now_nominated"],
+        "human_review_recommended": report["human_review_recommended"],
+        "content_hash": content_hash,
+        "content_sha256": content_hash,
+        "engine_version": report["engine_version"],
+        "lens_stack": report["lens_stack"],
+        "collection_id": job.get("collection_id", "OTHER"),
+        "storage_path": archive_storage_path,
+        "storage_generation": archive_storage_generation,
+        "archived_storage_path": archive_storage_path,
+        "archived_storage_generation": archive_storage_generation,
+        "cost_settled_usd": report["cost"]["settled_usd"],
+        "cost_uncertain_usd": report["cost"]["uncertain_usd"],
+        "cost_charged_usd": report["cost"]["charged_usd"],
+        "created_at": fb_firestore.SERVER_TIMESTAMP,
+    }
+    try:
+        report_ref.create(report_wrapper)
+    except Exception as error:
+        try:
+            snapshot = report_ref.get()
+            stored = (snapshot.to_dict() or {}) if snapshot.exists else {}
+            if snapshot.exists and coverage_report_wrapper_matches(
+                stored,
+                report,
+                screenplay_doc_id=screenplay_doc_id,
+                version_id=version_id,
+                content_hash=content_hash,
+                report_sha256=report_sha256,
+            ):
+                log.warning(
+                    f"[coverage_v1] Recovered a lost report-write acknowledgement: {error}"
+                )
+            else:
+                error.usage = usage
+                mark_needs_review(
+                    job_id,
+                    "Coverage completed, but its staging write could not be verified. "
+                    "Do not retry paid inference.",
+                    evidence={"usage": _analysis_usage_evidence(usage)},
+                    failure_kind="coverage_v1_report_write_unverified",
+                )
+                return
+        except Exception:
+            error.usage = usage
+            raise error
 
-    duration = round(time.time() - start_time)
-    mark_complete(job_id, screenplay_doc_id, {
+    finish_coverage_v1_job(
+        job_id=job_id,
+        screenplay_doc_id=screenplay_doc_id,
+        version_id=version_id,
+        report_doc_id=report_doc_id,
+        report=report,
+        usage=usage,
+        duration=round(time.time() - start_time),
+        archive_storage_path=archive_storage_path,
+        archive_storage_generation=archive_storage_generation,
+    )
+
+
+def finish_coverage_v1_job(
+    *,
+    job_id: str,
+    screenplay_doc_id: str,
+    version_id: str,
+    report_doc_id: str,
+    report: dict,
+    usage: dict,
+    duration: int,
+    archive_storage_path: str,
+    archive_storage_generation: Optional[int],
+    idempotent_replay: bool = False,
+) -> None:
+    """Publish only sealed Coverage reports; park every other result for review."""
+    report_cost = report.get("cost") if isinstance(report.get("cost"), dict) else {}
+    actual_cost_microusd = int(
+        usage.get("actual_cost_microusd")
+        or round(float(report_cost.get("settled_usd", 0)) * 1_000_000)
+    )
+    call_count = int(usage.get("call_count") or report_cost.get("call_count", 0))
+    telemetry = {
         "duration_seconds": duration,
         "input_tokens": usage.get("input_tokens", 0),
         "output_tokens": usage.get("output_tokens", 0),
-        "analysis_llm_call_count": int(usage.get("call_count", 0)),
-        "analysis_actual_cost_microusd": int(usage.get("actual_cost_microusd", 0)),
-        "analysis_actual_cost_usd": int(usage.get("actual_cost_microusd", 0)) / 1_000_000,
-        "estimated_cost_usd": int(usage.get("actual_cost_microusd", 0)) / 1_000_000,
+        "analysis_llm_call_count": call_count,
+        "analysis_actual_cost_microusd": actual_cost_microusd,
+        "analysis_actual_cost_usd": actual_cost_microusd / 1_000_000,
+        "estimated_cost_usd": actual_cost_microusd / 1_000_000,
         "analysis_version": "coverage_v1",
         "engine": "coverage_v1",
+        "version_id": version_id,
         "coverage_v1_report_id": report_doc_id,
-        "coverage_v1_status": report["status"],
+        "coverage_v1_status": report.get("status"),
         "archived_storage_path": archive_storage_path,
         "archived_storage_generation": archive_storage_generation,
-    })
-    log.info(
-        f"[coverage_v1] {title!r} → {report['verdict']} "
-        f"({report['status']}, {report['cost']['charged_usd']:.2f} USD charged, "
-        f"{int(usage.get('call_count', 0))} calls)"
+        "idempotent_replay": idempotent_replay,
+    }
+    if report.get("status") == "sealed":
+        mark_complete(job_id, screenplay_doc_id, telemetry)
+        log.info(
+            f"[coverage_v1] {report.get('title', screenplay_doc_id)!r} → "
+            f"{report.get('verdict')} (sealed, {actual_cost_microusd / 1_000_000:.2f} "
+            f"USD settled, {call_count} calls)"
+        )
+        return
+
+    reasons = report.get("review_reasons")
+    reason = "; ".join(str(item) for item in reasons) if isinstance(reasons, list) else ""
+    mark_needs_review(
+        job_id,
+        reason or "Coverage V1.2 did not pass its publication gate.",
+        failure_kind="coverage_v1_unsealed_report",
+        extra={"screenplay_doc_id": screenplay_doc_id, **telemetry},
     )
 
 
@@ -1351,6 +1593,43 @@ def resume_due_budget_jobs(now: Optional[datetime] = None) -> int:
     return resumed
 
 
+def mark_waiting_for_engine(job_id: str, attempt_count: Optional[int] = None) -> None:
+    """Park Coverage work without skipping it or silently converting it to V9."""
+    update = {
+        "status": "waiting_for_engine",
+        "last_error": "Coverage V1.2 worker is disabled; the job remains safely queued.",
+        "failure_kind": "engine_wait",
+        "retryable": True,
+        "worker_id": None,
+        "last_heartbeat_at": None,
+        "processing_started_at": None,
+    }
+    if attempt_count is not None:
+        update["attempt_count"] = max(0, int(attempt_count) - 1)
+    _db.collection(QUEUE_COLLECTION).document(job_id).update(update)
+
+
+def resume_waiting_for_engine_jobs() -> int:
+    """Release parked Coverage work only on an explicitly enabled worker."""
+    if not coverage_v1_enabled():
+        return 0
+    candidates = (
+        _db.collection(QUEUE_COLLECTION)
+        .where("status", "==", "waiting_for_engine")
+        .limit(50)
+        .stream()
+    )
+    resumed = 0
+    for snapshot in candidates:
+        snapshot.reference.update({
+            "status": "pending",
+            "failure_kind": None,
+            "last_error": None,
+        })
+        resumed += 1
+    return resumed
+
+
 def mark_terminal_failed(job_id: str, error: Exception) -> None:
     """Fail a deterministic job once; retrying cannot change this outcome."""
     update = {
@@ -1376,9 +1655,11 @@ def mark_needs_review(
     *,
     evidence: Optional[dict] = None,
     failure_kind: str = "evidence_review",
+    extra: Optional[dict] = None,
 ) -> None:
     """Stop safely when source or model evidence cannot support a verdict."""
     update = {
+        **(extra or {}),
         "status": "needs_review",
         "review_reason": str(reason)[:2000],
         "failure_kind": failure_kind,
@@ -1587,8 +1868,8 @@ def process_job(job: dict) -> None:
     Full lifecycle for a single ingest job. Called in a thread pool.
     - Downloads PDF to isolated workdir
     - Validates content
-    - Runs ingest_v9.py V9 Archaeology Engine analysis
-    - Writes to Firestore
+    - Routes to Coverage V1.2 or the legacy V9 engine
+    - Writes to the engine-specific Firestore collection
     - Updates job doc with telemetry
     """
     job_id   = job["id"]
@@ -1611,6 +1892,10 @@ def process_job(job: dict) -> None:
     workdir = WORK_DIR / job_id
 
     try:
+        engine = resolve_engine_route(job.get("engine"))
+        if engine == "coverage_v1" and not coverage_v1_enabled():
+            mark_waiting_for_engine(job_id, attempt_count)
+            return
         model_key = resolve_model_route(requested_model)
         workdir.mkdir(parents=True, exist_ok=True)
         heartbeat.start()
@@ -1626,7 +1911,14 @@ def process_job(job: dict) -> None:
         })
 
         # A renamed revision may only attach to a real existing project.
-        target_project_id = resolve_target_project_id(job.get("target_project_id"))
+        target_project_id = (
+            resolve_target_project_id(
+                job.get("target_project_id"),
+                allow_coverage_parent=True,
+            )
+            if engine == "coverage_v1"
+            else resolve_target_project_id(job.get("target_project_id"))
+        )
 
         # ── 3. Run analysis via V9 Archaeology Engine ──────────────────────
         # Import the V9 engine (runs in the same Python process)
@@ -1655,8 +1947,12 @@ def process_job(job: dict) -> None:
 
         screenplay_doc_id = project_id or ingest_v9.to_doc_id(filename)
         version_id = build_version_id(content_hash, queued_at_ms)
-        existing_version = get_existing_version(screenplay_doc_id, version_id)
-        if existing_version is not None:
+        existing_version = (
+            get_existing_version(screenplay_doc_id, version_id)
+            if engine == "v9"
+            else None
+        )
+        if engine == "v9" and existing_version is not None:
             ingest_v9.validate_permanent_analysis(existing_version)
             verify_archived_pdf_version(
                 storage_path=existing_version.get("storage_path"),
@@ -1677,7 +1973,8 @@ def process_job(job: dict) -> None:
             return
 
         if (
-            target_project_id is None
+            engine == "v9"
+            and target_project_id is None
             and separate_project is not True
             and not job.get("bypass_duplicate", False)
             and is_already_complete(
@@ -1762,14 +2059,15 @@ def process_job(job: dict) -> None:
         # The strict dollar reservation still happens inside llmProxy for
         # every model call. This read prevents known-exhausted jobs from doing
         # archive/calibration preparation before they pause.
-        try:
-            check_daily_budget_available()
-        except BudgetExceededError as e:
-            mark_waiting_for_budget(job_id, e, attempt_count)
-            log.warning(f"[budget] Pausing — {e}")
-            return
+        if engine == "v9":
+            try:
+                check_daily_budget_available()
+            except BudgetExceededError as e:
+                mark_waiting_for_budget(job_id, e, attempt_count)
+                log.warning(f"[budget] Pausing — {e}")
+                return
 
-        calibration_profile = load_calibration_profile()
+        calibration_profile = load_calibration_profile() if engine == "v9" else None
         archive_storage_path, archive_storage_generation = archive_pdf_version(
             storage_path=storage_path,
             storage_generation=storage_generation,
@@ -1788,14 +2086,7 @@ def process_job(job: dict) -> None:
         # Double opt-in: the daemon env flag AND the job's engine field must
         # both select it. Results go to a separate staging collection; the
         # immutable V9 store is never written by this route.
-        if str(job.get("engine", "")).strip().lower() == "coverage_v1":
-            if os.getenv("LEMON_ENGINE_COVERAGE_V1", "0") != "1":
-                mark_skipped(
-                    job_id,
-                    "coverage_v1 was requested but is not enabled on this "
-                    "daemon (set LEMON_ENGINE_COVERAGE_V1=1)",
-                )
-                return
+        if engine == "coverage_v1":
             run_coverage_v1_job(
                 job=job,
                 job_id=job_id,

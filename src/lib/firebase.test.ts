@@ -147,6 +147,30 @@ describe('firebase module', () => {
     );
   });
 
+  it('binds Coverage and its same-batch parent to Storage metadata', async () => {
+    const file = new File(['new draft'], 'Draft Two.pdf', {
+      type: 'application/pdf',
+    });
+
+    await firebaseModule.uploadPdfToIngestQueue(file, 'LEMON', {
+      uploadId: 'child-upload',
+      engine: 'coverage_v1',
+      targetProjectId: 'Draft_One.pdf',
+      dependsOnUploadId: 'parent-upload',
+    });
+
+    expect(mockUploadBytes).toHaveBeenCalledWith(
+      { path: 'ingest-queue/LEMON/child-upload/Draft_Two.pdf' },
+      file,
+      expect.objectContaining({
+        customMetadata: expect.objectContaining({
+          engine: 'coverage_v1',
+          dependsOnUploadId: 'parent-upload',
+        }),
+      }),
+    );
+  });
+
   it('marks a title collision as an explicitly separate project', async () => {
     const file = new File(['different screenplay'], 'Shared Title.pdf', {
       type: 'application/pdf',

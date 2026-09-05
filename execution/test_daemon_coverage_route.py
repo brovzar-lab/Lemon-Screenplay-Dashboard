@@ -4,6 +4,7 @@ Run: python3 -m execution.test_daemon_coverage_route
 Offline: Firestore and the engine are always fakes.
 """
 
+import json
 import os
 import sys
 import tempfile
@@ -26,6 +27,7 @@ import ingest_v9  # noqa: E402
 def sealed_report(**overrides):
     report = {
         "analysis_version": "coverage_v1",
+        "content_sha256": "ab" * 32,
         "engine_version": coverage_v1.ENGINE_VERSION,
         "status": "sealed",
         "verdict": "RECOMMEND",
@@ -81,6 +83,7 @@ class CoverageV1RouteTests(unittest.TestCase):
         self.prior_db = daemon._db
         daemon._db = MagicMock()
         self.doc = daemon._db.collection.return_value.document.return_value
+        self.doc.get.return_value.exists = False
 
     def tearDown(self):
         daemon._db = self.prior_db
@@ -103,6 +106,8 @@ class CoverageV1RouteTests(unittest.TestCase):
         self.assertEqual(created["verdict"], "RECOMMEND")
         self.assertIn("report_json", created)
         self.assertEqual(created["cost_settled_usd"], 0.31)
+        self.assertEqual(created["source_file"], "coverage-v1/El Último Portero")
+        self.assertEqual(created["storage_path"], "archive/el-ultimo-portero.pdf")
 
         completion = self.doc.update.call_args.args[0]
         self.assertEqual(completion["status"], "complete")
@@ -111,15 +116,109 @@ class CoverageV1RouteTests(unittest.TestCase):
         self.assertAlmostEqual(completion["analysis_actual_cost_usd"], 0.31)
 
     def test_existing_report_is_not_overwritten(self):
+        report = sealed_report()
         self.doc.get.return_value.exists = True
+        self.doc.get.return_value.to_dict.return_value = {
+            "report_json": json.dumps(report),
+            "report_sha256": coverage_v1.canonical_json_hash(report),
+            "project_id": "el-ultimo-portero",
+            "version_id": ("ab" * 32) + "_1784588800123",
+            "content_hash": "ab" * 32,
+        }
         with patch.object(
             coverage_v1, "run_coverage_v1",
-            return_value=(sealed_report(), engine_usage()),
-        ):
+        ) as engine:
             daemon.run_coverage_v1_job(**job_kwargs())
+        engine.assert_not_called()
         self.doc.create.assert_not_called()
         completion = self.doc.update.call_args.args[0]
         self.assertEqual(completion["status"], "complete")
+        self.assertTrue(completion["idempotent_replay"])
+        self.assertEqual(completion["analysis_actual_cost_microusd"], 310_000)
+
+    def test_invalid_existing_report_stops_without_spending(self):
+        report = sealed_report()
+        self.doc.get.return_value.exists = True
+        self.doc.get.return_value.to_dict.return_value = {
+            "report_json": json.dumps(report),
+            "report_sha256": "wrong",
+            "project_id": "el-ultimo-portero",
+            "version_id": ("ab" * 32) + "_1784588800123",
+            "content_hash": "ab" * 32,
+        }
+        with patch.object(coverage_v1, "run_coverage_v1") as engine:
+            daemon.run_coverage_v1_job(**job_kwargs())
+        engine.assert_not_called()
+        update = self.doc.update.call_args.args[0]
+        self.assertEqual(update["status"], "needs_review")
+        self.assertEqual(update["failure_kind"], "coverage_v1_existing_report_invalid")
+
+    def test_unsealed_report_is_written_but_job_needs_review(self):
+        report = sealed_report(
+            status="needs_review",
+            review_reasons=["Literal climax order is not verified."],
+            human_review_recommended=True,
+        )
+        with patch.object(
+            coverage_v1, "run_coverage_v1",
+            return_value=(report, engine_usage()),
+        ):
+            daemon.run_coverage_v1_job(**job_kwargs())
+
+        created = self.doc.create.call_args.args[0]
+        self.assertEqual(created["status"], "needs_review")
+        update = self.doc.update.call_args.args[0]
+        self.assertEqual(update["status"], "needs_review")
+        self.assertEqual(update["failure_kind"], "coverage_v1_unsealed_report")
+        self.assertEqual(update["screenplay_doc_id"], "el-ultimo-portero")
+        self.assertIn("Literal climax order", update["review_reason"])
+
+    def test_lost_report_write_acknowledgement_does_not_repeat_inference(self):
+        report = sealed_report()
+        missing = MagicMock(exists=False)
+        stored = MagicMock(exists=True)
+        stored.to_dict.return_value = {
+            "report_json": json.dumps(report),
+            "report_sha256": coverage_v1.canonical_json_hash(report),
+            "project_id": "el-ultimo-portero",
+            "version_id": ("ab" * 32) + "_1784588800123",
+            "content_hash": "ab" * 32,
+        }
+        self.doc.get.side_effect = [missing, stored]
+        self.doc.create.side_effect = RuntimeError("lost acknowledgement")
+
+        with (
+            patch.object(daemon, "check_daily_budget_available"),
+            patch.object(
+                coverage_v1,
+                "run_coverage_v1",
+                return_value=(report, engine_usage()),
+            ) as engine,
+        ):
+            daemon.run_coverage_v1_job(**job_kwargs())
+
+        engine.assert_called_once()
+        completion = self.doc.update.call_args.args[0]
+        self.assertEqual(completion["status"], "complete")
+
+    def test_unverified_report_write_stops_after_paid_work(self):
+        missing = MagicMock(exists=False)
+        self.doc.get.side_effect = [missing, missing]
+        self.doc.create.side_effect = RuntimeError("write unavailable")
+
+        with (
+            patch.object(daemon, "check_daily_budget_available"),
+            patch.object(
+                coverage_v1,
+                "run_coverage_v1",
+                return_value=(sealed_report(), engine_usage()),
+            ),
+        ):
+            daemon.run_coverage_v1_job(**job_kwargs())
+
+        update = self.doc.update.call_args.args[0]
+        self.assertEqual(update["status"], "needs_review")
+        self.assertEqual(update["failure_kind"], "coverage_v1_report_write_unverified")
 
     def test_contract_failure_goes_to_needs_review_not_retry(self):
         with patch.object(

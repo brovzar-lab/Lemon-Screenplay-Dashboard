@@ -29,12 +29,14 @@ import { initializeApp, getApps } from 'firebase-admin/app';
 import {
   INGEST_QUEUE_COLLECTION,
   buildPendingJob,
+  parseIngestEngine,
   parseIngestModel,
 } from './ingestQueue';
 import {
   buildIngestJobId,
   parseIngestPath,
   readBooleanMetadata,
+  readDependsOnUploadId,
   readOriginalFilename,
   readSeparateProject,
   readTargetProjectId,
@@ -104,12 +106,14 @@ export const onScreenplayUploaded = onObjectFinalized(
     // Upload with: gsutil -h "x-goog-meta-model:haiku" cp ...
     // Or set via Firebase Console / SDK custom metadata
     const requestedModel = parseIngestModel(customMeta['model'], 'auto');
+    const engine = parseIngestEngine(customMeta['engine'], 'v9');
     const priority = customMeta['priority'] ? Number(customMeta['priority']) : 0;
     const target_project_id = readTargetProjectId(customMeta);
     const separate_project = readSeparateProject(customMeta);
     const bypass_duplicate = readBooleanMetadata(customMeta, 'bypassDuplicate');
     const bypass_tmdb = readBooleanMetadata(customMeta, 'bypassTmdb');
     const request_kind = customMeta['requestKind'] === 'reanalysis' ? 'reanalysis' : 'upload';
+    const depends_on_upload_id = readDependsOnUploadId(customMeta);
     if (target_project_id && separate_project) {
       throw new Error('Upload metadata cannot target a revision and request a separate project.');
     }
@@ -129,6 +133,8 @@ export const onScreenplayUploaded = onObjectFinalized(
       bypass_duplicate,
       bypass_tmdb,
       request_kind,
+      engine,
+      depends_on_upload_id,
       // content_hash computed by worker (avoids downloading PDF here)
       content_hash: 'pending', // placeholder; worker updates with real SHA-256
       requested_model: requestedModel,
@@ -152,7 +158,8 @@ export const onScreenplayUploaded = onObjectFinalized(
 
     console.log(
       `[onScreenplayUploaded] ✅ Pending job created: ${jobId} ` +
-        `| collection=${collection_id} | file=${originalFilename} | model=${requestedModel}`,
+        `| collection=${collection_id} | file=${originalFilename} ` +
+          `| engine=${engine} | model=${requestedModel}`,
     );
   },
 );

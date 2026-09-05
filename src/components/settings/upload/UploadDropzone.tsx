@@ -9,19 +9,56 @@ import { useTranslation } from 'react-i18next';
 import type { UploadPresentation } from '@/components/settings/upload/upload.types';
 
 interface UploadDropzoneProps {
-  onFilesSelected: (files: FileList | null) => void;
+  onFilesSelected: (files: File[]) => void;
   presentation?: UploadPresentation;
+}
+
+function readFileEntry(entry: FileSystemFileEntry): Promise<File> {
+  return new Promise((resolve, reject) => entry.file(resolve, reject));
+}
+
+function readDirectoryBatch(reader: FileSystemDirectoryReader): Promise<FileSystemEntry[]> {
+  return new Promise((resolve, reject) => reader.readEntries(resolve, reject));
+}
+
+async function readEntry(entry: FileSystemEntry): Promise<File[]> {
+  if (entry.isFile) return [await readFileEntry(entry as FileSystemFileEntry)];
+  if (!entry.isDirectory) return [];
+
+  const reader = (entry as FileSystemDirectoryEntry).createReader();
+  const entries: FileSystemEntry[] = [];
+  for (;;) {
+    const batch = await readDirectoryBatch(reader);
+    if (batch.length === 0) break;
+    entries.push(...batch);
+  }
+  return (await Promise.all(entries.map(readEntry))).flat();
+}
+
+async function collectDroppedFiles(dataTransfer: DataTransfer): Promise<File[]> {
+  const entries = Array.from(dataTransfer.items)
+    .filter((item) => item.kind === 'file')
+    .map((item) => item.webkitGetAsEntry());
+  if (entries.length === 0 || entries.some((entry) => entry === null)) {
+    return Array.from(dataTransfer.files);
+  }
+  return (await Promise.all(entries.map((entry) => readEntry(entry!)))).flat();
 }
 
 export function UploadDropzone({ onFilesSelected, presentation = 'settings' }: UploadDropzoneProps) {
   const { t } = useTranslation();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
   const [dragActive, setDragActive] = useState(false);
 
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     setDragActive(false);
-    onFilesSelected(e.dataTransfer.files);
+    try {
+      onFilesSelected(await collectDroppedFiles(e.dataTransfer));
+    } catch {
+      onFilesSelected(Array.from(e.dataTransfer.files));
+    }
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -55,8 +92,26 @@ export function UploadDropzone({ onFilesSelected, presentation = 'settings' }: U
         aria-label={t('Choose screenplay PDFs')}
         accept=".pdf"
         multiple
-        onChange={(e) => onFilesSelected(e.target.files)}
-        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+        onChange={(event) => {
+          onFilesSelected(Array.from(event.target.files ?? []));
+          event.target.value = '';
+        }}
+        className="hidden"
+      />
+      <input
+        ref={(node) => {
+          folderInputRef.current = node;
+          node?.setAttribute('webkitdirectory', '');
+        }}
+        type="file"
+        aria-label={t('Choose a screenplay folder')}
+        accept=".pdf"
+        multiple
+        onChange={(event) => {
+          onFilesSelected(Array.from(event.target.files ?? []));
+          event.target.value = '';
+        }}
+        className="hidden"
       />
       <div className="space-y-4">
         <div className={clsx(
@@ -74,6 +129,22 @@ export function UploadDropzone({ onFilesSelected, presentation = 'settings' }: U
           <p className={clsx('mt-1 text-sm', presentation === 'intake' ? 'text-[var(--dsc-ink-3)]' : 'text-black-400')}>
             {t('Supports multiple PDF screenplays, up to 50 MB each')}
           </p>
+          <div className="mt-4 flex flex-wrap justify-center gap-3">
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className={presentation === 'intake' ? 'dsc-btn dsc-btn-primary' : 'btn btn-primary'}
+            >
+              {t('Choose PDF files')}
+            </button>
+            <button
+              type="button"
+              onClick={() => folderInputRef.current?.click()}
+              className={presentation === 'intake' ? 'dsc-btn' : 'btn btn-secondary'}
+            >
+              {t('Choose folder')}
+            </button>
+          </div>
         </div>
       </div>
     </div>

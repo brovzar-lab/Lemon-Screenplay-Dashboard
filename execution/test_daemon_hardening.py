@@ -1034,5 +1034,90 @@ class ModelRouteTests(unittest.TestCase):
         mark_terminal.assert_called_once()
 
 
+class EngineRouteTests(unittest.TestCase):
+    def test_missing_engine_is_v9_and_unknown_engine_is_terminal(self):
+        self.assertEqual(daemon.resolve_engine_route(None), "v9")
+        self.assertEqual(daemon.resolve_engine_route(""), "v9")
+        self.assertEqual(daemon.resolve_engine_route("v9"), "v9")
+        self.assertEqual(daemon.resolve_engine_route("coverage_v1"), "coverage_v1")
+        with self.assertRaisesRegex(daemon.TerminalJobError, "silent fallback"):
+            daemon.resolve_engine_route("coverage_v2")
+
+    def test_disabled_coverage_job_parks_before_download(self):
+        heartbeat = MagicMock()
+        prior_work_dir = daemon.WORK_DIR
+        with tempfile.TemporaryDirectory() as temp_dir:
+            daemon.WORK_DIR = Path(temp_dir)
+            try:
+                with (
+                    patch.object(daemon, "HeartbeatTask", return_value=heartbeat),
+                    patch.object(daemon, "coverage_v1_enabled", return_value=False),
+                    patch.object(daemon, "download_pdf") as download_pdf,
+                    patch.object(daemon, "mark_waiting_for_engine") as mark_waiting,
+                ):
+                    daemon.process_job({
+                        "id": "coverage-disabled-job",
+                        "filename": "Draft.pdf",
+                        "engine": "coverage_v1",
+                        "attempt_count": 3,
+                    })
+            finally:
+                daemon.WORK_DIR = prior_work_dir
+
+        mark_waiting.assert_called_once_with("coverage-disabled-job", 3)
+        download_pdf.assert_not_called()
+        heartbeat.start.assert_not_called()
+
+
+class SameBatchDependencyTests(unittest.TestCase):
+    def setUp(self):
+        self.prior_db = daemon._db
+        daemon._db = MagicMock()
+
+    def tearDown(self):
+        daemon._db = self.prior_db
+
+    def set_parents(self, *parents):
+        snapshots = [
+            SimpleNamespace(to_dict=lambda data=data: data)
+            for data in parents
+        ]
+        (
+            daemon._db.collection.return_value.where.return_value.limit.return_value
+            .stream.return_value
+        ) = snapshots
+
+    def test_revision_waits_for_same_batch_parent(self):
+        self.set_parents({"status": "analyzing"})
+        self.assertEqual(
+            daemon.same_batch_dependency_state({
+                "upload_id": "child-upload",
+                "depends_on_upload_id": "parent-upload",
+                "target_project_id": "project-a",
+            }),
+            ("waiting", None),
+        )
+
+    def test_revision_runs_only_after_matching_parent_is_ready(self):
+        self.set_parents({"status": "complete", "screenplay_doc_id": "project-a"})
+        self.assertEqual(
+            daemon.same_batch_dependency_state({
+                "upload_id": "child-upload",
+                "depends_on_upload_id": "parent-upload",
+                "target_project_id": "project-a",
+            }),
+            ("ready", None),
+        )
+
+    def test_failed_parent_sends_revision_to_review(self):
+        self.set_parents({"status": "needs_review"})
+        state, reason = daemon.same_batch_dependency_state({
+            "upload_id": "child-upload",
+            "depends_on_upload_id": "parent-upload",
+        })
+        self.assertEqual(state, "failed")
+        self.assertIn("parent", reason)
+
+
 if __name__ == "__main__":
     unittest.main()

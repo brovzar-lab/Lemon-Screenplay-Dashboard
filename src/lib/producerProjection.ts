@@ -53,6 +53,15 @@ export function isCoverageV1Screenplay(
   return screenplay.producerProjection?.scoreSource === 'coverage_unscored';
 }
 
+export function isCoverageReadyScreenplay(
+  screenplay: {
+    producerProjection?: { scoreSource?: string };
+    coverage?: { status?: string };
+  },
+): boolean {
+  return isCoverageV1Screenplay(screenplay) && screenplay.coverage?.status === 'sealed';
+}
+
 export function decisionReadyScreenplays<T extends {
   producerProjection?: { rankable?: boolean; trustStatus?: string };
 }>(screenplays: T[]): T[] {

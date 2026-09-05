@@ -158,6 +158,16 @@ describe('downloadCoveragePdf', () => {
     expect(mockLink.download).toBe('Matadero-Coverage.pdf');
   });
 
+  it('refuses to export an unsealed Coverage report', async () => {
+    const screenplay = createCoverageTestScreenplay();
+    screenplay.coverage = screenplay.coverage
+      ? { ...screenplay.coverage, status: 'needs_review' }
+      : undefined;
+
+    await expect(downloadCoveragePdf(screenplay)).rejects.toThrow('sealed Coverage report');
+    expect(mockLink.click).not.toHaveBeenCalled();
+  });
+
   it('keeps Coverage V1 content in a Spanish PDF instead of treating it as English fallback', async () => {
     const { pdf } = await import('@react-pdf/renderer');
     await i18n.changeLanguage('es');

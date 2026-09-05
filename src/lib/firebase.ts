@@ -201,6 +201,7 @@ export async function uploadPdfToIngestQueue(
     file: File,
     collectionId: string,
     options?: {
+        engine?: 'coverage_v1' | 'v9';
         requestedModel?: string;
         priority?: number;
         targetProjectId?: string;
@@ -208,6 +209,8 @@ export async function uploadPdfToIngestQueue(
         separateProject?: boolean;
         /** Test/replay override. Normal uploads always receive a fresh UUID. */
         uploadId?: string;
+        /** Same-batch parent upload that must complete before this revision runs. */
+        dependsOnUploadId?: string;
     },
 ): Promise<{ storagePath: string; objectName: string; uploadId: string }> {
     // ingest-queue/ Storage rule requires an admin session.
@@ -227,6 +230,15 @@ export async function uploadPdfToIngestQueue(
     if (options?.targetProjectId && options.separateProject) {
         throw new Error('An upload cannot be both a revision and a separate project.');
     }
+    if (options?.engine && options.engine !== 'coverage_v1' && options.engine !== 'v9') {
+        throw new Error('Upload engine must be coverage_v1 or v9.');
+    }
+    if (
+        options?.dependsOnUploadId &&
+        !/^[a-zA-Z0-9_-]{8,128}$/.test(options.dependsOnUploadId)
+    ) {
+        throw new Error('Parent upload ID must be a safe Storage identity.');
+    }
 
     const objectName = `ingest-queue/${collectionId}/${uploadId}/${safeName}.pdf`;
     const storageRef = ref(storage, objectName);
@@ -238,9 +250,13 @@ export async function uploadPdfToIngestQueue(
         uploadId,
     };
     if (options?.requestedModel) customMetadata.model = options.requestedModel;
+    if (options?.engine) customMetadata.engine = options.engine;
     if (options?.priority != null) customMetadata.priority = String(options.priority);
     if (options?.targetProjectId) customMetadata.targetProjectId = options.targetProjectId;
     if (options?.separateProject) customMetadata.separateProject = 'true';
+    if (options?.dependsOnUploadId) {
+        customMetadata.dependsOnUploadId = options.dependsOnUploadId;
+    }
 
     await uploadBytes(storageRef, file, {
         contentType: 'application/pdf',

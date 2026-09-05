@@ -35,7 +35,7 @@ function IntakePage() {
                 {t('Screenplay Upload System')}
               </h1>
               <p className="mt-4 max-w-2xl text-base leading-7 text-[var(--dsc-ink-2)] sm:text-lg">
-                {t('Bring a screenplay into the slate, verify its identity, and follow it until the complete five-reader analysis is ready to open.')}
+                {t('Bring a screenplay into the slate, verify its identity, and follow it until its evidence-checked Coverage V1.2 report is Ready.')}
               </p>
             </div>
 

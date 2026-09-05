@@ -1586,6 +1586,9 @@ const spanish = {
   'Roundtable resolution': 'Resolución de la mesa de lectores',
   'No resolution was preserved.': 'No se guardó una resolución.',
   'Choose screenplay PDFs': 'Elegir archivos PDF de guiones',
+  'Choose a screenplay folder': 'Elegir una carpeta de guiones',
+  'Choose PDF files': 'Elegir archivos PDF',
+  'Choose folder': 'Elegir carpeta',
   'Drop screenplay PDFs here or choose files': 'Suelta aquí los PDF de guiones o elige archivos',
   'Supports multiple PDF screenplays, up to 50 MB each':
     'Permite varios guiones PDF de hasta 50 MB cada uno',
@@ -1611,6 +1614,10 @@ const spanish = {
   'Not Configured': 'Sin configurar',
   'Paid analysis authorization': 'Autorización de análisis con costo',
   'Authorize paid analysis?': '¿Autorizar el análisis con costo?',
+  'This uploads every screenplay below to the Coverage V1.2 queue. Processing continues in the background, and only sealed reports become Ready.':
+    'Esto carga todos los guiones a la cola de Coverage V1.2. El proceso continúa en segundo plano y solo los reportes cerrados quedan Listos.',
+  'This immediately sends the screenplays below to the emergency V9 reader room. Once submitted, an active screenplay cannot be canceled from this screen.':
+    'Esto envía de inmediato los guiones a la sala de lectores V9 de emergencia. Después del envío, no puedes cancelar un guion activo desde esta pantalla.',
   'This immediately sends the screenplays below to the V9 reader room. Once submitted, an active screenplay cannot be canceled from this screen.':
     'Esto envía de inmediato los guiones a la sala de lectores V9. Después del envío, no puedes cancelar un guion activo desde esta pantalla.',
   'Reading route': 'Ruta de lectura',
@@ -1632,6 +1639,20 @@ const spanish = {
   'Hybrid is the studio default: complete coverage first, deeper review for the strongest material.':
     'Híbrido es la opción del estudio: análisis completo primero y revisión profunda para el material más fuerte.',
   '{{count}} ready · estimated {{cost}}': '{{count}} listos · estimado {{cost}}',
+  'Analysis engine': 'Motor de análisis',
+  'Coverage V1.2': 'Coverage V1.2',
+  'Emergency V9 rollback': 'Retorno de emergencia a V9',
+  'Qualitative coverage with verified facts, pages, citations, and chronology. Unsealed reports stop in Needs Review.':
+    'Cobertura cualitativa con hechos, páginas, citas y cronología verificados. Los reportes sin cerrar se detienen en Necesita revisión.',
+  'V9 remains available here only as the emergency rollback route.':
+    'V9 permanece disponible aquí solo como ruta de emergencia.',
+  'V9 · scored reader room': 'V9 · sala de lectores con calificación',
+  'Ready only after the evidence and consistency gates pass.':
+    'Listo solo después de aprobar las revisiones de evidencia y consistencia.',
+  'Use only if Coverage V1.2 must be rolled back.':
+    'Úsalo solo si es necesario volver de Coverage V1.2.',
+  Default: 'Predeterminado',
+  'Emergency engine selection': 'Selección de motor de emergencia',
   'New screenplay': 'Nuevo guion',
   'Place material on the desk': 'Pon el material sobre la mesa',
   'PDF screenplays only. Identity and exact-byte checks happen before anything can enter paid analysis.':
@@ -1648,6 +1669,8 @@ const spanish = {
   Authority: 'Autorización',
   'The five-reader engine runs only after final confirmation.':
     'El motor de cinco lectores solo inicia después de la confirmación final.',
+  'Coverage V1.2 runs only after final confirmation and publishes only sealed reports.':
+    'Coverage V1.2 solo inicia después de la confirmación final y publica únicamente reportes cerrados.',
   'Adding files is free. Analysis begins only from the confirmation screen.':
     'Agregar archivos es gratis. El análisis solo inicia desde la pantalla de confirmación.',
   'Upload Screenplays': 'Cargar guiones',
@@ -1736,6 +1759,14 @@ const spanish = {
   'Separate project': 'Proyecto separado',
   'Checking the archive for revisions and exact duplicates...':
     'Revisando versiones y duplicados exactos en el archivo...',
+  Uploading: 'Cargando',
+  Queued: 'En cola',
+  Analyzing: 'Analizando',
+  Ready: 'Listo',
+  'Waiting for Budget': 'Esperando presupuesto',
+  'Waiting for the Coverage V1.2 worker': 'Esperando el servidor de Coverage V1.2',
+  'Intake status counts': 'Conteos de estado de recepción',
+  'Uploading files to the background queue...': 'Cargando archivos a la cola en segundo plano...',
   'Parsing PDF...': 'Leyendo PDF...',
   'AI Analyzing...': 'IA analizando...',
   '⬆️ Promoted → Opus re-analysis...': '⬆️ Enviado a nuevo análisis con Opus...',
@@ -1753,6 +1784,8 @@ const spanish = {
   'Lemon Studios · New material': 'Lemon Studios · Material nuevo',
   'Bring a screenplay into the slate, verify its identity, and follow it until the complete five-reader analysis is ready to open.':
     'Agrega un guion a la selección, verifica su identidad y síguelo hasta que el análisis completo de cinco lectores esté listo.',
+  'Bring a screenplay into the slate, verify its identity, and follow it until its evidence-checked Coverage V1.2 report is Ready.':
+    'Agrega un guion a la selección, verifica su identidad y síguelo hasta que su reporte Coverage V1.2, revisado contra la evidencia, esté Listo.',
   'Download Script': 'Descargar guion',
   'This link is no longer available': 'Este enlace ya no está disponible',
   'The share link may have been revoked or expired.':

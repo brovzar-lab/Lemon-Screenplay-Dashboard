@@ -533,7 +533,19 @@ export function subscribeToCoverageV1Reports(
     (snapshot) => {
       const reports = snapshot.docs
         .map((d) => d.data() as Record<string, unknown>)
-        .filter((d) => !d._deleted_at);
+        .filter((document) => {
+          if (document._deleted_at || document.status !== 'sealed') return false;
+          if (typeof document.report_json !== 'string') return true;
+          try {
+            const report = JSON.parse(document.report_json) as unknown;
+            return report !== null
+              && typeof report === 'object'
+              && !Array.isArray(report)
+              && (report as Record<string, unknown>).status === 'sealed';
+          } catch {
+            return false;
+          }
+        });
       console.log(`[Lemon] Coverage V1 staging: ${reports.length} report(s)`);
       onChange(reports);
     },

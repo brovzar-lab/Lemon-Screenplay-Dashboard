@@ -10,6 +10,7 @@ const possibleMatch: UploadJob = {
   createdAt: '2026-07-21T00:00:00.000Z',
   existingTitle: 'Shared Title',
   possibleMatchProjectId: 'original-project',
+  possibleMatchUploadId: 'parent-upload',
 };
 
 describe('revision-aware upload decisions', () => {
@@ -68,6 +69,7 @@ describe('revision-aware upload decisions', () => {
       expect.objectContaining({
         matchResolution: 'revision',
         targetProjectId: 'original-project',
+        dependsOnUploadId: 'parent-upload',
         separateProject: false,
       }),
     );
@@ -77,6 +79,7 @@ describe('revision-aware upload decisions', () => {
       expect.objectContaining({
         matchResolution: 'separate',
         targetProjectId: undefined,
+        dependsOnUploadId: undefined,
         separateProject: true,
       }),
     );

@@ -5,11 +5,16 @@ const {
   buildIngestJobId,
   parseIngestPath,
   readBooleanMetadata,
+  readDependsOnUploadId,
   readOriginalFilename,
   readSeparateProject,
   readTargetProjectId,
 } = require('../lib/ingestUploadIdentity');
-const { buildPendingJob, parseIngestModel } = require('../lib/ingestQueue');
+const {
+  buildPendingJob,
+  parseIngestEngine,
+  parseIngestModel,
+} = require('../lib/ingestQueue');
 
 test('analysis routes default only when absent and reject present invalid values', () => {
   assert.equal(parseIngestModel(undefined, 'sonnet'), 'sonnet');
@@ -18,6 +23,12 @@ test('analysis routes default only when absent and reject present invalid values
     () => parseIngestModel('claude-whatever', 'sonnet'),
     /model is invalid/i,
   );
+});
+
+test('analysis engines default legacy uploads to V9 and validate explicit Coverage', () => {
+  assert.equal(parseIngestEngine(undefined), 'v9');
+  assert.equal(parseIngestEngine('coverage_v1'), 'coverage_v1');
+  assert.throws(() => parseIngestEngine('coverage_v2'), /engine is invalid/i);
 });
 
 test('same filename revisions create different queue jobs', () => {
@@ -143,5 +154,29 @@ test('reanalysis metadata reaches the queue as explicit bypass flags', () => {
   assert.throws(
     () => readBooleanMetadata({ bypassDuplicate: 'yes' }, 'bypassDuplicate'),
     /must be true or false/,
+  );
+});
+
+test('same-batch revision dependency reaches the typed queue job', () => {
+  const metadata = { dependsOnUploadId: 'parent-upload-123' };
+  const dependsOnUploadId = readDependsOnUploadId(metadata);
+  const job = buildPendingJob({
+    id: 'child-job',
+    collection_id: 'LEMON',
+    filename: 'Draft_2.pdf',
+    storage_path: 'gs://bucket/ingest-queue/LEMON/child-id/Draft_2.pdf',
+    storage_generation: '1004',
+    upload_id: 'child-id',
+    target_project_id: 'Draft.pdf',
+    depends_on_upload_id: dependsOnUploadId,
+    engine: 'coverage_v1',
+    content_hash: 'pending',
+  });
+
+  assert.equal(job.engine, 'coverage_v1');
+  assert.equal(job.depends_on_upload_id, 'parent-upload-123');
+  assert.throws(
+    () => readDependsOnUploadId({ dependsOnUploadId: 'bad/path' }),
+    /dependsOnUploadId is invalid/i,
   );
 });

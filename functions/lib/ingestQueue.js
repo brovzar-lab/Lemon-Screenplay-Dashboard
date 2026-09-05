@@ -8,17 +8,19 @@
  *   - Watchdog              (Cloud Function — resets stuck docs)
  *   - Dashboard             (React — reads progress)
  *
- * SCHEMA VERSION: 3
+ * SCHEMA VERSION: 4
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.SYSTEM_COLLECTION = exports.INGEST_QUEUE_COLLECTION = exports.VALID_INGEST_MODELS = exports.VALID_COLLECTIONS = void 0;
+exports.SYSTEM_COLLECTION = exports.INGEST_QUEUE_COLLECTION = exports.VALID_INGEST_ENGINES = exports.VALID_INGEST_MODELS = exports.VALID_COLLECTIONS = void 0;
 exports.parseIngestModel = parseIngestModel;
+exports.parseIngestEngine = parseIngestEngine;
 exports.buildPendingJob = buildPendingJob;
 const firestore_1 = require("firebase-admin/firestore");
 // ── Valid collection IDs ──────────────────────────────────────────────────────
 exports.VALID_COLLECTIONS = ['LEMON', 'SUBMISSION', 'BLKLST', 'CONTEST', 'OTHER'];
 // ── Model selection ───────────────────────────────────────────────────────────
 exports.VALID_INGEST_MODELS = ['haiku', 'sonnet', 'opus', 'hybrid', 'auto'];
+exports.VALID_INGEST_ENGINES = ['coverage_v1', 'v9'];
 function parseIngestModel(value, fallback) {
     if (value === undefined || value === null || value === '')
         return fallback;
@@ -26,6 +28,14 @@ function parseIngestModel(value, fallback) {
         return value;
     }
     throw new Error('Requested analysis model is invalid.');
+}
+function parseIngestEngine(value, fallback = 'v9') {
+    if (value === undefined || value === null || value === '')
+        return fallback;
+    if (typeof value === 'string' && exports.VALID_INGEST_ENGINES.includes(value)) {
+        return value;
+    }
+    throw new Error('Requested analysis engine is invalid.');
 }
 // ── Factory: new pending job ──────────────────────────────────────────────────
 function buildPendingJob(params) {
@@ -41,6 +51,8 @@ function buildPendingJob(params) {
         bypass_duplicate: params.bypass_duplicate ?? false,
         bypass_tmdb: params.bypass_tmdb ?? false,
         request_kind: params.request_kind ?? 'upload',
+        engine: params.engine ?? 'v9',
+        depends_on_upload_id: params.depends_on_upload_id ?? null,
         content_hash: params.content_hash,
         status: 'pending',
         attempt_count: 0,

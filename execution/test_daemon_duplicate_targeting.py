@@ -97,6 +97,29 @@ class TestDaemonDuplicateAndTargeting(unittest.TestCase):
         finally:
             daemon._db = prior_db
 
+    def test_sealed_coverage_report_can_be_a_revision_parent(self):
+        uploaded = MagicMock()
+        uploaded.document.return_value.get.return_value = SimpleNamespace(exists=False)
+        coverage = MagicMock()
+        coverage.where.return_value.limit.return_value.stream.return_value = [
+            SimpleNamespace(to_dict=lambda: {"status": "sealed"})
+        ]
+        prior_db = daemon._db
+        daemon._db = MagicMock()
+        daemon._db.collection.side_effect = lambda name: (
+            coverage if name == daemon.COVERAGE_V1_REPORTS_COLLECTION else uploaded
+        )
+        try:
+            self.assertEqual(
+                daemon.resolve_target_project_id(
+                    "Coverage_Project.pdf",
+                    allow_coverage_parent=True,
+                ),
+                "Coverage_Project.pdf",
+            )
+        finally:
+            daemon._db = prior_db
+
     def test_queue_separate_choice_reaches_project_identity_before_analysis(self):
         heartbeat = MagicMock()
         fake_engine = SimpleNamespace(

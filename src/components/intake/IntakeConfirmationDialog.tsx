@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 interface IntakeConfirmationDialogProps {
   filenames: string[];
   modelName: string;
+  engine: 'coverage_v1' | 'v9';
   costEstimate: string | null;
   onCancel: () => void;
   onConfirm: () => void;
@@ -13,6 +14,7 @@ interface IntakeConfirmationDialogProps {
 export function IntakeConfirmationDialog({
   filenames,
   modelName,
+  engine,
   costEstimate,
   onCancel,
   onConfirm,
@@ -85,7 +87,9 @@ export function IntakeConfirmationDialog({
             {t('Authorize paid analysis?')}
           </h2>
           <p id="intake-confirm-description" className="mt-3 max-w-xl text-sm leading-6 text-[var(--dsc-ink-2)]">
-            {t('This immediately sends the screenplays below to the V9 reader room. Once submitted, an active screenplay cannot be canceled from this screen.')}
+            {t(engine === 'coverage_v1'
+              ? 'This uploads every screenplay below to the Coverage V1.2 queue. Processing continues in the background, and only sealed reports become Ready.'
+              : 'This immediately sends the screenplays below to the emergency V9 reader room. Once submitted, an active screenplay cannot be canceled from this screen.')}
           </p>
         </div>
 

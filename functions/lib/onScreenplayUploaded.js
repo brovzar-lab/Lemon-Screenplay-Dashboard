@@ -79,12 +79,14 @@ exports.onScreenplayUploaded = (0, storage_1.onObjectFinalized)({
     // Upload with: gsutil -h "x-goog-meta-model:haiku" cp ...
     // Or set via Firebase Console / SDK custom metadata
     const requestedModel = (0, ingestQueue_1.parseIngestModel)(customMeta['model'], 'auto');
+    const engine = (0, ingestQueue_1.parseIngestEngine)(customMeta['engine'], 'v9');
     const priority = customMeta['priority'] ? Number(customMeta['priority']) : 0;
     const target_project_id = (0, ingestUploadIdentity_1.readTargetProjectId)(customMeta);
     const separate_project = (0, ingestUploadIdentity_1.readSeparateProject)(customMeta);
     const bypass_duplicate = (0, ingestUploadIdentity_1.readBooleanMetadata)(customMeta, 'bypassDuplicate');
     const bypass_tmdb = (0, ingestUploadIdentity_1.readBooleanMetadata)(customMeta, 'bypassTmdb');
     const request_kind = customMeta['requestKind'] === 'reanalysis' ? 'reanalysis' : 'upload';
+    const depends_on_upload_id = (0, ingestUploadIdentity_1.readDependsOnUploadId)(customMeta);
     if (target_project_id && separate_project) {
         throw new Error('Upload metadata cannot target a revision and request a separate project.');
     }
@@ -103,6 +105,8 @@ exports.onScreenplayUploaded = (0, storage_1.onObjectFinalized)({
         bypass_duplicate,
         bypass_tmdb,
         request_kind,
+        engine,
+        depends_on_upload_id,
         // content_hash computed by worker (avoids downloading PDF here)
         content_hash: 'pending', // placeholder; worker updates with real SHA-256
         requested_model: requestedModel,
@@ -121,6 +125,7 @@ exports.onScreenplayUploaded = (0, storage_1.onObjectFinalized)({
         return;
     }
     console.log(`[onScreenplayUploaded] ✅ Pending job created: ${jobId} ` +
-        `| collection=${collection_id} | file=${originalFilename} | model=${requestedModel}`);
+        `| collection=${collection_id} | file=${originalFilename} ` +
+        `| engine=${engine} | model=${requestedModel}`);
 });
 //# sourceMappingURL=onScreenplayUploaded.js.map

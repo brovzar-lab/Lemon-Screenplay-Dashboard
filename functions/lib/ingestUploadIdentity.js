@@ -6,6 +6,7 @@ exports.readTargetProjectId = readTargetProjectId;
 exports.readOriginalFilename = readOriginalFilename;
 exports.readSeparateProject = readSeparateProject;
 exports.readBooleanMetadata = readBooleanMetadata;
+exports.readDependsOnUploadId = readDependsOnUploadId;
 const node_crypto_1 = require("node:crypto");
 const ingestQueue_1 = require("./ingestQueue");
 /** Accept current upload-ID paths and legacy three-segment paths. */
@@ -87,5 +88,16 @@ function readBooleanMetadata(metadata, field) {
     if (raw === 'true')
         return true;
     throw new Error(`Storage metadata ${field} must be true or false.`);
+}
+/** Read an optional parent upload identity for same-batch revision ordering. */
+function readDependsOnUploadId(metadata) {
+    const raw = metadata.dependsOnUploadId;
+    if (!raw)
+        return null;
+    const uploadId = raw.trim();
+    if (!/^[a-zA-Z0-9_-]{8,128}$/.test(uploadId)) {
+        throw new Error('Storage metadata dependsOnUploadId is invalid.');
+    }
+    return uploadId;
 }
 //# sourceMappingURL=ingestUploadIdentity.js.map

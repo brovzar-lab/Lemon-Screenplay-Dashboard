@@ -433,6 +433,7 @@ export type LensGradeValue = 'strong' | 'solid' | 'weak' | 'not_applicable';
 
 /** Full Coverage V1 report detail preserved for the coverage panel. */
 export interface CoverageDetails {
+  status: 'sealed' | 'needs_review';
   verdict: string;
   confidence: string;
   engineVersion: string;

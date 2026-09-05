@@ -9,7 +9,11 @@ import { useNotesStore } from '@/stores/notesStore';
 import type { Screenplay } from '@/types';
 import { analysisIsEnglishFallback, localizedScreenplay } from '@/lib/localizedAnalysis';
 import { currentUiLanguage } from '@/i18n';
-import { isCoverageV1Screenplay, requireDecisionReady } from '@/lib/producerProjection';
+import {
+  isCoverageReadyScreenplay,
+  isCoverageV1Screenplay,
+  requireDecisionReady,
+} from '@/lib/producerProjection';
 
 /**
  * Sanitize a string for use as a filename.
@@ -28,6 +32,9 @@ export function sanitizeFilename(title: string): string {
  */
 export async function downloadCoveragePdf(screenplay: Screenplay): Promise<void> {
   const isCoverage = isCoverageV1Screenplay(screenplay);
+  if (isCoverage && !isCoverageReadyScreenplay(screenplay)) {
+    throw new Error('Coverage PDF requires a sealed Coverage report.');
+  }
   if (!isCoverage) requireDecisionReady([screenplay]);
   const language = currentUiLanguage();
   const localized = localizedScreenplay(screenplay, language);

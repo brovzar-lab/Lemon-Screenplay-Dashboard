@@ -29,6 +29,7 @@ export type IngestStatus =
   | 'pending'
   | 'processing'
   | 'waiting_for_budget'
+  | 'waiting_for_engine'
   | 'complete'
   | 'failed'
   | 'skipped'
@@ -39,11 +40,11 @@ export interface IngestJobUpdate {
   jobId: string;
   /** Set when status is a terminal issue state. */
   error?: string;
-  /** Set when status === 'complete'; points at the uploaded_analyses doc */
+  /** Set when complete; points at the engine's stable screenplay project. */
   screenplayDocId?: string;
   /** Daemon's reported attempt count (useful for stuck-job UI) */
   attemptCount?: number;
-  /** Permanent analyses must be complete V9 coverage. */
+  /** Engine contract reported by the daemon. */
   analysisVersion?: string;
 }
 

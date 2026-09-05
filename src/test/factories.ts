@@ -207,6 +207,7 @@ export function createCoverageTestScreenplay(overrides: Partial<Screenplay> = {}
             readerDisagreementCount: 0,
         },
         coverage: {
+            status: 'sealed',
             verdict: 'RECOMMEND',
             confidence: 'high',
             engineVersion: 'coverage-v1.1',

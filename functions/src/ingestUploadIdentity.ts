@@ -96,3 +96,16 @@ export function readBooleanMetadata(
   if (raw === 'true') return true;
   throw new Error(`Storage metadata ${field} must be true or false.`);
 }
+
+/** Read an optional parent upload identity for same-batch revision ordering. */
+export function readDependsOnUploadId(
+  metadata: Record<string, string | undefined>,
+): string | null {
+  const raw = metadata.dependsOnUploadId;
+  if (!raw) return null;
+  const uploadId = raw.trim();
+  if (!/^[a-zA-Z0-9_-]{8,128}$/.test(uploadId)) {
+    throw new Error('Storage metadata dependsOnUploadId is invalid.');
+  }
+  return uploadId;
+}

@@ -28,6 +28,22 @@ test.describe('Settings administration', () => {
     await expect(page.getByTestId('intake-workbench')).toBeVisible();
   });
 
+  test('defaults Intake to Coverage V1.2 and keeps V9 behind the emergency control', async ({ page }) => {
+    await expect(page.getByRole('heading', { name: 'Coverage V1.2', exact: true })).toBeVisible();
+    await expect(page.getByText('Coverage · unscored by design', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Choose folder', exact: true })).toBeVisible();
+
+    const statusCounts = page.getByLabel('Intake status counts');
+    for (const status of ['Uploaded', 'Queued', 'Analyzing', 'Ready', 'Needs review', 'Waiting for Budget', 'Failed']) {
+      await expect(statusCounts.getByText(new RegExp(`^${status} 0$`))).toBeVisible();
+    }
+
+    await expect(page.getByText('Analysis Model', { exact: true })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Emergency V9 rollback', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Emergency V9 rollback', exact: true })).toBeVisible();
+    await expect(page.getByText('Analysis Model', { exact: true })).toBeVisible();
+  });
+
   test('all settings sections switch without losing the administrative frame', async ({ page }) => {
     const nav = page.getByRole('navigation', { name: 'Settings sections' });
     const primaryNav = page.getByRole('navigation', { name: 'Primary navigation' });

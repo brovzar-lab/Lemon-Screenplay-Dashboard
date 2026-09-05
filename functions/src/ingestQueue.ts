@@ -7,7 +7,7 @@
  *   - Watchdog              (Cloud Function — resets stuck docs)
  *   - Dashboard             (React — reads progress)
  *
- * SCHEMA VERSION: 3
+ * SCHEMA VERSION: 4
  */
 
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
@@ -18,6 +18,7 @@ export type IngestStatus =
   | 'pending'     // Waiting to be claimed by a worker
   | 'processing'  // Claimed — worker is actively running
   | 'waiting_for_budget' // Paused outside the queue until the next UTC budget window
+  | 'waiting_for_engine' // Coverage worker disabled; safely parked until enabled
   | 'complete'    // Analysis written to Firestore screenplays collection
   | 'failed'      // Exhausted max_attempts — needs manual review
   | 'skipped'     // Pre-flight validation failed (scanned PDF, too short, etc.)
@@ -43,6 +44,9 @@ export type SkipReason =
 export const VALID_INGEST_MODELS = ['haiku', 'sonnet', 'opus', 'hybrid', 'auto'] as const;
 export type IngestModel = typeof VALID_INGEST_MODELS[number];
 
+export const VALID_INGEST_ENGINES = ['coverage_v1', 'v9'] as const;
+export type IngestEngine = typeof VALID_INGEST_ENGINES[number];
+
 export function parseIngestModel(
   value: unknown,
   fallback: IngestModel,
@@ -52,6 +56,17 @@ export function parseIngestModel(
     return value as IngestModel;
   }
   throw new Error('Requested analysis model is invalid.');
+}
+
+export function parseIngestEngine(
+  value: unknown,
+  fallback: IngestEngine = 'v9',
+): IngestEngine {
+  if (value === undefined || value === null || value === '') return fallback;
+  if (typeof value === 'string' && VALID_INGEST_ENGINES.includes(value as IngestEngine)) {
+    return value as IngestEngine;
+  }
+  throw new Error('Requested analysis engine is invalid.');
 }
 
 // ── Full IngestJob document (Firestore: ingest-queue/{auto-id}) ───────────────
@@ -80,6 +95,10 @@ export interface IngestJob {
   bypass_tmdb: boolean;
   /** Distinguishes ordinary intake from an explicitly requested re-analysis. */
   request_kind: 'upload' | 'reanalysis';
+  /** Explicit engine route. Legacy jobs without metadata are normalized to V9. */
+  engine: IngestEngine;
+  /** Same-batch parent upload that must finish before this revision is claimed. */
+  depends_on_upload_id: string | null;
   /**
    * SHA-256 of the PDF bytes — enables true idempotency.
    * If a job with this hash already has status=complete, skip re-processing.
@@ -180,6 +199,8 @@ export function buildPendingJob(params: {
   bypass_duplicate?: boolean;
   bypass_tmdb?: boolean;
   request_kind?: 'upload' | 'reanalysis';
+  engine?: IngestEngine;
+  depends_on_upload_id?: string | null;
   content_hash: string;
   requested_model?: IngestModel;
   priority?: number;
@@ -196,6 +217,8 @@ export function buildPendingJob(params: {
     bypass_duplicate: params.bypass_duplicate ?? false,
     bypass_tmdb: params.bypass_tmdb ?? false,
     request_kind: params.request_kind ?? 'upload',
+    engine: params.engine ?? 'v9',
+    depends_on_upload_id: params.depends_on_upload_id ?? null,
     content_hash: params.content_hash,
     status: 'pending',
     attempt_count: 0,

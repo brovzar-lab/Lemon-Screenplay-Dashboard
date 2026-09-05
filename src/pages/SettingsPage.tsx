@@ -179,7 +179,12 @@ function IntakeTab({ onOpenAnalysis }: { onOpenAnalysis: (projectId: string) => 
           </li>
         </ol>
       </div>
-      <UploadPanel presentation="intake" initialModel="hybrid" onOpenAnalysis={onOpenAnalysis} />
+      <UploadPanel
+        presentation="intake"
+        initialModel="hybrid"
+        onOpenAnalysis={onOpenAnalysis}
+        allowV9Fallback
+      />
       <section className="settings-subsection">
         <CategoryManagement />
       </section>

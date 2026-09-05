@@ -441,6 +441,7 @@ export function normalizeCoverageV1Screenplay(
     lensGrades,
     continuityFlags,
     coverage: {
+      status: status === 'sealed' ? 'sealed' : 'needs_review',
       verdict: asString(report.verdict ?? coverage.verdict),
       confidence: asString(report.confidence ?? coverage.confidence),
       engineVersion: asString(report.engine_version),

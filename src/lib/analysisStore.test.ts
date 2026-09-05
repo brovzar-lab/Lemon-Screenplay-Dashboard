@@ -783,6 +783,42 @@ describe('subscribeToAnalyses', () => {
     vi.resetModules();
   });
 
+  it('publishes only Coverage reports whose wrapper and payload are sealed', async () => {
+    const onChange = vi.fn();
+    const { subscribeToCoverageV1Reports } = await import('./analysisStore');
+    subscribeToCoverageV1Reports(onChange);
+
+    snapshotSuccess?.({
+      docs: [
+        {
+          data: () => ({
+            status: 'sealed',
+            source_file: 'coverage-v1/Ready',
+            report_json: JSON.stringify({ status: 'sealed' }),
+          }),
+        },
+        {
+          data: () => ({
+            status: 'needs_review',
+            source_file: 'coverage-v1/Review',
+            report_json: JSON.stringify({ status: 'needs_review' }),
+          }),
+        },
+        {
+          data: () => ({
+            status: 'sealed',
+            source_file: 'coverage-v1/Stale wrapper',
+            report_json: JSON.stringify({ status: 'needs_review' }),
+          }),
+        },
+      ],
+    });
+
+    expect(onChange).toHaveBeenCalledWith([
+      expect.objectContaining({ source_file: 'coverage-v1/Ready' }),
+    ]);
+  });
+
   it('publishes and caches only visible records without Firestore internals', async () => {
     const onChange = vi.fn();
     const { subscribeToAnalyses } = await import('./analysisStore');

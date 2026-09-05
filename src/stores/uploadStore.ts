@@ -8,9 +8,13 @@ import { persist } from 'zustand/middleware';
 
 export type UploadStatus =
   | 'pending'
+  | 'uploading'
+  | 'uploaded'
+  | 'queued'
   | 'parsing'
   | 'analyzing'
   | 'promoting'
+  | 'waiting_for_budget'
   | 'complete'
   | 'error'
   | 'skipped'
@@ -45,9 +49,13 @@ export interface UploadJob {
   existingTitle?: string;
   /** Suggested parent from a title match. The user must confirm it. */
   possibleMatchProjectId?: string;
+  /** Same-batch upload that will establish the suggested revision parent. */
+  possibleMatchUploadId?: string;
   matchResolution?: UploadMatchResolution;
   /** Stable uploaded_analyses parent for an explicitly identified revision. */
   targetProjectId?: string;
+  /** Same-batch parent that must become Ready before this revision runs. */
+  dependsOnUploadId?: string;
   /** Explicitly create a distinct parent even when title/filename collides. */
   separateProject?: boolean;
   /** TMDB production status — populated after save, non-blocking */
@@ -168,6 +176,7 @@ export const useUploadStore = create<UploadState>()(
                   ...job,
                   matchResolution: 'revision' as const,
                   targetProjectId: job.possibleMatchProjectId,
+                  dependsOnUploadId: job.possibleMatchUploadId,
                   separateProject: false,
                 }
               : job,
@@ -183,6 +192,7 @@ export const useUploadStore = create<UploadState>()(
                   ...job,
                   matchResolution: 'separate' as const,
                   targetProjectId: undefined,
+                  dependsOnUploadId: undefined,
                   separateProject: true,
                 }
               : job,
@@ -197,7 +207,15 @@ export const useUploadStore = create<UploadState>()(
       },
 
       getActiveJob: () => {
-        return get().jobs.find((j) => j.status === 'parsing' || j.status === 'analyzing' || j.status === 'promoting');
+        return get().jobs.find((j) =>
+          j.status === 'uploading'
+          || j.status === 'uploaded'
+          || j.status === 'queued'
+          || j.status === 'parsing'
+          || j.status === 'analyzing'
+          || j.status === 'promoting'
+          || j.status === 'waiting_for_budget'
+        );
       },
 
       getFile: (jobId) => {
@@ -211,7 +229,7 @@ export const useUploadStore = create<UploadState>()(
         // Pending files remain memory-only because File objects cannot be serialized.
         jobs: state.jobs.filter((job) =>
           isUploadTerminalStatus(job.status)
-          || ((job.status === 'analyzing' || job.status === 'promoting') && job.ingestQueueStoragePath),
+          || (job.status !== 'pending' && job.ingestQueueStoragePath),
         ),
       }),
     }

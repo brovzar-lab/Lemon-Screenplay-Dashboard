@@ -4,7 +4,11 @@ import { useTranslation } from 'react-i18next';
 import { DiscoveryPitchDeckModal } from '@/components/discover/DiscoveryPitchDeckModal';
 import { useToastStore } from '@/stores/toastStore';
 import type { Screenplay } from '@/types';
-import { isCoverageV1Screenplay, isDecisionReady } from '@/lib/producerProjection';
+import {
+  isCoverageReadyScreenplay,
+  isCoverageV1Screenplay,
+  isDecisionReady,
+} from '@/lib/producerProjection';
 
 type CoverageState = 'idle' | 'loading' | 'error';
 
@@ -15,7 +19,7 @@ export function DiscoveryExportActions({ screenplay }: { screenplay: Screenplay 
   const pitchDeckButtonRef = useRef<HTMLButtonElement>(null);
   const decisionReady = isDecisionReady(screenplay);
   const isCoverage = isCoverageV1Screenplay(screenplay);
-  const coverageAllowed = decisionReady || isCoverage;
+  const coverageAllowed = decisionReady || isCoverageReadyScreenplay(screenplay);
 
   const closePitchDeck = () => {
     setShowPitchDeckModal(false);

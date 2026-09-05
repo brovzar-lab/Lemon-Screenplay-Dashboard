@@ -21,6 +21,7 @@ interface UploadQueueProps {
   isProcessing: boolean;
   isConfigured: boolean;
   selectedModel: ModelOption;
+  engine: 'coverage_v1' | 'v9';
   batchCostEstimate: string | null;
   onRemoveJob: (id: string) => void;
   onRetryJob: (id: string) => void;
@@ -39,6 +40,7 @@ export function UploadQueue({
   isProcessing,
   isConfigured,
   selectedModel,
+  engine,
   batchCostEstimate,
   onRemoveJob,
   onRetryJob,
@@ -54,7 +56,15 @@ export function UploadQueue({
   const { t } = useTranslation();
   const pendingJobs = jobs.filter((j) => j.status === 'pending');
   const actionablePending = pendingJobs.filter(isUploadJobReady);
-  const activeJobs = jobs.filter((j) => j.status === 'parsing' || j.status === 'analyzing' || j.status === 'promoting');
+  const activeJobs = jobs.filter((job) =>
+    job.status === 'uploading'
+    || job.status === 'uploaded'
+    || job.status === 'queued'
+    || job.status === 'parsing'
+    || job.status === 'analyzing'
+    || job.status === 'promoting'
+    || job.status === 'waiting_for_budget'
+  );
   const terminalJobs = jobs.filter((job) => isUploadTerminalStatus(job.status));
   const completedJobs = terminalJobs.filter((job) => job.status !== 'skipped');
   const skippedJobs = jobs.filter((j) => j.status === 'skipped');
@@ -64,6 +74,20 @@ export function UploadQueue({
   ).length;
 
   const isIntake = presentation === 'intake';
+  const routeName = engine === 'coverage_v1'
+    ? t('Coverage V1.2')
+    : MODEL_OPTIONS.find((model) => model.id === selectedModel)?.name ?? selectedModel;
+  const statusCounts = [
+    [t('Uploaded'), jobs.filter((job) => job.status === 'uploaded').length],
+    [t('Queued'), jobs.filter((job) => job.status === 'queued').length],
+    [t('Analyzing'), jobs.filter((job) => (
+      job.status === 'parsing' || job.status === 'analyzing' || job.status === 'promoting'
+    )).length],
+    [t('Ready'), jobs.filter((job) => job.status === 'complete').length],
+    [t('Needs review'), jobs.filter((job) => job.status === 'needs_review').length],
+    [t('Waiting for Budget'), jobs.filter((job) => job.status === 'waiting_for_budget').length],
+    [t('Failed'), jobs.filter((job) => job.status === 'error').length],
+  ] as const;
 
   if (jobs.length === 0) {
     if (!isIntake) return null;
@@ -75,6 +99,16 @@ export function UploadQueue({
             <h2 id={headingId} className="dsc-display mt-2 text-3xl">{t('Intake ledger')}</h2>
           </div>
           <span className="text-sm text-[var(--dsc-ink-3)]">{t('0 projects in motion')}</span>
+        </div>
+        <div className="mt-4 flex flex-wrap gap-2" aria-label={t('Intake status counts')}>
+          {statusCounts.map(([label, count]) => (
+            <span
+              key={label}
+              className="rounded-full border border-[var(--dsc-line)] bg-[var(--dsc-surface-2)] px-3 py-1 text-xs text-[var(--dsc-ink-2)]"
+            >
+              {label} <strong className="text-[var(--dsc-ink)]">{count}</strong>
+            </span>
+          ))}
         </div>
         <div className="mt-6 grid min-h-40 place-items-center rounded-[var(--dsc-radius-card)] border border-dashed border-[var(--dsc-line)] bg-[var(--dsc-surface-2)] px-6 py-10 text-center">
           <div>
@@ -107,6 +141,19 @@ export function UploadQueue({
           </button>
         )}
       </div>
+
+      {isIntake && (
+        <div className="flex flex-wrap gap-2" aria-label={t('Intake status counts')}>
+          {statusCounts.map(([label, count]) => (
+            <span
+              key={label}
+              className="rounded-full border border-[var(--dsc-line)] bg-[var(--dsc-surface-2)] px-3 py-1 text-xs text-[var(--dsc-ink-2)]"
+            >
+              {label} <strong className="text-[var(--dsc-ink)]">{count}</strong>
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* Duplicate summary banner */}
       {duplicateCount > 0 && (
@@ -205,7 +252,7 @@ export function UploadQueue({
               <>
                 {t(isIntake ? 'Review and start analysis' : 'Start Analysis')} ({t('{{count}} file', { count: actionablePending.length })})
                 <span className="ml-2 text-xs opacity-70">
-                  {t('using {{model}}', { model: MODEL_OPTIONS.find(m => m.id === selectedModel)!.name })}
+                  {t('using {{model}}', { model: routeName })}
                   {batchCostEstimate && ` \u2022 ${batchCostEstimate}`}
                 </span>
               </>
@@ -234,10 +281,7 @@ export function UploadQueue({
         )}>
           <div className="w-5 h-5 border-2 border-gold-400 border-t-transparent rounded-full animate-spin" />
           <p className="text-sm text-gold-300">
-            {t('Processing with {{model}}...', { model: MODEL_OPTIONS.find(m => m.id === selectedModel)!.name })}{' '}
-            {t(selectedModel === 'haiku' ? 'This should be quick (~1 min per script).' :
-              selectedModel === 'sonnet' ? 'This may take 2-3 minutes per screenplay.' :
-                'Deep analysis in progress, about 5 minutes per screenplay.')}
+            {t('Uploading files to the background queue...')}
           </p>
         </div>
       )}

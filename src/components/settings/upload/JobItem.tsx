@@ -33,7 +33,13 @@ export function JobItem({
 }: JobItemProps) {
   const { t } = useTranslation();
   const status = STATUS_LABELS[job.status];
-  const isActive = job.status === 'parsing' || job.status === 'analyzing' || job.status === 'promoting';
+  const isActive = job.status === 'uploading'
+    || job.status === 'uploaded'
+    || job.status === 'queued'
+    || job.status === 'parsing'
+    || job.status === 'analyzing'
+    || job.status === 'promoting'
+    || job.status === 'waiting_for_budget';
   const isSkipped = job.status === 'skipped';
   const needsReview = job.status === 'needs_review';
   const isIntake = presentation === 'intake';
@@ -156,15 +162,27 @@ export function JobItem({
         <div className="flex-1 min-w-0">
           <p className={clsx('truncate text-sm font-medium', isIntake ? 'text-[var(--dsc-ink)]' : 'text-gold-200')}>{job.filename}</p>
           <div className="flex items-center gap-2 text-xs flex-wrap">
-            <span className={status.color}>{t(status.label)}</span>
+            <span className={status.color}>
+              {t(isIntake && job.status === 'complete'
+                ? 'Ready'
+                : isIntake && job.status === 'error'
+                  ? 'Failed'
+                  : status.label)}
+            </span>
             <span className="text-black-500">&middot;</span>
             <span className="text-black-500">{job.category}</span>
-            {job.error && (
+            {job.error && (job.status === 'error' || needsReview) && (
               <>
                 <span className="text-black-500">&middot;</span>
                 <span className="text-red-400 truncate" title={t('This intake job could not be completed.')}>
                   {t('This intake job could not be completed.')}
                 </span>
+              </>
+            )}
+            {job.error && (job.status === 'queued' || job.status === 'waiting_for_budget') && (
+              <>
+                <span className="text-black-500">&middot;</span>
+                <span className="text-amber-500">{t(job.error)}</span>
               </>
             )}
           </div>

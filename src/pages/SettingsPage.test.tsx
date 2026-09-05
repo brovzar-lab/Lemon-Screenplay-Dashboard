@@ -86,7 +86,11 @@ describe('Settings deep links', () => {
     expect(screen.getByTestId('application-header')).toBeInTheDocument();
     expect(screen.getByText('Upload panel')).toBeInTheDocument();
     expect(uploadPanelMock).toHaveBeenCalledWith(
-      expect.objectContaining({ presentation: 'intake', initialModel: 'hybrid' }),
+      expect.objectContaining({
+        presentation: 'intake',
+        initialModel: 'hybrid',
+        allowV9Fallback: true,
+      }),
     );
     expect(screen.getByRole('heading', { name: 'Workflow' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Intelligence' })).toBeInTheDocument();

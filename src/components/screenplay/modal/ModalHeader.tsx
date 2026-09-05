@@ -18,7 +18,11 @@ import { useIsAdmin } from '@/stores/authStore';
 import type { ReactNode, RefObject } from 'react';
 import { ScreenplayPdfButton } from './ScreenplayPdfButton';
 import { getScreenplayDisplayAuthor, getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
-import { isCoverageV1Screenplay, isDecisionReady } from '@/lib/producerProjection';
+import {
+  isCoverageReadyScreenplay,
+  isCoverageV1Screenplay,
+  isDecisionReady,
+} from '@/lib/producerProjection';
 import { useTranslation } from 'react-i18next';
 
 interface ModalHeaderProps {
@@ -53,13 +57,14 @@ export function ModalHeader({
   const budgetInfo = BUDGET_TIERS[screenplay.budgetCategory];
   const decisionReady = isDecisionReady(screenplay);
   const isCoverage = isCoverageV1Screenplay(screenplay);
+  const coverageAllowed = decisionReady || isCoverageReadyScreenplay(screenplay);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const deleteMutation = useDeleteScreenplays();
 
   const [coverageState, setCoverageState] = useState<'idle' | 'loading' | 'error'>('idle');
 
   const handleDownloadCoverage = async () => {
-    if (coverageState === 'loading') return;
+    if (coverageState === 'loading' || !coverageAllowed) return;
     setCoverageState('loading');
     try {
       // Dynamic import — defers 1.5MB @react-pdf/renderer until user clicks
@@ -181,7 +186,7 @@ export function ModalHeader({
               <ShareButton screenplay={screenplay} />
               <button
                 onClick={handleDownloadCoverage}
-                disabled={coverageState === 'loading'}
+                disabled={coverageState === 'loading' || !coverageAllowed}
                 className={clsx(
                   'btn text-xs flex items-center gap-1.5 py-1.5 px-3 transition-all',
                   coverageState === 'error'

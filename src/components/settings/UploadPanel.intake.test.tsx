@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, render, screen, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useUploadStore, type UploadJob } from '@/stores/uploadStore';
@@ -50,19 +50,25 @@ function renderPanel(props: React.ComponentProps<typeof UploadPanel> = {}) {
 describe('Intake upload presentation', () => {
   beforeEach(() => {
     window.localStorage.clear();
-    mockUpload.mockReset();
+    mockUpload.mockReset().mockImplementation((file: File) => Promise.resolve({
+      storagePath: `gs://bucket/ingest-queue/LEMON/upload/${file.name}`,
+      objectName: `ingest-queue/LEMON/upload/${file.name}`,
+      uploadId: 'upload-id',
+    }));
     mockComputeHash.mockReset().mockResolvedValue('content-hash');
     mockFindByHash.mockReset().mockResolvedValue(null);
     mockSubscribe.mockClear();
     useUploadStore.setState({ jobs: [], isProcessing: false });
   });
 
-  it('shows an honest empty ledger and defaults to the funnel-friendly Hybrid route', () => {
+  it('shows an honest empty ledger and defaults to Coverage V1.2', () => {
     renderPanel();
 
     expect(screen.getByText('The desk is clear')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Hybrid/ })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByText('Coverage · unscored by design')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Hybrid/ })).not.toBeInTheDocument();
     expect(screen.getByLabelText('Choose screenplay PDFs')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Choose folder' })).toBeInTheDocument();
   });
 
   it('opens a completed analysis from the authoritative project id', async () => {
@@ -139,7 +145,7 @@ describe('Intake upload presentation', () => {
     expect(screen.getByRole('button', { name: /Review and start analysis \(2 files\)/ })).toBeInTheDocument();
   });
 
-  it('shows the full Hybrid cost range in the final confirmation', async () => {
+  it('shows the hard Coverage ceiling in the final confirmation', async () => {
     const user = userEvent.setup();
     const first = new File(['first'], 'First.pdf', { type: 'application/pdf' });
     const second = new File(['second'], 'Second.pdf', { type: 'application/pdf' });
@@ -151,7 +157,7 @@ describe('Intake upload presentation', () => {
 
     const dialog = screen.getByRole('alertdialog', { name: 'Authorize paid analysis?' });
     expect(within(dialog).getByText('Estimated batch cost')).toBeInTheDocument();
-    expect(within(dialog).getByText('~$3.20–$24.00')).toBeInTheDocument();
+    expect(within(dialog).getByText('≤$2.00')).toBeInTheDocument();
     expect(within(dialog).getByText('First.pdf')).toBeInTheDocument();
     expect(within(dialog).getByText('Second.pdf')).toBeInTheDocument();
     expect(mockUpload).not.toHaveBeenCalled();
@@ -175,6 +181,27 @@ describe('Intake upload presentation', () => {
     await user.keyboard('{Escape}');
     await user.click(screen.getByRole('button', { name: /Review and start analysis/ }));
     expect(screen.getByRole('button', { name: 'Authorize paid analysis for 1 screenplay' })).toBeDisabled();
+  });
+
+  it('uploads the accepted batch as Coverage V1.2 without waiting for analysis', async () => {
+    const user = userEvent.setup();
+    const first = new File(['first'], 'First.pdf', { type: 'application/pdf' });
+    const second = new File(['second'], 'Second.pdf', { type: 'application/pdf' });
+    mockComputeHash.mockResolvedValueOnce('first-hash').mockResolvedValueOnce('second-hash');
+    renderPanel();
+
+    await user.upload(screen.getByLabelText('Choose screenplay PDFs'), [first, second]);
+    await user.click(await screen.findByRole('button', { name: /Review and start analysis \(2 files\)/ }));
+    await user.click(screen.getByRole('checkbox'));
+    await user.click(screen.getByRole('button', { name: 'Authorize paid analysis for 2 screenplays' }));
+
+    await waitFor(() => expect(mockUpload).toHaveBeenCalledTimes(2));
+    expect(mockUpload.mock.calls[0][2]).toEqual(expect.objectContaining({
+      engine: 'coverage_v1',
+      requestedModel: 'sonnet',
+    }));
+    expect(useUploadStore.getState().jobs.every((job) => job.status === 'uploaded')).toBe(true);
+    expect(mockSubscribe).toHaveBeenCalledTimes(2);
   });
 
   it('reconnects an accepted queue job and preserves its authoritative project route', async () => {
