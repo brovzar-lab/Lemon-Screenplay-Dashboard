@@ -12452,6 +12452,63 @@ def _is_prior_literal_sequence_correction_checkpoint(
     return migrated == current
 
 
+def _is_revalidatable_prior_literal_sequence_correction_checkpoint(
+    prior: Dict[str, Any], current: Dict[str, Any],
+) -> bool:
+    """Allow an older settled correction only when its lineage is unchanged."""
+    return (
+        prior.get("contract_version")
+        == PRIOR_LITERAL_SEQUENCE_CORRECTION_CHECKPOINT_VERSION
+        and prior.get("first_retry_fingerprint")
+        == current.get("first_retry_fingerprint")
+        and prior.get("rejected_payload_sha256")
+        == current.get("rejected_payload_sha256")
+        and re.fullmatch(
+            r"[0-9a-f]{64}",
+            str(prior.get("correction_request_fingerprint", "")),
+        )
+        is not None
+    )
+
+
+def _revalidated_prior_literal_sequence_correction(
+    prior: Dict[str, Any],
+    current: Dict[str, Any],
+    guard: Any,
+    candidate: Dict[str, Any],
+    inventory: List[Dict[str, Any]],
+    valid_citation_pages: Sequence[int],
+    text: str,
+) -> Optional[Dict[str, Any]]:
+    """Reuse a paid older correction only if the current contract accepts it."""
+    if (
+        _is_prior_literal_sequence_correction_checkpoint(prior, current)
+        or not _is_revalidatable_prior_literal_sequence_correction_checkpoint(
+            prior, current
+        )
+    ):
+        return None
+    replayed = guard.replay_call(
+        prior["correction_request_fingerprint"],
+        "coverage_v1.literal_sequence_correction",
+    )
+    if replayed is None:
+        raise CheckpointTamperedError(
+            "Prior literal sequence correction checkpoint has no exact "
+            "settled receipt"
+        )
+    try:
+        return _merge_literal_sequence_correction(
+            candidate,
+            replayed[0],
+            inventory,
+            valid_citation_pages,
+            text,
+        )
+    except CoverageContractError:
+        return None
+
+
 def _literal_sequence_text_sha256(text: str) -> str:
     import hashlib
 
@@ -21828,17 +21885,43 @@ def run_coverage_v1(
                         prior_correction_checkpoint, correction_checkpoint
                     )
                 )
+                revalidatable_prior_contract = (
+                    _is_revalidatable_prior_literal_sequence_correction_checkpoint(
+                        prior_correction_checkpoint, correction_checkpoint
+                    )
+                )
                 if (
                     prior_correction_checkpoint != correction_checkpoint
-                    and not stale_prior_contract
+                    and not revalidatable_prior_contract
                 ):
                     raise CheckpointTamperedError(
                         "Literal sequence correction checkpoint changed"
                     )
-                if guard.replay_call(
-                    correction_request_fingerprint,
+                revalidated_correction = (
+                    _revalidated_prior_literal_sequence_correction(
+                        prior_correction_checkpoint,
+                        correction_checkpoint,
+                        guard,
+                        candidate,
+                        inventory,
+                        page_reference_map["valid_citation_pages"],
+                        text,
+                    )
+                )
+                if revalidated_correction is not None:
+                    return revalidated_correction
+                replay_fingerprint = (
+                    prior_correction_checkpoint[
+                        "correction_request_fingerprint"
+                    ]
+                    if prior_correction_checkpoint != correction_checkpoint
+                    else correction_request_fingerprint
+                )
+                replayed_correction = guard.replay_call(
+                    replay_fingerprint,
                     "coverage_v1.literal_sequence_correction",
-                ) is None:
+                )
+                if replayed_correction is None:
                     raise CheckpointTamperedError(
                         "Prior literal sequence correction checkpoint "
                         "has no exact settled receipt"

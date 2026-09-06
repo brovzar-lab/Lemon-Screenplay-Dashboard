@@ -11257,6 +11257,65 @@ An unrelated epilogue continues.
             {row["identifier"] for row in pending},
         )
 
+    def test_prior_paid_literal_correction_is_revalidated_without_rebuy(self):
+        source = real_cosquillitas_source()
+        inventory = cv.build_literal_sequence_stage_inventory(
+            source, COSQUILLITAS_SOURCE_SHA256
+        )
+        candidate = cosquillitas_literal_candidate()
+        current = {
+            "contract_version": (
+                cv.LITERAL_SEQUENCE_CORRECTION_CHECKPOINT_VERSION
+            ),
+            "first_retry_fingerprint": "1" * 64,
+            "rejected_payload_sha256": "2" * 64,
+            "validation_failures": ["current deterministic failure"],
+            "source_focus_sha256": "3" * 64,
+            "inventory_sha256": "4" * 64,
+            "correction_request_fingerprint": "5" * 64,
+        }
+        prior = {
+            **current,
+            "contract_version": (
+                cv.PRIOR_LITERAL_SEQUENCE_CORRECTION_CHECKPOINT_VERSION
+            ),
+            "validation_failures": ["prior deterministic failure"],
+            "source_focus_sha256": "6" * 64,
+            "inventory_sha256": "7" * 64,
+            "correction_request_fingerprint": "8" * 64,
+        }
+
+        class ReceiptGuard:
+            def __init__(self):
+                self.replays = []
+
+            def replay_call(self, fingerprint, stage):
+                self.replays.append((fingerprint, stage))
+                return copy.deepcopy(CALL6_LITERAL_SEQUENCE_FIXTURE), "", (
+                    settled_usage()
+                )
+
+        guard = ReceiptGuard()
+        merged = cv._revalidated_prior_literal_sequence_correction(
+            prior,
+            current,
+            guard,
+            candidate,
+            inventory,
+            range(1, 102),
+            source,
+        )
+
+        self.assertIsNotNone(merged)
+        self.assertEqual(len(merged["sequence_ledger"]), 33)
+        self.assertIsNone(cv._literal_sequence_contract_problem(
+            merged, source, COSQUILLITAS_SOURCE_SHA256
+        ))
+        self.assertEqual(guard.replays, [(
+            prior["correction_request_fingerprint"],
+            "coverage_v1.literal_sequence_correction",
+        )])
+
     def test_universal_judge_claim_requires_universal_source_evidence(self):
         source = (
             "El video muestra regalos al primero y al otro juez."
