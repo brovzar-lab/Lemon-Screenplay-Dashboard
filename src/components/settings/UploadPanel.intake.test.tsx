@@ -5,12 +5,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useUploadStore, type UploadJob } from '@/stores/uploadStore';
 
 const mockUpload = vi.fn();
+const mockReceipt = vi.fn();
 const mockComputeHash = vi.fn();
 const mockFindByHash = vi.fn();
 const mockSubscribe = vi.fn((..._args: unknown[]) => vi.fn());
 
 vi.mock('@/lib/firebase', () => ({
   uploadPdfToIngestQueue: (...args: unknown[]) => mockUpload(...args),
+  getIngestUploadGeneration: (...args: unknown[]) => mockReceipt(...args),
 }));
 
 vi.mock('@/hooks/useScreenplays', () => ({
@@ -23,15 +25,20 @@ vi.mock('@/hooks/useCategories', () => ({
 }));
 
 vi.mock('@/lib/ingestQueueClient', () => ({
-  subscribeToIngestJob: (...args: unknown[]) => mockSubscribe(...args),
+  subscribeToIngestQueue: (...args: unknown[]) => mockSubscribe(...args),
 }));
 
-vi.mock('@/lib/analysisIdentity', () => ({
+vi.mock('@/lib/analysisIdentity', async (importOriginal) => ({
+  ...await importOriginal<typeof import('@/lib/analysisIdentity')>(),
   computeContentHash: (...args: unknown[]) => mockComputeHash(...args),
 }));
 
 vi.mock('@/lib/analysisLookup', () => ({
   findAnalysisByContentHash: (...args: unknown[]) => mockFindByHash(...args),
+}));
+
+vi.mock('@/components/badFormat/BadFormatModal', () => ({
+  BadFormatModal: ({ open }: { open: boolean }) => open ? <div>Upload Resolution Center</div> : null,
 }));
 
 import { UploadPanel } from '@/components/settings/UploadPanel';
@@ -58,7 +65,8 @@ describe('Intake upload presentation', () => {
     mockComputeHash.mockReset().mockResolvedValue('content-hash');
     mockFindByHash.mockReset().mockResolvedValue(null);
     mockSubscribe.mockClear();
-    useUploadStore.setState({ jobs: [], isProcessing: false });
+    mockReceipt.mockReset().mockResolvedValue(null);
+    useUploadStore.setState({ jobs: [], isProcessing: false, dismissedQueueJobs: {} });
   });
 
   it('shows an honest empty ledger and defaults to Coverage V1.2', () => {
@@ -69,6 +77,64 @@ describe('Intake upload presentation', () => {
     expect(screen.queryByRole('button', { name: /Hybrid/ })).not.toBeInTheDocument();
     expect(screen.getByLabelText('Choose screenplay PDFs')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Choose folder' })).toBeInTheDocument();
+  });
+
+  it.each([false, true])('does not overwrite queue completion after a late upload acknowledgment (rejected=%s)', async (reject) => {
+    const user = userEvent.setup();
+    const file = new File(['screenplay'], 'Race.pdf', { type: 'application/pdf' });
+    const id = useUploadStore.getState().addJob(file.name, 'LEMON', file);
+    useUploadStore.getState().updateJob(id, { identityCheckComplete: true });
+    mockUpload.mockImplementation(async (_file: File, _category: string, options: { onPrepared: (path: string) => void }) => {
+      const path = 'gs://bucket/ingest-queue/LEMON/race.pdf';
+      options.onPrepared(path);
+      useUploadStore.getState().reconcileQueue([{ jobId: 'server-race', status: 'complete',
+        storagePath: path, storageGeneration: '1', filename: file.name, category: 'LEMON', queuedAt: '' }]);
+      if (reject) throw new Error('lost acknowledgment');
+      return { storagePath: path, storageGeneration: '1' };
+    });
+    renderPanel({ presentation: 'settings' });
+    await user.click(screen.getByRole('button', { name: /Start Analysis/ }));
+    await waitFor(() => expect(useUploadStore.getState().isProcessing).toBe(false));
+    expect(useUploadStore.getState().jobs.find((job) => job.id === id)?.status).toBe('complete');
+  });
+
+  it.each([null, '1'])('checks uncertain receipt before retry and does not start a paid call (generation=%s)', async (generation) => {
+    const user = userEvent.setup();
+    useUploadStore.setState({ jobs: [{ id: 'uncertain', filename: 'Maybe.pdf', category: 'LEMON', status: 'error',
+      progress: 0, createdAt: '', ingestQueueStoragePath: 'gs://bucket/ingest-queue/LEMON/maybe.pdf' }] });
+    mockReceipt.mockResolvedValue(generation);
+    renderPanel();
+    await user.click(screen.getByRole('button', { name: /Retry/ }));
+    await waitFor(() => expect(useUploadStore.getState().jobs[0].status).toBe(generation ? 'uploaded' : 'pending'));
+    expect(mockUpload).not.toHaveBeenCalled();
+  });
+
+  it('does not regress queue completion while receipt recovery is awaiting Storage', async () => {
+    const user = userEvent.setup();
+    const path = 'gs://bucket/ingest-queue/LEMON/maybe.pdf';
+    useUploadStore.setState({ jobs: [{ id: 'uncertain', filename: 'Maybe.pdf', category: 'LEMON', status: 'error',
+      progress: 0, createdAt: '', ingestQueueStoragePath: path }] });
+    mockReceipt.mockImplementation(async () => {
+      useUploadStore.getState().reconcileQueue([{ jobId: 'accepted', status: 'complete', storagePath: path,
+        storageGeneration: '1', filename: 'Maybe.pdf', category: 'LEMON', queuedAt: '' }]);
+      return '1';
+    });
+    renderPanel();
+    await user.click(screen.getByRole('button', { name: /Retry/ }));
+    expect(useUploadStore.getState().jobs[0].status).toBe('complete');
+    expect(mockUpload).not.toHaveBeenCalled();
+  });
+
+  it('returns a failed replacement to its original resolution route instead of restarting generic Intake', async () => {
+    const user = userEvent.setup();
+    useUploadStore.setState({ jobs: [{ id: 'replacement', filename: 'Replacement.pdf', category: 'LEMON',
+      status: 'error', replacesQueueJobId: 'original-issue', progress: 0, createdAt: '', identityCheckComplete: false }] });
+    renderPanel();
+    await user.click(screen.getByRole('button', { name: /Retry/ }));
+    expect(screen.getByText('Upload Resolution Center')).toBeInTheDocument();
+    expect(useUploadStore.getState().jobs[0].status).toBe('error');
+    expect(mockUpload).not.toHaveBeenCalled();
+    expect(mockReceipt).not.toHaveBeenCalled();
   });
 
   it('opens a completed analysis from the authoritative project id', async () => {
@@ -201,7 +267,7 @@ describe('Intake upload presentation', () => {
       requestedModel: 'sonnet',
     }));
     expect(useUploadStore.getState().jobs.every((job) => job.status === 'uploaded')).toBe(true);
-    expect(mockSubscribe).toHaveBeenCalledTimes(2);
+    expect(mockSubscribe).toHaveBeenCalledTimes(1);
   });
 
   it('reconnects an accepted queue job and preserves its authoritative project route', async () => {
@@ -219,15 +285,11 @@ describe('Intake upload presentation', () => {
     renderPanel({ onOpenAnalysis });
 
     expect(mockSubscribe).toHaveBeenCalledWith(
-      acceptedJob.ingestQueueStoragePath,
       expect.any(Function),
       expect.any(Function),
     );
-    const onUpdate = mockSubscribe.mock.calls[0][1] as (update: {
-      status: 'complete';
-      screenplayDocId: string;
-    }) => void;
-    act(() => onUpdate({ status: 'complete', screenplayDocId: 'reloaded-project' }));
+    const onUpdate = mockSubscribe.mock.calls[0][0] as (update: import('@/lib/ingestQueueClient').IngestQueueJob[]) => void;
+    act(() => onUpdate([{ status: 'complete', jobId: 'queue-reloaded', storagePath: acceptedJob.ingestQueueStoragePath!, filename: acceptedJob.filename, category: 'LEMON', queuedAt: acceptedJob.createdAt, screenplayDocId: 'reloaded-project' }]));
 
     expect(await screen.findByRole('button', { name: 'Open analysis' })).toBeInTheDocument();
     expect(useUploadStore.getState().jobs[0].result?.projectId).toBe('reloaded-project');
@@ -248,15 +310,11 @@ describe('Intake upload presentation', () => {
     renderPanel();
 
     expect(mockSubscribe).toHaveBeenCalledWith(
-      acceptedJob.ingestQueueStoragePath,
       expect.any(Function),
       expect.any(Function),
     );
-    const onUpdate = mockSubscribe.mock.calls[0][1] as (update: {
-      status: 'complete';
-      screenplayDocId: string;
-    }) => void;
-    act(() => onUpdate({ status: 'complete', screenplayDocId: 'Cosquillitas_Draft_9.pdf' }));
+    const onUpdate = mockSubscribe.mock.calls[0][0] as (update: import('@/lib/ingestQueueClient').IngestQueueJob[]) => void;
+    act(() => onUpdate([{ status: 'complete', jobId: 'queue-review', storagePath: acceptedJob.ingestQueueStoragePath!, filename: acceptedJob.filename, category: 'LEMON', queuedAt: acceptedJob.createdAt, screenplayDocId: 'Cosquillitas_Draft_9.pdf' }]));
 
     expect(useUploadStore.getState().jobs[0]).toMatchObject({
       status: 'complete',
@@ -265,7 +323,7 @@ describe('Intake upload presentation', () => {
     });
   });
 
-  it('does not reconnect settled queue jobs', () => {
+  it('keeps one global subscription even when local jobs have settled', () => {
     const completeJob: UploadJob = {
       id: 'settled-job',
       filename: 'Finished.pdf',
@@ -279,6 +337,6 @@ describe('Intake upload presentation', () => {
 
     renderPanel();
 
-    expect(mockSubscribe).not.toHaveBeenCalled();
+    expect(mockSubscribe).toHaveBeenCalledTimes(1);
   });
 });

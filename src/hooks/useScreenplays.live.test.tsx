@@ -1,16 +1,20 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import type { PropsWithChildren } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import i18n from '@/i18n';
 import { useToastStore } from '@/stores/toastStore';
 import { useLiveScreenplaySync } from '@/hooks/useScreenplays';
+import { useSyncStatusStore } from '@/stores/syncStatusStore';
+import { subscribeToCoverageV1Reports } from '@/lib/analysisStore';
 
 const liveMocks = vi.hoisted(() => ({
   normalizeAnalyses: vi.fn(),
   onData: undefined as ((records: Array<Record<string, unknown>>) => void) | undefined,
   onError: undefined as (() => void) | undefined,
+  onCoverage: undefined as ((records: Array<Record<string, unknown>>) => void) | undefined,
+  onCoverageError: undefined as (() => void) | undefined,
 }));
 
 vi.mock('@/lib/api', () => ({
@@ -31,7 +35,11 @@ vi.mock('@/lib/analysisStore', () => ({
     liveMocks.onError = onError;
     return vi.fn();
   }),
-  subscribeToCoverageV1Reports: vi.fn(() => vi.fn()),
+  subscribeToCoverageV1Reports: vi.fn((onData, onError) => {
+    liveMocks.onCoverage = onData;
+    liveMocks.onCoverageError = onError;
+    return vi.fn();
+  }),
 }));
 
 vi.mock('@/lib/shareService', () => ({
@@ -53,8 +61,27 @@ describe('useLiveScreenplaySync localized failures', () => {
   });
 
   afterEach(async () => {
+    vi.useRealTimers();
     useToastStore.getState().clearToasts();
     await i18n.changeLanguage('en');
+  });
+
+  it('reconnects Coverage independently and cannot show healthy while that feed is down', async () => {
+    vi.useFakeTimers();
+    vi.mocked(subscribeToCoverageV1Reports).mockClear();
+    liveMocks.normalizeAnalyses.mockResolvedValue([]);
+    const { unmount } = renderHook(() => useLiveScreenplaySync(), { wrapper });
+    await act(async () => { liveMocks.onData?.([]); liveMocks.onCoverage?.([]); });
+    expect(useSyncStatusStore.getState().isLiveConnected).toBe(true);
+    await act(async () => { liveMocks.onCoverageError?.(); liveMocks.onData?.([]); });
+    expect(useSyncStatusStore.getState().isLiveConnected).toBe(false);
+    await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+    expect(subscribeToCoverageV1Reports).toHaveBeenCalledTimes(2);
+    await act(async () => { liveMocks.onCoverage?.([]); });
+    expect(useSyncStatusStore.getState().isLiveConnected).toBe(true);
+    unmount();
+    await vi.advanceTimersByTimeAsync(10000);
+    expect(subscribeToCoverageV1Reports).toHaveBeenCalledTimes(2);
   });
 
   it('localizes a disconnected live-sync warning', async () => {

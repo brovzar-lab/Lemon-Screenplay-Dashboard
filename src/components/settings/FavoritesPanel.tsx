@@ -8,11 +8,15 @@ import { useTranslation } from 'react-i18next';
 import { useFavoritesStore, type FavoriteList } from '@/stores/favoritesStore';
 import { useScreenplays } from '@/hooks/useScreenplays';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { isCoverageNeedsReview } from '@/lib/producerProjection';
 
 export function FavoritesPanel() {
   const { t, i18n } = useTranslation();
-  const { lists, quickFavorites, createList, deleteList, renameList } = useFavoritesStore();
+  const { lists: savedLists, quickFavorites: savedQuickFavorites, createList, deleteList, renameList } = useFavoritesStore();
   const { data: screenplays = [] } = useScreenplays();
+  const reviewIds = new Set(screenplays.filter(isCoverageNeedsReview).map((screenplay) => screenplay.id));
+  const quickFavorites = savedQuickFavorites.filter((id) => !reviewIds.has(id));
+  const lists = savedLists.map((list) => ({ ...list, screenplayIds: list.screenplayIds.filter((id) => !reviewIds.has(id)) }));
   const [isCreating, setIsCreating] = useState(false);
   const [newListName, setNewListName] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);

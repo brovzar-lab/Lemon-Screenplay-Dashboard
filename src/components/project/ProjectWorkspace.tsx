@@ -31,7 +31,7 @@ import {
 import { useIsAdmin } from '@/stores/authStore';
 import { useFavoritesStore } from '@/stores/favoritesStore';
 import { analysisIsEnglishFallback } from '@/lib/localizedAnalysis';
-import { isCoverageV1Screenplay, isDecisionReady } from '@/lib/producerProjection';
+import { isCoverageNeedsReview, isCoverageV1Screenplay, isDecisionReady } from '@/lib/producerProjection';
 import type { ProducerAssessmentHead, Screenplay } from '@/types';
 
 export type ProjectWorkspaceTab =
@@ -238,6 +238,7 @@ function ProjectHeader({
             <button
               type="button"
               onClick={() => toggleQuickFavorite(screenplay.id)}
+              disabled={isCoverageNeedsReview(screenplay)}
               className="dsc-btn"
               aria-pressed={isFavorite}
             >

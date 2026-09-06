@@ -62,6 +62,12 @@ export function isCoverageReadyScreenplay(
   return isCoverageV1Screenplay(screenplay) && screenplay.coverage?.status === 'sealed';
 }
 
+export function isCoverageNeedsReview(
+  screenplay: Parameters<typeof isCoverageReadyScreenplay>[0],
+): boolean {
+  return isCoverageV1Screenplay(screenplay) && !isCoverageReadyScreenplay(screenplay);
+}
+
 export function decisionReadyScreenplays<T extends {
   producerProjection?: { rankable?: boolean; trustStatus?: string };
 }>(screenplays: T[]): T[] {

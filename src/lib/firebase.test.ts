@@ -1,8 +1,9 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockRef, mockUploadBytes } = vi.hoisted(() => ({
+const { mockRef, mockUploadBytes, mockMetadata } = vi.hoisted(() => ({
   mockRef: vi.fn((_storage: unknown, path: string) => ({ path })),
-  mockUploadBytes: vi.fn().mockResolvedValue(undefined),
+  mockUploadBytes: vi.fn().mockResolvedValue({ metadata: { generation: '12345' } }),
+  mockMetadata: vi.fn().mockRejectedValue({ code: 'storage/object-not-found' }),
 }));
 
 vi.mock('firebase/app', () => ({
@@ -13,6 +14,7 @@ vi.mock('firebase/storage', () => ({
   getStorage: vi.fn(() => ({})),
   ref: mockRef,
   uploadBytes: mockUploadBytes,
+  getMetadata: mockMetadata,
   getDownloadURL: vi.fn(),
 }));
 
@@ -124,6 +126,22 @@ describe('firebase module', () => {
     expect(second.objectName).toBe('ingest-queue/LEMON/upload-two/Same_Draft.pdf');
     expect(first.storagePath).not.toBe(second.storagePath);
     expect(mockUploadBytes).toHaveBeenCalledTimes(2);
+    expect(first.storageGeneration).toBe('12345');
+  });
+
+  it('rejects unsupported queue categories before uploading bytes', async () => {
+    await expect(firebaseModule.uploadPdfToIngestQueue(
+      new File(['script'], 'Script.pdf'), 'CUSTOM',
+    )).rejects.toThrow(/category/i);
+    expect(mockUploadBytes).not.toHaveBeenCalled();
+  });
+
+  it('never overwrites an already accepted upload identity', async () => {
+    mockMetadata.mockResolvedValueOnce({ generation: 'older-generation' });
+    await expect(firebaseModule.uploadPdfToIngestQueue(
+      new File(['different bytes'], 'Script.pdf'), 'LEMON', { uploadId: 'existing-id' },
+    )).rejects.toThrow(/already exists/i);
+    expect(mockUploadBytes).not.toHaveBeenCalled();
   });
 
   it('places the target project on Storage metadata for renamed revisions', async () => {

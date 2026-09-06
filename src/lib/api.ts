@@ -9,6 +9,7 @@ import { loadAllAnalyses, quarantineAnalysis } from './analysisStore';
 import { useToastStore } from '@/stores/toastStore';
 import i18n from '@/i18n';
 import { decisionReadyScreenplays } from '@/lib/producerProjection';
+import { analysisVersionTime } from '@/lib/analysisIdentity';
 
 const reportedQuarantineSources = new Set<string>();
 
@@ -83,6 +84,9 @@ export async function normalizeAnalyses(rawList: Record<string, unknown>[]): Pro
         // Parent project identity determines whether records are revisions.
         // Different projects are allowed to share the same title.
         const key = sp.projectId || sp.id;
+        const previous = seen.get(key);
+        if (previous && analysisVersionTime(previous.latestVersionId) > analysisVersionTime(sp.latestVersionId)
+            && analysisVersionTime(sp.latestVersionId) > 0) continue;
         seen.set(key, sp);
     }
     const deduplicated = Array.from(seen.values());

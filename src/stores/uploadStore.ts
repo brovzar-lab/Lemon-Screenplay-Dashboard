@@ -5,6 +5,7 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import type { IngestQueueJob } from '@/lib/ingestQueueClient';
 
 export type UploadStatus =
   | 'pending'
@@ -35,6 +36,7 @@ export interface UploadJob {
     analysisPath: string;
     /** Stable project route returned by the authoritative ingest queue. */
     projectId?: string;
+    versionId?: string;
   };
   createdAt: string;
   completedAt?: string;
@@ -69,6 +71,11 @@ export interface UploadJob {
   tmdbChecking?: boolean;
   /** Storage path (gs://...) for daemon-path uploads — used to find the queue doc */
   ingestQueueStoragePath?: string;
+  storageGeneration?: string;
+  queueJobId?: string;
+  replacesQueueJobId?: string;
+  engine?: 'coverage_v1' | 'v9';
+  connectionError?: string;
 }
 
 /**
@@ -79,11 +86,13 @@ const fileMap = new Map<string, File>();
 
 interface UploadState {
   jobs: UploadJob[];
+  dismissedQueueJobs: Record<string, UploadStatus>;
   isProcessing: boolean;
 
   // Queue management
   addJob: (filename: string, category: string, file: File) => string;
   updateJob: (jobId: string, update: Partial<UploadJob>) => void;
+  reconcileQueue: (queue: IngestQueueJob[]) => void;
   removeJob: (jobId: string) => void;
   clearCompleted: () => void;
   chooseRevision: (jobId: string) => void;
@@ -122,6 +131,7 @@ export const useUploadStore = create<UploadState>()(
   persist(
     (set, get) => ({
       jobs: [],
+      dismissedQueueJobs: {},
       isProcessing: false,
 
       addJob: (filename, category, file) => {
@@ -153,9 +163,59 @@ export const useUploadStore = create<UploadState>()(
         }));
       },
 
+      reconcileQueue: (queue) => {
+        set((state) => {
+          const jobs = [...state.jobs];
+          const dismissedQueueJobs = { ...state.dismissedQueueJobs };
+          for (const remote of queue) {
+            const status: UploadStatus = remote.status === 'pending' || remote.status === 'waiting_for_engine'
+              ? 'queued' : remote.status === 'processing' ? 'analyzing'
+                : remote.status === 'failed' ? 'error' : remote.status;
+            if (dismissedQueueJobs[remote.jobId] === status) continue;
+            delete dismissedQueueJobs[remote.jobId];
+            const index = jobs.findIndex((local) => local.queueJobId === remote.jobId
+              || (!local.queueJobId && local.ingestQueueStoragePath === remote.storagePath
+                && (local.storageGeneration ? local.storageGeneration === remote.storageGeneration
+                  : queue.filter((item) => item.storagePath === remote.storagePath).length === 1)));
+            const local = index >= 0 ? jobs[index] : undefined;
+            const next: UploadJob = {
+              ...local,
+              id: local?.id ?? `queue-${remote.jobId}`,
+              filename: local?.filename ?? remote.filename,
+              category: remote.category,
+              createdAt: local?.createdAt ?? remote.queuedAt,
+              status,
+              progress: status === 'complete' ? 100 : status === 'analyzing' ? 60 : 20,
+              queueJobId: remote.jobId,
+              engine: remote.engine,
+              uploadId: remote.uploadId ?? local?.uploadId,
+              storageGeneration: remote.storageGeneration,
+              ingestQueueStoragePath: remote.storagePath,
+              connectionError: undefined,
+              error: remote.status === 'waiting_for_engine' ? 'Waiting for the Coverage worker'
+                : remote.status === 'waiting_for_budget' ? 'Waiting for the next daily AI budget window'
+                  : remote.error,
+              result: remote.screenplayDocId ? {
+                title: remote.filename.replace(/\.pdf$/i, ''),
+                author: 'See analysis',
+                analysisPath: remote.reportId ?? 'firestore',
+                projectId: remote.screenplayDocId,
+                versionId: remote.versionId,
+              } : undefined,
+            };
+            if (index >= 0) jobs[index] = next;
+            else jobs.push(next);
+          }
+          return { jobs, dismissedQueueJobs };
+        });
+      },
+
       removeJob: (jobId) => {
         fileMap.delete(jobId);
         set((state) => ({
+          dismissedQueueJobs: { ...state.dismissedQueueJobs, ...Object.fromEntries(state.jobs
+            .filter((job) => job.id === jobId && job.queueJobId && isUploadTerminalStatus(job.status))
+            .map((job) => [job.queueJobId!, job.status])) },
           jobs: state.jobs.filter((j) => j.id !== jobId),
         }));
       },
@@ -164,6 +224,8 @@ export const useUploadStore = create<UploadState>()(
         const completed = get().jobs.filter((job) => isUploadTerminalStatus(job.status));
         completed.forEach((j) => fileMap.delete(j.id));
         set((state) => ({
+          dismissedQueueJobs: { ...state.dismissedQueueJobs, ...Object.fromEntries(completed
+            .filter((job) => job.queueJobId).map((job) => [job.queueJobId!, job.status])) },
           jobs: state.jobs.filter((job) => !isUploadTerminalStatus(job.status)),
         }));
       },
@@ -225,6 +287,7 @@ export const useUploadStore = create<UploadState>()(
     {
       name: 'lemon-uploads',
       partialize: (state) => ({
+        dismissedQueueJobs: state.dismissedQueueJobs,
         // Keep accepted queue jobs so Intake can reconnect after navigation/reload.
         // Pending files remain memory-only because File objects cannot be serialized.
         jobs: state.jobs.filter((job) =>

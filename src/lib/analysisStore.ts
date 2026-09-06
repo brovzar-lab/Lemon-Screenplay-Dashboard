@@ -534,14 +534,14 @@ export function subscribeToCoverageV1Reports(
       const reports = snapshot.docs
         .map((d) => d.data() as Record<string, unknown>)
         .filter((document) => {
-          if (document._deleted_at || document.status !== 'sealed') return false;
+          if (document._deleted_at || !['sealed', 'needs_review'].includes(String(document.status))) return false;
           if (typeof document.report_json !== 'string') return true;
           try {
             const report = JSON.parse(document.report_json) as unknown;
             return report !== null
               && typeof report === 'object'
               && !Array.isArray(report)
-              && (report as Record<string, unknown>).status === 'sealed';
+              && (report as Record<string, unknown>).status === document.status;
           } catch {
             return false;
           }

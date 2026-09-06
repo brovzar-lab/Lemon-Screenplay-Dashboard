@@ -10,6 +10,12 @@ export interface AnalysisVersionIdentity extends VerifiedAnalysisIdentity {
 
 const SHA256_HEX_PATTERN = /^[a-f0-9]{64}$/;
 
+/** Version suffix is the authoritative queue acceptance time, not snapshot order. */
+export function analysisVersionTime(version?: string): number {
+  const timestamp = Number(version?.match(/^[a-f0-9]{64}_(\d+)$/)?.[1] ?? 0);
+  return Number.isSafeInteger(timestamp) && timestamp > 0 ? timestamp : 0;
+}
+
 export async function computeContentHash(file: Blob): Promise<string> {
   const buffer = await file.arrayBuffer();
   const digest = await crypto.subtle.digest('SHA-256', buffer);

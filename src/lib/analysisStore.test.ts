@@ -783,7 +783,7 @@ describe('subscribeToAnalyses', () => {
     vi.resetModules();
   });
 
-  it('publishes only Coverage reports whose wrapper and payload are sealed', async () => {
+  it('publishes matching Ready and review reports, but not contradictory wrappers', async () => {
     const onChange = vi.fn();
     const { subscribeToCoverageV1Reports } = await import('./analysisStore');
     subscribeToCoverageV1Reports(onChange);
@@ -816,6 +816,7 @@ describe('subscribeToAnalyses', () => {
 
     expect(onChange).toHaveBeenCalledWith([
       expect.objectContaining({ source_file: 'coverage-v1/Ready' }),
+      expect.objectContaining({ source_file: 'coverage-v1/Review' }),
     ]);
   });
 

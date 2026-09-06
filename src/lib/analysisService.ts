@@ -249,6 +249,9 @@ export function reanalyzeFromStorage(
   onProgress?: (p: AnalysisProgress) => void,
   engineOptions?: ReanalysisExecutionOptions,
 ): Promise<void> {
+  if (screenplay.analysisVersion === 'coverage_v1' || screenplay.producerProjection?.scoreSource === 'coverage_unscored') {
+    return Promise.reject(new Error('Coverage reanalysis uses Intake: upload the PDF and choose its project revision. This V9 action cannot replace Coverage.'));
+  }
   if (engineOptions?.v9Mode === 'triage') {
     return Promise.reject(new Error(
       'Triage-only results cannot replace full V9 coverage. Run a full re-analysis instead.'

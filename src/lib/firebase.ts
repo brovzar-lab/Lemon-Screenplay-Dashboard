@@ -7,7 +7,8 @@
  */
 
 import { initializeApp } from 'firebase/app';
-import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { getStorage, ref, uploadBytes, getDownloadURL, getMetadata } from 'firebase/storage';
+import { INGEST_COLLECTION_IDS } from '@/lib/pdfValidation';
 import { getFirestore } from 'firebase/firestore';
 import {
     GoogleAuthProvider,
@@ -211,10 +212,15 @@ export async function uploadPdfToIngestQueue(
         uploadId?: string;
         /** Same-batch parent upload that must complete before this revision runs. */
         dependsOnUploadId?: string;
+        /** Persist identity before network transfer, including an uncertain acknowledgment. */
+        onPrepared?: (storagePath: string) => void;
     },
-): Promise<{ storagePath: string; objectName: string; uploadId: string }> {
+): Promise<{ storagePath: string; objectName: string; uploadId: string; storageGeneration: string }> {
     // ingest-queue/ Storage rule requires an admin session.
     await authReady;
+    if (!INGEST_COLLECTION_IDS.includes(collectionId)) {
+        throw new Error('Select a supported intake category before uploading.');
+    }
 
     const safeName = sanitizeForStoragePath(file.name);
     const uploadId = options?.uploadId ?? crypto.randomUUID();
@@ -242,6 +248,17 @@ export async function uploadPdfToIngestQueue(
 
     const objectName = `ingest-queue/${collectionId}/${uploadId}/${safeName}.pdf`;
     const storageRef = ref(storage, objectName);
+    const storagePath = `gs://${firebaseConfig.storageBucket}/${objectName}`;
+    options?.onPrepared?.(storagePath);
+    let exists = false;
+    try {
+        await getMetadata(storageRef);
+        exists = true;
+    } catch (error) {
+        if (!error || typeof error !== 'object' || !('code' in error)
+            || error.code !== 'storage/object-not-found') throw error;
+    }
+    if (exists) throw new Error('This upload already exists. Reconnect through Intake instead of uploading it again.');
 
     const customMetadata: Record<string, string> = {
         originalFilename: file.name,
@@ -258,17 +275,32 @@ export async function uploadPdfToIngestQueue(
         customMetadata.dependsOnUploadId = options.dependsOnUploadId;
     }
 
-    await uploadBytes(storageRef, file, {
+    const receipt = await uploadBytes(storageRef, file, {
         contentType: 'application/pdf',
         customMetadata,
     });
 
-    const bucket = firebaseConfig.storageBucket;
     return {
-        storagePath: `gs://${bucket}/${objectName}`,
+        storagePath,
         objectName,
         uploadId,
+        storageGeneration: receipt.metadata.generation,
     };
+}
+
+/** Read-only acknowledgment recovery. A missing object is not an accepted upload. */
+export async function getIngestUploadGeneration(storagePath: string): Promise<string | null> {
+    await authReady;
+    if (!storagePath.startsWith(`gs://${firebaseConfig.storageBucket}/ingest-queue/`)) {
+        throw new Error('Invalid ingest upload path.');
+    }
+    try {
+        return (await getMetadata(ref(storage, storagePath))).generation;
+    } catch (error) {
+        if (error && typeof error === 'object' && 'code' in error
+            && error.code === 'storage/object-not-found') return null;
+        throw error;
+    }
 }
 
 export default app;

@@ -16,6 +16,7 @@ import { useToastStore } from '@/stores/toastStore';
 import { SetCategoryModal, AddToFavoritesModal, BulkPdfUploadModal } from '@/components/bulk';
 import { useIsAdmin } from '@/stores/authStore';
 import { useTranslation } from 'react-i18next';
+import { isCoverageNeedsReview } from '@/lib/producerProjection';
 
 export function BulkActionBar() {
   const { t } = useTranslation();
@@ -156,7 +157,7 @@ export function BulkActionBar() {
               {isAdmin && <button onClick={() => setShowCategoryModal(true)} className="btn btn-ghost text-sm">
                 {t('Set Category')}
               </button>}
-              <button onClick={() => setShowFavoritesModal(true)} className="btn btn-ghost text-sm">
+              <button onClick={() => setShowFavoritesModal(true)} disabled={getSelectedScreenplays().some(isCoverageNeedsReview)} className="btn btn-ghost text-sm">
                 {t('Favorites')}
               </button>
             </div>
@@ -170,6 +171,7 @@ export function BulkActionBar() {
       <AddToFavoritesModal
         isOpen={showFavoritesModal}
         onClose={() => setShowFavoritesModal(false)}
+        blocked={getSelectedScreenplays().some(isCoverageNeedsReview)}
       />
       {isAdmin && <BulkPdfUploadModal
         isOpen={showUploadModal}

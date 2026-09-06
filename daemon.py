@@ -642,7 +642,9 @@ def same_batch_dependency_state(job: dict) -> tuple[str, Optional[str]]:
     target_project_id = job.get("target_project_id")
     states = [parent.to_dict() or {} for parent in parents]
     for parent in states:
-        if parent.get("status") != "complete":
+        if parent.get("status") != "complete" and not (
+            parent.get("status") == "needs_review" and parent.get("coverage_v1_report_id")
+        ):
             continue
         if (
             isinstance(target_project_id, str)
@@ -993,7 +995,7 @@ def resolve_target_project_id(
             .limit(10)
             .stream()
         )
-        if any((snapshot.to_dict() or {}).get("status") == "sealed" for snapshot in reports):
+        if any((snapshot.to_dict() or {}).get("status") in {"sealed", "needs_review"} for snapshot in reports):
             return target_project_id
     raise TerminalJobError(
         f"target_project_id does not exist: {target_project_id}"
@@ -1163,6 +1165,31 @@ def coverage_report_wrapper_matches(
     )
 
 
+def is_coverage_already_reported(content_hash: str, except_report_id: str = "") -> bool:
+    """Reuse existing private Coverage, including review drafts, before any new spend."""
+    import coverage_v1
+    for snapshot in (_db.collection(COVERAGE_V1_REPORTS_COLLECTION)
+                     .where("content_hash", "==", content_hash).stream()):
+        wrapper = snapshot.to_dict() or {}
+        project_id, version_id = wrapper.get("project_id"), wrapper.get("version_id")
+        if f"{project_id}__{version_id}" == except_report_id:
+            continue  # Exact publication retry is reconciled by run_coverage_v1_job.
+        try:
+            report = json.loads(wrapper.get("report_json", ""))
+            valid = isinstance(report, dict) and coverage_report_wrapper_matches(
+                wrapper, report, screenplay_doc_id=project_id, version_id=version_id,
+                content_hash=content_hash, report_sha256=coverage_v1.canonical_json_hash(report))
+            if not valid or report.get("status") not in {"sealed", "needs_review"}:
+                raise ValueError("Existing coverage identity could not be verified")
+            verify_archived_pdf_version(storage_path=wrapper.get("storage_path"),
+                storage_generation=wrapper.get("storage_generation"), project_id=project_id,
+                version_id=version_id, content_hash=content_hash)
+        except Exception as error:
+            raise TerminalJobError("Existing Coverage for these PDF bytes requires review; refusing duplicate spend.") from error
+        return True
+    return False
+
+
 def run_coverage_v1_job(
     *,
     job: dict,
@@ -1190,6 +1217,7 @@ def run_coverage_v1_job(
     resume-safe: validated stages are never repaid.
     """
     import coverage_v1  # execution/ is on sys.path by the time jobs run
+    import coverage_reader
     import ingest_v9
 
     # coverage_v1 has no hybrid promotion; a hybrid request runs as sonnet.
@@ -1253,7 +1281,7 @@ def run_coverage_v1_job(
 
     usage_sink: dict = {}
     try:
-        report, usage = coverage_v1.run_coverage_v1(
+        report, usage = coverage_reader.run_coverage_v1(
             text=text,
             title=title,
             page_count=page_count,
@@ -1970,6 +1998,12 @@ def process_job(job: dict) -> None:
                 f"[job] {job_id} → complete from existing immutable version "
                 f"{version_id[:16]}…; no paid work repeated"
             )
+            return
+
+        if (engine == "coverage_v1" and target_project_id is None
+            and separate_project is not True and not job.get("bypass_duplicate", False)
+            and is_coverage_already_reported(content_hash, f"{screenplay_doc_id}__{version_id}")):
+            mark_skipped(job_id, "already_complete")
             return
 
         if (

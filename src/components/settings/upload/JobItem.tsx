@@ -8,7 +8,7 @@ import { clsx } from 'clsx';
 import { useTranslation } from 'react-i18next';
 import type { UploadJob } from '@/stores/uploadStore';
 import type { UploadPresentation } from '@/components/settings/upload/upload.types';
-import { STATUS_LABELS } from './upload.constants';
+import { STATUS_LABELS } from '@/components/settings/upload/upload.constants';
 
 interface JobItemProps {
   job: UploadJob;
@@ -171,11 +171,12 @@ export function JobItem({
             </span>
             <span className="text-black-500">&middot;</span>
             <span className="text-black-500">{job.category}</span>
+            {job.engine && <span className="text-black-500">{job.engine === 'coverage_v1' ? t('Coverage V1.2') : 'V9'}</span>}
             {job.error && (job.status === 'error' || needsReview) && (
               <>
                 <span className="text-black-500">&middot;</span>
-                <span className="text-red-400 truncate" title={t('This intake job could not be completed.')}>
-                  {t('This intake job could not be completed.')}
+                <span className="text-red-400 truncate" title={t(job.error)}>
+                  {t(job.error)}
                 </span>
               </>
             )}
@@ -186,6 +187,8 @@ export function JobItem({
               </>
             )}
           </div>
+
+          {job.connectionError && <p className="mt-1 text-xs text-amber-500">{t(job.connectionError)}</p>}
 
           {job.matchResolution === 'revision' && job.status === 'pending' && (
             <p className="mt-1 text-xs text-blue-300">
@@ -232,16 +235,12 @@ export function JobItem({
 
         {/* Progress Bar */}
         {isActive && (
-          <div className="w-24 h-1.5 bg-black-700 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-gold-400 rounded-full transition-all"
-              style={{ width: `${job.progress}%` }}
-            />
-          </div>
+          <progress aria-label={t('Upload progress')} max={100} value={job.progress}
+            className="w-24 h-1.5 accent-gold-400" />
         )}
 
         {/* Retry + Remove Buttons */}
-        {job.status === 'error' && (
+        {job.status === 'error' && !job.queueJobId && (
           <button
             onClick={() => onRetry(job.id)}
             className="px-3 py-1 text-xs font-medium text-gold-300 bg-gold-500/10 border border-gold-500/30 rounded-md hover:bg-gold-500/20 hover:border-gold-500/50 transition-all"
@@ -249,7 +248,10 @@ export function JobItem({
             ↻ {t('Retry')}
           </button>
         )}
-        {job.status === 'complete' && job.result?.projectId && onOpenAnalysis && (
+        {job.status === 'error' && job.queueJobId && (
+          <button type="button" onClick={() => onRetry(job.id)} className="dsc-btn shrink-0">{t('Upload Issues')}</button>
+        )}
+        {(job.status === 'complete' || needsReview) && job.result?.projectId && onOpenAnalysis && (
           <button
             type="button"
             onClick={() => onOpenAnalysis(job.result!.projectId!)}

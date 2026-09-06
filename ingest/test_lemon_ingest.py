@@ -120,6 +120,25 @@ class FakeDb:
 
 
 class FolderBatchTests(unittest.TestCase):
+    def test_explicit_coverage_route_is_bound_and_old_batches_remain_v9(self):
+        with tempfile.TemporaryDirectory() as temp:
+            folder = Path(temp)
+            write_pdf(folder / 'Pilot.pdf')
+            manifest, path = prepare_batch(folder, 'LEMON', 'sonnet', engine='coverage_v1')
+            bucket = FakeBucket()
+            upload_batch(manifest, path, bucket=bucket, db=FakeDb(), sleep=lambda _: None)
+            self.assertEqual(next(iter(bucket.blobs.values())).metadata['engine'], 'coverage_v1')
+            with self.assertRaises(BatchError):
+                prepare_batch(folder, 'LEMON', 'sonnet', engine='v9')
+        with tempfile.TemporaryDirectory() as temp:
+            folder = Path(temp)
+            write_pdf(folder / 'Legacy.pdf')
+            manifest, path = prepare_batch(folder, 'LEMON', 'sonnet')
+            manifest.pop('engine', None)
+            save_manifest(path, manifest)
+            restored, _ = prepare_batch(folder, 'LEMON', 'sonnet')
+            self.assertEqual(restored.get('engine', 'v9'), 'v9')
+
     def test_recursive_plan_blocks_local_duplicates_and_title_collisions(self):
         with tempfile.TemporaryDirectory() as temp:
             folder = Path(temp)
@@ -396,7 +415,7 @@ class FolderBatchTests(unittest.TestCase):
             write_pdf(folder / "Alpha.pdf")
             manifest, _ = prepare_batch(folder, "LEMON", "hybrid")
             manifest["files"][0]["status"] = "upload_error"
-            self.assertEqual(batch_cost_range(manifest), (1.6, 12.0))
+            self.assertEqual(batch_cost_range(manifest), (0.0, 1.0))
 
     def test_spanish_title_forms_and_renamed_pending_copy_are_blocked(self):
         self.assertEqual(normalized_title("Café"), normalized_title("Cafe\u0301"))

@@ -243,7 +243,7 @@ export function ModalHeader({
                 )}
                 {t(coverageState === 'error' ? 'Failed' : 'Coverage')}
               </button>
-              {isAdmin && (
+              {isAdmin && screenplay.analysisVersion !== 'coverage_v1' && (
                 <ReanalyzeButton screenplay={screenplay} onComplete={onReanalyzeComplete} />
               )}
               <ScreenplayPdfButton screenplay={screenplay} />

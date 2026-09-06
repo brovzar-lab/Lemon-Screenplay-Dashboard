@@ -1,64 +1,34 @@
 # CLAUDE.md — Lemon Screenplay Dashboard
 
 ## Where Were We (WWW)
-<!-- Single source of truth for session continuity. OVERWRITE this whole section on "save" / "wrap up" / end of session — it reflects CURRENT state, not a log. On "www" / "where were we", read this back and summarize. -->
+<!-- Current continuity, not a log. Verify live deployment state separately. -->
 
-**Last session:** 2026-09-02 (Coverage V1.2 Cosquillitas reliability gate)
+**Last session:** 2026-09-06, no-spend bounded Coverage implementation.
 
-**Current state:**
-- Work is on `claude/lemon-dashboard-v9-review-w3nuz0`. Billy authorized the
-  paid Cosquillitas fix/review loop and, once that gate passes, the same
-  20-script V1.2 benchmark. No production-data write, deployment, daemon
-  activation, or V1.2 promotion has occurred. V9 remains production.
-- Billy's approved 20-report audit under
-  `benchmark-artifacts/coverage-v1-audit-packages/` is the source of truth.
-  V1.2 implements its five P0 safeguards: typed PDF/printed/citation-page/scene
-  identities, complete-script existing-evidence checks, one canonical fact
-  registry with propagation, a literal ordered climax/ending pass, and
-  separate citation text/page/relevance verification.
-- The latest no-spend implementation also gives every material count a typed
-  source-instance ledger, supports nested/anaphoric counts such as "four judges;
-  two are bribed," rejects cross-entity evidence reuse, and preserves collective
-  counts through explicit multiplicity. Factual repair is deterministically
-  forbidden from changing verdict, confidence, primary genre, lens identities
-  or grades, and genre-contract judgment.
-- Regression fixtures cover W.I.L.L., El Arbol Negro, Terapia, La Ciguena,
-  Sola, Diablo, and every reproduced Cosquillitas failure. Proof is 134 focused
-  engine tests plus 8 no-spend canary tests, 565 total Python execution tests,
-  1,085 frontend tests across 146 files, and the TypeScript/Vite production
-  build. The adversarial reviewer and independent consolidation judge both
-  return PASS with no P0/P1 blocker.
-- Paid Cosquillitas runs at `97e360b` and `84a3d59` both failed closed. The
-  latter reused the valid coverage checkpoint and spent $0.156316 on one new
-  audit call. Its remaining defects were a valid ending bucket returned out of
-  page order and an invalid page attached to an absence-only aftermath marker.
-  Evidence/citation "missing" messages were downstream because the invalid
-  sequence stopped before the detail pass.
-- The judged no-spend fix reclassifies an `ending` beat as `climax` only when
-  original climax beats bracket its page and a genuine ending remains at or
-  after the final climax. It records `phase_normalized_from: "ending"` and
-  preserves all literal content. The follow-up stably sorts only valid material
-  beats inside their own phase, records their original phase positions, and
-  anchors a sole exact `NOT PRESENT` tag/aftermath marker to the final material
-  page while recording its meaningless input sentinel. Pre-climax endings,
-  early material final scenes/tags/aftermaths, impossible material pages, and
-  missing real endings still fail. The next rerun can reuse the validated
-  coverage checkpoint and pay only for the new audit path.
-- Cumulative V1.2 charged spend is $5.495207, leaving $14.504793 under the
-  temporary $20 operation cap. No V1.2 report is sealed and the other 19 have
-  not run. The next gate is the resumed Cosquillitas audit, followed by a new
-  full-screenplay judge comparison. Do not open the other 19 until it passes.
-- The qualitative contract is unchanged: no screenplay scores, no rankability,
-  frontend `scoreSource` remains `coverage_unscored`, irrelevant lenses remain
-  `not_applicable`, multi-stage climaxes are preserved, and human taste stays
-  separate from factual correction.
-
-**Open risks (carried over, not reverified this session):**
-- `VITE_TMDB_API_KEY` may be inlined into local builds. Never run
-  `npm run deploy` from a laptop; CI is the clean path.
-- Playwright asserts against live production Firestore data.
-- Paperclip agent credential remains broadly scoped; Firebase service-account
-  rotation and a separate deploy-approver identity are pending.
+- Work remains on `claude/lemon-dashboard-v9-review-w3nuz0`, based on `d3ef81d`.
+  See `docs/COVERAGE-BOUNDED-IMPLEMENTATION.md` for the complete implementation,
+  verification results, deliberate limits and proposed next pilot.
+- The new `execution/coverage_reader.py` identifies itself as
+  `coverage-v1.2-bounded-1`: one reading, one independent review, at most one
+  structural correction, three calls maximum. The daemon's local Coverage route
+  uses it. Old V9 and the former V1.2 proof-loop code/checkpoints remain intact.
+- Useful Needs Review reports are preserved and displayed. They cannot drive
+  favorites or decision PDFs. Coverage remains unscored and unrankable.
+  Intake/replacement receipt recovery follows authoritative queue identities.
+- Local proof: 1,112 frontend tests, 840 engine tests, 21 desktop-ingest tests,
+  145 Functions tests, 26 emulator-rule tests, 60 browser tests, builds and lint.
+  Independent engine/intake review passed the local candidate.
+- All 20 private PDFs parsed and replayed saved coverage offline with zero real
+  calls/cost. This is NOT a fresh benchmark or accuracy proof. The unchanged
+  $1 default rejects 15/20 before dispatch because of conservative reservations.
+  Hypothetical $5 simulation permits all 20 to preserve and replay review drafts.
+- No inference, deployment, worker activation, requeue or production-data write
+  occurred during this implementation. Prior paid authorizations are not active.
+  Do not unlock the 20-script paid benchmark or use the old canary to qualify
+  the new reader. The next proposed gate is one separately approved private
+  Cosquillitas pilot, at most three calls and $5 total, then audit comparison.
+- Do not claim current Hosting/Functions/VPS version alignment from these local
+  tests. Reverify live revisions before any future activation or release.
 
 ## Project
 Internal screenplay-analysis dashboard for Lemon Studios. Ingests AI-generated coverage JSONs (V9 format), stores them in Firestore, and provides filtering, scoring, comparison, analytics charts, PDF export, and shareable links. Used to triage 500+ screenplays for producer review and partner sharing.

@@ -66,6 +66,9 @@ export function useLiveScreenplaySync(): void {
     let unsubscribe = () => {};
     let unsubscribeStaging = () => {};
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    let stagingRetryTimer: ReturnType<typeof setTimeout> | undefined;
+    let primaryConnected = false;
+    let stagingConnected = false;
     let snapshotVersion = 0;
     let hasReportedError = false;
 
@@ -82,8 +85,8 @@ export function useLiveScreenplaySync(): void {
         .then((screenplays) => {
           if (active && version === snapshotVersion) {
             queryClient.setQueryData(SCREENPLAYS_QUERY_KEY, screenplays);
-            useSyncStatusStore.getState().setLiveConnected(true);
-            hasReportedError = false;
+            useSyncStatusStore.getState().setLiveConnected(primaryConnected && stagingConnected);
+            if (primaryConnected && stagingConnected) hasReportedError = false;
           }
         })
         .catch((error: unknown) => {
@@ -104,11 +107,13 @@ export function useLiveScreenplaySync(): void {
       unsubscribe();
       unsubscribe = subscribeToAnalyses(
         (rawAnalyses) => {
+          primaryConnected = true;
           latestPrimary = rawAnalyses;
           publishMerged();
         },
         () => {
           if (!active) return;
+          primaryConnected = false;
           useSyncStatusStore.getState().setLiveConnected(false);
           if (retryTimer) clearTimeout(retryTimer);
           if (!hasReportedError) {
@@ -122,22 +127,36 @@ export function useLiveScreenplaySync(): void {
       );
     };
 
-    void flushPendingWrites();
-    connect();
-    unsubscribeStaging = subscribeToCoverageV1Reports(
+    const connectStaging = () => {
+      unsubscribeStaging();
+      unsubscribeStaging = subscribeToCoverageV1Reports(
       (reports) => {
+        stagingConnected = true;
         latestStaging = reports;
         publishMerged();
       },
       () => {
-        // Non-fatal: staging is optional. Keep whatever staging data we
-        // last saw; V9 data continues to flow through the primary feed.
+        if (!active) return;
+        stagingConnected = false;
+        useSyncStatusStore.getState().setLiveConnected(false);
+        if (!hasReportedError) {
+          useToastStore.getState().addToast(i18n.t('Coverage connection lost. Keeping reports and reconnecting.'), 'warning');
+          hasReportedError = true;
+        }
+        if (stagingRetryTimer) clearTimeout(stagingRetryTimer);
+        stagingRetryTimer = setTimeout(connectStaging, 5_000);
       },
-    );
+      );
+    };
+
+    void flushPendingWrites();
+    connect();
+    connectStaging();
 
     return () => {
       active = false;
       if (retryTimer) clearTimeout(retryTimer);
+      if (stagingRetryTimer) clearTimeout(stagingRetryTimer);
       unsubscribe();
       unsubscribeStaging();
     };

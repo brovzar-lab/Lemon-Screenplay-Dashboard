@@ -34,6 +34,11 @@ export interface BadFormatJob {
   filename: string;
   collection_id: string;
   storage_path: string;
+  engine?: 'coverage_v1' | 'v9';
+  target_project_id?: string;
+  separate_project?: boolean;
+  depends_on_upload_id?: string;
+  coverage_v1_report_id?: string;
   skip_reason: SkipReason;
   status: 'skipped' | 'failed' | 'needs_review';
   last_error?: string;
@@ -118,6 +123,11 @@ export function subscribeToUploadIssues(
           filename: String(data.filename ?? ''),
           collection_id: String(data.collection_id ?? ''),
           storage_path: String(data.storage_path ?? ''),
+          engine: data.engine === 'coverage_v1' ? 'coverage_v1' : 'v9',
+          target_project_id: typeof data.target_project_id === 'string' ? data.target_project_id : undefined,
+          separate_project: data.separate_project === true,
+          depends_on_upload_id: typeof data.depends_on_upload_id === 'string' ? data.depends_on_upload_id : undefined,
+          coverage_v1_report_id: typeof data.coverage_v1_report_id === 'string' ? data.coverage_v1_report_id : undefined,
           skip_reason: String(data.skip_reason ?? '') as SkipReason,
           status: data.status === 'failed'
             ? 'failed'

@@ -451,6 +451,14 @@ export interface CoverageDetails {
   citationsVerified?: number;
   citationsTotal?: number;
   pageConvention?: string;
+  reviewSummary?: string;
+  reviewIssues?: Array<{
+    field: string;
+    category: 'factual' | 'uncertain' | 'interpretation';
+    severity: string;
+    note: string;
+    page?: number;
+  }>;
 }
 
 /** One qualitative lens verdict from a coverage_v1 report. Never a score. */

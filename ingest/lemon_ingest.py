@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Restart-safe folder uploader for the Lemon V9 production queue.
+"""Restart-safe folder uploader for the Lemon production queue.
 
 This program never runs analysis locally. It finds PDFs, performs free safety
 checks, uploads accepted files to the current Firebase Storage queue, and then
-lets the production VPS perform the authoritative V9 analysis.
+lets the production VPS perform the explicitly selected analysis.
 """
 
 from __future__ import annotations
@@ -33,6 +33,7 @@ except ImportError:  # Pure helpers and their tests do not require Firebase.
 
 VALID_COLLECTIONS = ("LEMON", "SUBMISSION", "BLKLST", "CONTEST", "OTHER")
 VALID_MODELS = ("haiku", "sonnet", "opus", "hybrid")
+VALID_ENGINES = ("coverage_v1", "v9")
 PROJECT_ID = "lemon-screenplay-dashboard"
 STORAGE_BUCKET = "lemon-screenplay-dashboard.firebasestorage.app"
 MODEL_COST_RANGES_USD = {
@@ -168,6 +169,8 @@ def validate_manifest(manifest: dict[str, Any], path: Path) -> None:
     model = manifest.get("model")
     if category not in VALID_COLLECTIONS or model not in VALID_MODELS:
         raise BatchError("The saved batch has an invalid category or reading route.")
+    if manifest.get("engine", "v9") not in VALID_ENGINES:
+        raise BatchError("The saved batch has an invalid analysis engine.")
     if not re.fullmatch(r"[0-9a-f]{32}", str(manifest.get("batch_id", ""))):
         raise BatchError("The saved batch ID is invalid.")
 
@@ -270,15 +273,16 @@ def get_storage_bucket():
 
 def load_archive_identity(db: Any) -> tuple[dict[str, str], dict[str, str]]:
     """Load only identity fields so renamed revisions are caught without full reports."""
-    documents = db.collection(OUTPUT_COLLECTION).select(
-        ["content_hash", "analysis.title", "source_file"]
-    ).stream(timeout=FIREBASE_REQUEST_TIMEOUT_SECONDS, retry=None)
+    documents = (document for collection in (OUTPUT_COLLECTION, "coverage_v1_reports")
+                 for document in db.collection(collection).select(
+                     ["content_hash", "analysis.title", "title", "source_file"]
+                 ).stream(timeout=FIREBASE_REQUEST_TIMEOUT_SECONDS, retry=None))
     hashes: dict[str, str] = {}
     titles: dict[str, str] = {}
     for document in documents:
         data = document.to_dict() or {}
         analysis = data.get("analysis") if isinstance(data.get("analysis"), dict) else {}
-        title = str(analysis.get("title") or infer_title(str(data.get("source_file") or document.id)))
+        title = str(analysis.get("title") or data.get("title") or infer_title(str(data.get("source_file") or document.id)))
         content_hash = data.get("content_hash")
         if isinstance(content_hash, str):
             hashes.setdefault(content_hash, title)
@@ -348,6 +352,7 @@ def prepare_batch(
     model: str,
     *,
     db: Any = None,
+    engine: Optional[str] = None,
 ) -> tuple[dict[str, Any], Path]:
     """Create or refresh the restart manifest without starting paid work."""
     folder = folder.expanduser().resolve()
@@ -362,10 +367,15 @@ def prepare_batch(
 
     path = manifest_path(folder)
     prior = load_manifest(path)
+    # Missing engine is the historical V9 contract, never reinterpret accepted bytes.
+    engine = engine or (prior.get("engine", "v9") if prior else "coverage_v1")
+    if engine not in VALID_ENGINES:
+        raise BatchError("Engine must be coverage_v1 or v9.")
     if prior and (
         prior.get("folder") != str(folder)
         or prior.get("category") != category
         or prior.get("model") != model
+        or prior.get("engine", "v9") != engine
     ):
         raise BatchError(
             f"This folder already has a saved batch for {prior.get('category')} / "
@@ -378,6 +388,7 @@ def prepare_batch(
         "folder": str(folder),
         "category": category,
         "model": model,
+        "engine": engine,
         "created_at": now_iso(),
         "files": [],
     }
@@ -511,6 +522,8 @@ def batch_counts(manifest: dict[str, Any]) -> dict[str, int]:
 def batch_cost_range(manifest: dict[str, Any]) -> tuple[float, float]:
     counts = batch_counts(manifest)
     chargeable = sum(counts.get(status, 0) for status in {"ready", "uploading", "upload_error"})
+    if manifest.get("engine", "v9") == "coverage_v1":
+        return 0.0, float(chargeable)
     minimum, maximum = MODEL_COST_RANGES_USD[manifest["model"]]
     return chargeable * minimum, chargeable * maximum
 
@@ -529,8 +542,10 @@ def existing_blob_error(blob: Any, item: dict[str, Any], manifest: dict[str, Any
         "originalFilename": item["filename"],
         "category": manifest["category"],
         "model": manifest["model"],
+        "engine": manifest.get("engine", "v9"),
     }
-    mismatched = [key for key, value in expected.items() if metadata.get(key) != value]
+    mismatched = [key for key, value in expected.items()
+                  if metadata.get(key, "v9" if key == "engine" else None) != value]
     return f"Existing Storage object has different identity fields: {', '.join(mismatched)}." if mismatched else None
 
 
@@ -595,6 +610,7 @@ def upload_batch(
                 manifest["updated_at"] = now_iso()
                 save_manifest(path, manifest)
                 blob.metadata = {
+                    "engine": manifest.get("engine", "v9"),
                     "model": manifest["model"],
                     "priority": "0",
                     "originalFilename": item["filename"],
@@ -667,7 +683,7 @@ def print_manifest(manifest: dict[str, Any], path: Path) -> None:
     counts = batch_counts(manifest)
     minimum, maximum = batch_cost_range(manifest)
     print(f"\nFolder: {manifest['folder']}")
-    print(f"Route: {manifest['category']} / {manifest['model']}")
+    print(f"Route: {manifest['category']} / {manifest.get('engine', 'v9')} / {manifest['model']}")
     print(f"Ready: {counts.get('ready', 0)}")
     print(f"Already queued: {counts.get('queued', 0)}")
     print(f"Waiting for queue confirmation: {counts.get('queue_unconfirmed', 0)}")
@@ -690,10 +706,11 @@ def print_manifest(manifest: dict[str, Any], path: Path) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Queue a complete folder for Lemon V9 analysis")
+    parser = argparse.ArgumentParser(description="Queue a complete folder for Lemon analysis")
     parser.add_argument("--folder", "-f", help="Folder containing screenplay PDFs")
     parser.add_argument("--category", "-c", default="LEMON", choices=VALID_COLLECTIONS)
-    parser.add_argument("--model", "-m", default="hybrid", choices=VALID_MODELS)
+    parser.add_argument("--model", "-m", choices=VALID_MODELS)
+    parser.add_argument("--engine", choices=VALID_ENGINES, help="New batches default to Coverage; existing batches keep their saved engine")
     parser.add_argument("--service-account", help="Optional Firebase service-account JSON")
     parser.add_argument("--dry-run", action="store_true", help="Run all free checks but upload nothing")
     parser.add_argument("--new-batch", action="store_true", help="Archive the prior manifest first")
@@ -713,11 +730,13 @@ def main() -> int:
                 archive_manifest(folder)
             init_firebase(args.service_account)
             db = get_firestore()
+            saved = load_manifest(manifest_path(folder))
             manifest, path = prepare_batch(
                 folder,
                 args.category,
-                args.model,
+                args.model or (saved.get("model", "sonnet") if saved else "sonnet"),
                 db=db,
+                engine=args.engine,
             )
             print_manifest(manifest, path)
             if args.dry_run or actionable_count(manifest) == 0:
@@ -728,7 +747,7 @@ def main() -> int:
                 for item in manifest["files"]
             )
             if needs_upload and not args.yes:
-                answer = input("\nQueue the ready screenplays for paid V9 analysis? [y/N] ").strip().lower()
+                answer = input(f"\nQueue the ready screenplays for paid {manifest.get('engine', 'v9')} analysis? [y/N] ").strip().lower()
                 if answer not in {"y", "yes"}:
                     print("No uploads started.")
                     return 0

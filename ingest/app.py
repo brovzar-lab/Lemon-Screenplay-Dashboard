@@ -19,7 +19,7 @@ CATEGORIES = ("LEMON", "SUBMISSION", "BLKLST", "CONTEST", "OTHER")
 MODELS = ("hybrid", "haiku", "sonnet", "opus")
 
 
-def cli_command(folder: str, category: str, model: str) -> list[str]:
+def cli_command(folder: str, category: str, model: str, engine: str = "coverage_v1") -> list[str]:
     return [
         str(CLI_PYTHON),
         str(CLI_SCRIPT),
@@ -29,14 +29,16 @@ def cli_command(folder: str, category: str, model: str) -> list[str]:
         category,
         "--model",
         model,
+        "--engine",
+        engine,
     ]
 
 
-def open_terminal(folder: str, category: str, model: str) -> None:
+def open_terminal(folder: str, category: str, model: str, engine: str = "coverage_v1") -> None:
     with tempfile.NamedTemporaryFile("w", suffix=".command", delete=False) as launcher:
         launcher.write("#!/bin/bash\n")
         launcher.write(f"cd {shlex.quote(str(PROJECT_DIR))}\n")
-        launcher.write(f"{shlex.join(cli_command(folder, category, model))}\n")
+        launcher.write(f"{shlex.join(cli_command(folder, category, model, engine))}\n")
         launcher.write("STATUS=$?\n")
         launcher.write('rm -f "$0"\n')
         launcher.write("exit $STATUS\n")
@@ -55,7 +57,8 @@ def main() -> None:
 
     folder = tk.StringVar()
     category = tk.StringVar(value="LEMON")
-    model = tk.StringVar(value="hybrid")
+    model = tk.StringVar(value="sonnet")
+    engine = tk.StringVar(value="coverage_v1")
 
     frame = ttk.Frame(root, padding=20)
     frame.grid()
@@ -71,22 +74,24 @@ def main() -> None:
 
     ttk.Button(frame, text="Choose folder", command=choose_folder).grid(row=2, column=0, sticky="w")
     ttk.Label(frame, text="Category").grid(row=3, column=0, sticky="w", pady=(16, 4))
-    ttk.Label(frame, text="V9 reading route").grid(row=3, column=1, sticky="w", pady=(16, 4))
+    ttk.Label(frame, text="Model (Coverage uses Sonnet)").grid(row=3, column=1, sticky="w", pady=(16, 4))
     ttk.Combobox(frame, textvariable=category, values=CATEGORIES, state="readonly", width=22).grid(row=4, column=0, sticky="w")
     ttk.Combobox(frame, textvariable=model, values=MODELS, state="readonly", width=22).grid(row=4, column=1, sticky="w")
+    ttk.Label(frame, text="Engine (V9 is the legacy fallback)").grid(row=5, column=0, sticky="w", pady=(12, 4))
+    ttk.Combobox(frame, textvariable=engine, values=("coverage_v1", "v9"), state="readonly", width=22).grid(row=5, column=1, sticky="w")
 
     def start() -> None:
         if not Path(folder.get()).is_dir():
             messagebox.showerror("Choose a folder", "Choose the folder that contains the screenplay PDFs.")
             return
         try:
-            open_terminal(folder.get(), category.get(), model.get())
+            open_terminal(folder.get(), category.get(), "sonnet" if engine.get() == "coverage_v1" else model.get(), engine.get())
         except (OSError, subprocess.CalledProcessError) as error:
             messagebox.showerror("Could not open Lemon Ingest", str(error))
             return
         root.destroy()
 
-    ttk.Button(frame, text="Review folder in Terminal", command=start).grid(row=5, column=0, columnspan=2, pady=(22, 0))
+    ttk.Button(frame, text="Review folder in Terminal", command=start).grid(row=6, column=0, columnspan=2, pady=(22, 0))
     root.mainloop()
 
 

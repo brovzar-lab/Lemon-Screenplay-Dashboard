@@ -2,6 +2,8 @@ import i18n from '@/i18n';
 
 export const MAX_PDF_BYTES = 50 * 1024 * 1024;
 export const MIN_SCREENPLAY_WORDS = 500;
+/** Storage trigger's accepted queue namespaces, not user-created filing tags. */
+export const INGEST_COLLECTION_IDS = ['LEMON', 'SUBMISSION', 'BLKLST', 'CONTEST', 'OTHER'];
 
 const SCREENPLAY_MARKERS = ['INT.', 'EXT.', 'FADE IN', 'FADE OUT', 'SMASH CUT', 'CUT TO'];
 

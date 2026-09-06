@@ -97,9 +97,11 @@ const analyses = [
 export const test = base.extend({
   page: async ({ page }, runTest, testInfo) => {
     const dark = testInfo.project.name.endsWith('-dark');
-    await page.route('https://firestore.googleapis.com/**', (route) => route.abort());
-    await page.route('https://firebasestorage.googleapis.com/**', (route) => route.abort());
-    await page.route('https://storage.googleapis.com/**', (route) => route.abort());
+    await page.route('**/*', (route) => {
+      const host = new URL(route.request().url()).hostname;
+      if (host === 'fonts.googleapis.com') return route.fulfill({ status: 200, contentType: 'text/css', body: '/* Offline test: use system fonts. */' });
+      return ['localhost', '127.0.0.1'].includes(host) ? route.continue() : route.abort();
+    });
     await page.addInitScript(({ isDark, testAnalyses }) => {
       const theme = isDark ? 'dark' : 'light';
       if (!localStorage.getItem('lemon-e2e-role')) {

@@ -34,7 +34,7 @@ import {
 } from '@/lib/developmentOpportunity';
 import { getScreenplayDisplayAuthor, getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
 import { analysisIsEnglishFallback } from '@/lib/localizedAnalysis';
-import { isCoverageV1Screenplay, isDecisionReady } from '@/lib/producerProjection';
+import { isCoverageNeedsReview, isCoverageV1Screenplay, isDecisionReady } from '@/lib/producerProjection';
 import { useIsAdmin } from '@/stores/authStore';
 import { useFavoritesStore } from '@/stores/favoritesStore';
 import type { ProducerAssessmentHead, Screenplay } from '@/types';
@@ -565,6 +565,7 @@ export function ScreenplayFileWorkspace({
             <button
               type="button"
               onClick={() => toggleQuickFavorite(screenplay.id)}
+              disabled={isCoverageNeedsReview(screenplay)}
               aria-pressed={isFavorite}
             >
               {isFavorite ? `★ ${t('Favorited')}` : `☆ ${t('Favorite')}`}

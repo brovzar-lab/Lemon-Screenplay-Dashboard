@@ -321,6 +321,7 @@ export function normalizeCoverageV1Screenplay(
   const verdictAdjustments = asStringArray(report.verdict_adjustments);
   const citationVerification = asRecord(report.citation_verification) ?? {};
   const factAudit = asRecord(report.fact_audit) ?? {};
+  const independentReview = asRecord(report.independent_review) ?? {};
 
   const warnings = buildCoverageWarnings({
     status,
@@ -411,6 +412,7 @@ export function normalizeCoverageV1Screenplay(
   return {
     id: generateId(sourceFile || title),
     projectId,
+    latestVersionId: asString(wrapper?.version_id) || undefined,
     title,
     author: '',
     collection,
@@ -464,6 +466,19 @@ export function normalizeCoverageV1Screenplay(
       citationsVerified: asFiniteNumber(citationVerification.verified),
       citationsTotal: asFiniteNumber(citationVerification.total),
       pageConvention: asString(report.page_convention) || undefined,
+      reviewSummary: asString(independentReview.summary) || undefined,
+      reviewIssues: Array.isArray(independentReview.issues) ? independentReview.issues.flatMap((item) => {
+        const issue = asRecord(item);
+        const category = asString(issue?.category);
+        if (!issue || !['factual', 'uncertain', 'interpretation'].includes(category)) return [];
+        const page = asFiniteNumber(issue.page);
+        return [{
+          field: asString(issue.field),
+          category: category as 'factual' | 'uncertain' | 'interpretation',
+          severity: asString(issue.severity), note: asString(issue.note),
+          page: page !== undefined && page > 0 ? page : undefined,
+        }];
+      }) : undefined,
     },
     language: asString(coverage.language) || undefined,
     dimensionScores,

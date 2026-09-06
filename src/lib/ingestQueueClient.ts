@@ -15,13 +15,15 @@
 
 import {
   collection,
-  limit,
   onSnapshot,
   query,
   where,
   type Unsubscribe,
+  type Query,
+  type QuerySnapshot,
 } from 'firebase/firestore';
-import { db } from './firebase';
+import { db } from '@/lib/firebase';
+import { isLocalE2E } from '@/lib/runtimeMode';
 
 const INGEST_QUEUE_COLLECTION = 'ingest-queue';
 
@@ -46,6 +48,81 @@ export interface IngestJobUpdate {
   attemptCount?: number;
   /** Engine contract reported by the daemon. */
   analysisVersion?: string;
+  reportId?: string;
+  engine?: 'coverage_v1' | 'v9';
+  versionId?: string;
+}
+
+export interface IngestQueueJob extends IngestJobUpdate {
+  storagePath: string;
+  storageGeneration?: string;
+  uploadId?: string;
+  filename: string;
+  category: string;
+  queuedAt: string;
+}
+
+function readJob(jobId: string, data: Record<string, unknown>): IngestQueueJob {
+  const string = (key: string) => typeof data[key] === 'string' ? data[key] as string : undefined;
+  const timestamp = data.queued_at;
+  const queuedAt = timestamp && typeof timestamp === 'object' && 'toDate' in timestamp
+    && typeof timestamp.toDate === 'function'
+    ? (timestamp.toDate() as Date).toISOString()
+    : string('queued_at') ?? '';
+  return {
+    jobId,
+    status: ['pending', 'processing', 'waiting_for_budget', 'waiting_for_engine', 'complete', 'failed', 'skipped', 'needs_review'].includes(String(data.status))
+      ? data.status as IngestStatus : 'needs_review',
+    engine: data.engine === 'coverage_v1' ? 'coverage_v1' : 'v9',
+    error: string('review_reason') ?? string('last_error') ?? string('skip_reason'),
+    screenplayDocId: string('screenplay_doc_id'),
+    reportId: string('coverage_v1_report_id'),
+    versionId: string('version_id'),
+    attemptCount: typeof data.attempt_count === 'number' ? data.attempt_count : undefined,
+    analysisVersion: string('analysis_version'),
+    storagePath: string('storage_path') ?? '',
+    storageGeneration: string('storage_generation'),
+    uploadId: string('upload_id'),
+    filename: string('original_filename') ?? string('filename') ?? jobId,
+    category: string('collection_id') ?? 'OTHER',
+    queuedAt,
+  };
+}
+
+function listenToQueue(
+  queue: Query,
+  onUpdate: (snapshot: QuerySnapshot) => void,
+  onError?: (error: Error) => void,
+): Unsubscribe {
+  let active = true;
+  let stop: Unsubscribe = () => {};
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const connect = () => {
+    if (!active) return;
+    stop();
+    stop = onSnapshot(queue, (snapshot) => {
+      if (active) onUpdate(snapshot);
+    }, (error) => {
+      if (!active) return;
+      onError?.(error);
+      clearTimeout(timer);
+      timer = setTimeout(connect, 5_000);
+    });
+  };
+  connect();
+  return () => { active = false; clearTimeout(timer); stop(); };
+}
+
+/** One authoritative docket shared by browser and desktop uploads. Admin-only UI. */
+export function subscribeToIngestQueue(
+  onUpdate: (jobs: IngestQueueJob[]) => void,
+  onError?: (error: Error) => void,
+): Unsubscribe {
+  if (isLocalE2E()) return () => {};
+  // ponytail: private queue fits one snapshot; paginate terminal history if it outgrows the docket.
+  return listenToQueue(query(collection(db, INGEST_QUEUE_COLLECTION)), (snapshot) => {
+    onUpdate(snapshot.docs.map((document) => readJob(document.id, document.data())));
+  }, onError);
 }
 
 /**
@@ -59,32 +136,26 @@ export function subscribeToIngestJob(
   storagePath: string,
   onUpdate: (update: IngestJobUpdate) => void,
   onError?: (err: Error) => void,
+  storageGeneration?: string,
 ): Unsubscribe {
   const q = query(
     collection(db, INGEST_QUEUE_COLLECTION),
     where('storage_path', '==', storagePath),
-    limit(1),
+    ...(storageGeneration ? [where('storage_generation', '==', storageGeneration)] : []),
   );
 
-  return onSnapshot(
+  return listenToQueue(
     q,
     (snap) => {
       if (snap.empty) return; // Trigger hasn't created the doc yet
-      const doc = snap.docs[0];
-      const data = doc.data();
-      onUpdate({
-        status: data.status as IngestStatus,
-        jobId: doc.id,
-        error: (data.review_reason as string | undefined)
-          ?? (data.last_error as string | undefined)
-          ?? (data.skip_reason as string | undefined),
-        screenplayDocId: data.screenplay_doc_id as string | undefined,
-        attemptCount: data.attempt_count as number | undefined,
-        analysisVersion: data.analysis_version as string | undefined,
-      });
+      if (snap.docs.length !== 1) {
+        onError?.(new Error('This path has more than one upload receipt. Open Intake to select the exact job.'));
+        return;
+      }
+      const document = snap.docs[0];
+      onUpdate(readJob(document.id, document.data()));
     },
     (err) => {
-      console.error('[ingestQueue] subscription error', err);
       onError?.(err);
     },
   );

@@ -16,7 +16,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { analysisIsEnglishFallback, localizedScreenplay } from '@/lib/localizedAnalysis';
 import { AnalysisLanguageNotice } from '@/components/project/AnalysisLanguageNotice';
-import { isCoverageV1Screenplay, isDecisionReady } from '@/lib/producerProjection';
+import { isCoverageNeedsReview, isCoverageV1Screenplay, isDecisionReady } from '@/lib/producerProjection';
 import { CoverageReportPanel } from '@/components/project/CoverageReportPanel';
 
 interface ReadingRoomProps {
@@ -90,7 +90,7 @@ export function ReadingRoom({
       } else if (event.key === 'ArrowRight') {
         event.preventDefault();
         navigate(1);
-      } else if (event.key.toLowerCase() === 'f' && screenplay) {
+      } else if (event.key.toLowerCase() === 'f' && screenplay && !isCoverageNeedsReview(screenplay)) {
         event.preventDefault();
         toggleQuickFavorite(screenplay.id);
       }
@@ -156,6 +156,7 @@ export function ReadingRoom({
             </button>
             <button
               onClick={() => toggleQuickFavorite(screenplay.id)}
+              disabled={isCoverageNeedsReview(screenplay)}
               className={`w-10 h-10 flex items-center justify-center rounded border text-lg ${
                 isFavorite
                   ? 'border-gold-500 bg-gold-500/15 text-gold-300'

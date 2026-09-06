@@ -1118,6 +1118,12 @@ class SameBatchDependencyTests(unittest.TestCase):
         self.assertEqual(state, "failed")
         self.assertIn("parent", reason)
 
+    def test_saved_coverage_review_establishes_identity_for_the_next_draft(self):
+        self.set_parents({"status": "needs_review", "screenplay_doc_id": "project-a", "coverage_v1_report_id": "report-a"})
+        self.assertEqual(daemon.same_batch_dependency_state({
+            "upload_id": "child-upload", "depends_on_upload_id": "parent-upload", "target_project_id": "project-a",
+        }), ("ready", None))
+
 
 if __name__ == "__main__":
     unittest.main()

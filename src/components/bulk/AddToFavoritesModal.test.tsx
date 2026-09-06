@@ -62,6 +62,16 @@ describe('AddToFavoritesModal', () => {
     expect(container.innerHTML).toBe('');
   });
 
+  it('does not save a selection that became Needs Review while the modal was open', () => {
+    const { rerender } = render(<AddToFavoritesModal isOpen onClose={mockOnClose} />);
+    rerender(<AddToFavoritesModal isOpen onClose={mockOnClose} blocked />);
+    const apply = screen.getByRole('button', { name: 'Add to Favorites' });
+    expect(apply).toBeDisabled();
+    fireEvent.click(apply);
+    expect(mockToggleQuickFavorite).not.toHaveBeenCalled();
+    expect(mockAddToList).not.toHaveBeenCalled();
+  });
+
   it('renders modal title "Add to Favorites"', () => {
     render(<AddToFavoritesModal isOpen={true} onClose={mockOnClose} />);
     expect(screen.getByText('Add to Favorites', { selector: 'h3' })).toBeInTheDocument();

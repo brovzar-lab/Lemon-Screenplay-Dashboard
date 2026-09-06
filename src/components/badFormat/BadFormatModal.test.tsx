@@ -1,10 +1,16 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, within, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { useUploadStore } from '@/stores/uploadStore';
 
-const { resolveUploadIssues } = vi.hoisted(() => ({
+const { resolveUploadIssues, mockUpload, mockGeneration } = vi.hoisted(() => ({
   resolveUploadIssues: vi.fn().mockResolvedValue(1),
+  mockUpload: vi.fn(),
+  mockGeneration: vi.fn(),
 }));
+
+vi.mock('@/lib/firebase', () => ({ uploadPdfToIngestQueue: mockUpload, getIngestUploadGeneration: mockGeneration }));
+vi.mock('@/lib/analysisIdentity', () => ({ computeContentHash: vi.fn().mockResolvedValue('a'.repeat(64)) }));
 
 vi.mock('@/lib/badFormatStore', async (importOriginal) => {
   const original = await importOriginal<typeof import('@/lib/badFormatStore')>();
@@ -13,6 +19,9 @@ vi.mock('@/lib/badFormatStore', async (importOriginal) => {
     resolveUploadIssues,
     subscribeToUploadIssues: (onChange: (jobs: unknown[]) => void) => {
       onChange([
+        { id: 'replacement-job', filename: 'Scanned.pdf', collection_id: 'LEMON',
+          status: 'skipped', skip_reason: 'insufficient_text_extracted', engine: 'coverage_v1',
+          target_project_id: 'parent-project', depends_on_upload_id: 'parent-upload-id' },
         {
           id: 'failed-job',
           filename: 'Broken.pdf',
@@ -55,6 +64,31 @@ vi.mock('@/lib/badFormatStore', async (importOriginal) => {
 import { BadFormatModal } from './BadFormatModal';
 
 describe('BadFormatModal', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    resolveUploadIssues.mockResolvedValue(1);
+    mockGeneration.mockResolvedValue(null);
+    useUploadStore.setState({ jobs: [], dismissedQueueJobs: {} });
+    mockUpload.mockImplementation(async (_file: File, _category: string, options: { onPrepared?: (path: string) => void }) => {
+      options.onPrepared?.('gs://test/ingest-queue/LEMON/replacement/Scanned.pdf');
+      return { storageGeneration: '1' };
+    });
+  });
+
+  it('reuses an accepted replacement after dismissal fails, preserving its engine and parent', async () => {
+    resolveUploadIssues.mockRejectedValueOnce(new Error('dismissal unavailable'));
+    const user = userEvent.setup();
+    render(<BadFormatModal open onClose={vi.fn()} />);
+    const file = new File(['synthetic PDF'], 'Readable.pdf', { type: 'application/pdf' });
+    await user.upload(screen.getByLabelText('Replace PDF'), file);
+    await waitFor(() => expect(resolveUploadIssues).toHaveBeenCalledOnce());
+    await user.upload(screen.getByLabelText('Replace PDF'), file);
+    await waitFor(() => expect(resolveUploadIssues).toHaveBeenCalledTimes(2));
+    expect(mockUpload).toHaveBeenCalledOnce();
+    expect(mockUpload).toHaveBeenCalledWith(file, 'LEMON', expect.objectContaining({
+      engine: 'coverage_v1', requestedModel: 'sonnet', targetProjectId: 'parent-project', dependsOnUploadId: 'parent-upload-id',
+    }));
+  });
   it('shows permanently failed uploads with their error and attempt count', () => {
     render(<BadFormatModal open onClose={vi.fn()} />);
 

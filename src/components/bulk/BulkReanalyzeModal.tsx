@@ -45,7 +45,8 @@ export function BulkReanalyzeModal({ isOpen, onClose, screenplays }: BulkReanaly
   // Derived — not stored in state
   // Use live Storage scan results when available; fall back to Firestore hasPdf field.
   const eligible = screenplays.filter((sp) =>
-    hasScanResult ? pdfStatuses[sp.id] === 'found' : sp.hasPdf === true
+    sp.analysisVersion !== 'coverage_v1'
+      && (hasScanResult ? pdfStatuses[sp.id] === 'found' : sp.hasPdf === true)
   );
   const ineligibleCount = screenplays.length - eligible.length;
   const estimatedCost = eligible.length * ESTIMATED_COST_PER_SCREENPLAY;

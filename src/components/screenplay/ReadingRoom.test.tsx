@@ -100,6 +100,26 @@ describe('ReadingRoom', () => {
     expect(screen.getByRole('heading', { name: 'Second Script' })).toBeInTheDocument();
   });
 
+  it('keeps review findings readable and blocks both favorite controls until checked', () => {
+    const coverage = createCoverageTestScreenplay();
+    if (!coverage.coverage) throw new Error('Missing coverage fixture');
+    coverage.coverage.status = 'needs_review';
+    coverage.coverage.reviewSummary = 'The ending needs a human check.';
+    coverage.coverage.reviewIssues = [
+      { field: 'ending', category: 'factual', severity: 'major', note: 'Check the literal order.', page: 4 },
+      { field: 'pacing', category: 'interpretation', severity: 'minor', note: 'A slower scene is a taste choice.' },
+    ];
+    render(<ReadingRoom screenplays={[coverage]} percentileRanks={new Map()} onClose={vi.fn()} />);
+    expect(screen.getByText('Needs Review · provisional coverage')).toBeInTheDocument();
+    expect(screen.getByText('Check the literal order.')).toBeInTheDocument();
+    expect(screen.getByText('Human taste')).toBeInTheDocument();
+    const favorite = screen.getByRole('button', { name: 'Add to favorites' });
+    expect(favorite).toBeDisabled();
+    fireEvent.click(favorite);
+    fireEvent.keyDown(document, { key: 'f' });
+    expect(mockToggleFavorite).not.toHaveBeenCalled();
+  });
+
   it('toggles the current screenplay favorite with F', () => {
     render(
       <ReadingRoom

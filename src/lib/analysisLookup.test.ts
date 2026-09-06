@@ -48,4 +48,12 @@ describe('findAnalysisByContentHash', () => {
     expect(mockLimit).toHaveBeenCalledWith(1);
     expect(mockGetDocs).toHaveBeenCalledWith('query-ref');
   });
+
+  it('also blocks an exact PDF already reported by Coverage, including Needs Review', async () => {
+    mockGetDocs.mockResolvedValueOnce({ empty: true, docs: [] }).mockResolvedValueOnce({
+      empty: false, docs: [{ id: 'coverage', data: () => ({ title: 'Coverage title', status: 'needs_review' }) }],
+    });
+    await expect(findAnalysisByContentHash(CONTENT_HASH)).resolves.toBe('Coverage title');
+    expect(mockCollection).toHaveBeenCalledWith('database', 'coverage_v1_reports');
+  });
 });

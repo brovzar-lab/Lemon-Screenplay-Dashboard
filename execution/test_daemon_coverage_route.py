@@ -21,6 +21,7 @@ import daemon  # noqa: E402
 # Import both engine modules by the same top-level names the daemon uses, so
 # exception classes are the exact objects its handlers catch.
 import coverage_v1  # noqa: E402
+import coverage_reader  # noqa: E402
 import ingest_v9  # noqa: E402
 
 
@@ -88,10 +89,23 @@ class CoverageV1RouteTests(unittest.TestCase):
     def tearDown(self):
         daemon._db = self.prior_db
 
+    def test_previous_coverage_pdf_is_not_rebought_even_when_report_needs_review(self):
+        digest = 'ab' * 32
+        report = sealed_report(status='needs_review')
+        wrapper = { 'project_id': 'prior-project', 'version_id': digest + '_123',
+            'content_hash': digest, 'report_json': json.dumps(report),
+            'report_sha256': coverage_v1.canonical_json_hash(report), 'status': 'needs_review' }
+        snapshot = MagicMock()
+        snapshot.to_dict.return_value = wrapper
+        daemon._db.collection.return_value.where.return_value.stream.return_value = [snapshot]
+        with patch.object(daemon, 'verify_archived_pdf_version') as verify:
+            self.assertTrue(daemon.is_coverage_already_reported(digest))
+        verify.assert_called_once()
+
     def test_happy_path_writes_staging_report_and_completes(self):
         self.doc.get.return_value.exists = False
         with patch.object(
-            coverage_v1, "run_coverage_v1",
+            coverage_reader, "run_coverage_v1",
             return_value=(sealed_report(), engine_usage()),
         ) as engine:
             daemon.run_coverage_v1_job(**job_kwargs())
@@ -126,7 +140,7 @@ class CoverageV1RouteTests(unittest.TestCase):
             "content_hash": "ab" * 32,
         }
         with patch.object(
-            coverage_v1, "run_coverage_v1",
+            coverage_reader, "run_coverage_v1",
         ) as engine:
             daemon.run_coverage_v1_job(**job_kwargs())
         engine.assert_not_called()
@@ -146,7 +160,7 @@ class CoverageV1RouteTests(unittest.TestCase):
             "version_id": ("ab" * 32) + "_1784588800123",
             "content_hash": "ab" * 32,
         }
-        with patch.object(coverage_v1, "run_coverage_v1") as engine:
+        with patch.object(coverage_reader, "run_coverage_v1") as engine:
             daemon.run_coverage_v1_job(**job_kwargs())
         engine.assert_not_called()
         update = self.doc.update.call_args.args[0]
@@ -160,7 +174,7 @@ class CoverageV1RouteTests(unittest.TestCase):
             human_review_recommended=True,
         )
         with patch.object(
-            coverage_v1, "run_coverage_v1",
+            coverage_reader, "run_coverage_v1",
             return_value=(report, engine_usage()),
         ):
             daemon.run_coverage_v1_job(**job_kwargs())
@@ -190,7 +204,7 @@ class CoverageV1RouteTests(unittest.TestCase):
         with (
             patch.object(daemon, "check_daily_budget_available"),
             patch.object(
-                coverage_v1,
+                coverage_reader,
                 "run_coverage_v1",
                 return_value=(report, engine_usage()),
             ) as engine,
@@ -209,7 +223,7 @@ class CoverageV1RouteTests(unittest.TestCase):
         with (
             patch.object(daemon, "check_daily_budget_available"),
             patch.object(
-                coverage_v1,
+                coverage_reader,
                 "run_coverage_v1",
                 return_value=(sealed_report(), engine_usage()),
             ),
@@ -222,7 +236,7 @@ class CoverageV1RouteTests(unittest.TestCase):
 
     def test_contract_failure_goes_to_needs_review_not_retry(self):
         with patch.object(
-            coverage_v1, "run_coverage_v1",
+            coverage_reader, "run_coverage_v1",
             side_effect=coverage_v1.CoverageContractError("invalid coverage"),
         ):
             daemon.run_coverage_v1_job(**job_kwargs())
@@ -235,7 +249,7 @@ class CoverageV1RouteTests(unittest.TestCase):
 
     def test_budget_cap_goes_to_needs_review(self):
         with patch.object(
-            coverage_v1, "run_coverage_v1",
+            coverage_reader, "run_coverage_v1",
             side_effect=coverage_v1.CoverageBudgetExceededError("cap"),
         ):
             daemon.run_coverage_v1_job(**job_kwargs())
@@ -244,7 +258,7 @@ class CoverageV1RouteTests(unittest.TestCase):
 
     def test_daily_budget_without_paid_work_parks_the_job(self):
         with patch.object(
-            coverage_v1, "run_coverage_v1",
+            coverage_reader, "run_coverage_v1",
             side_effect=ingest_v9.DailyBudgetExceededError("daily cap"),
         ):
             daemon.run_coverage_v1_job(**job_kwargs())
@@ -253,7 +267,7 @@ class CoverageV1RouteTests(unittest.TestCase):
 
     def test_transport_error_without_paid_work_requeues(self):
         with patch.object(
-            coverage_v1, "run_coverage_v1",
+            coverage_reader, "run_coverage_v1",
             side_effect=RuntimeError("proxy unreachable"),
         ):
             daemon.run_coverage_v1_job(**job_kwargs(), )
@@ -263,7 +277,7 @@ class CoverageV1RouteTests(unittest.TestCase):
     def test_hybrid_request_runs_as_sonnet(self):
         self.doc.get.return_value.exists = False
         with patch.object(
-            coverage_v1, "run_coverage_v1",
+            coverage_reader, "run_coverage_v1",
             return_value=(sealed_report(), engine_usage()),
         ) as engine:
             kwargs = job_kwargs()
@@ -280,7 +294,7 @@ class CoverageV1RouteTests(unittest.TestCase):
             "max_cost_usd": 0.75,
         }
         with patch.object(
-            coverage_v1, "run_coverage_v1",
+            coverage_reader, "run_coverage_v1",
             return_value=(sealed_report(), engine_usage()),
         ) as engine:
             daemon.run_coverage_v1_job(**job_kwargs(job))

@@ -14,6 +14,7 @@ interface CategorySelectorProps {
   onSelectCategory: (cat: string) => void;
   onAddCategory: (cat: { id: string; name: string; description: string }) => void;
   presentation?: UploadPresentation;
+  allowCustomCategories?: boolean;
 }
 
 export function CategorySelector({
@@ -22,6 +23,7 @@ export function CategorySelector({
   onSelectCategory,
   onAddCategory,
   presentation = 'settings',
+  allowCustomCategories = true,
 }: CategorySelectorProps) {
   const { t } = useTranslation();
   const [showNewCatForm, setShowNewCatForm] = useState(false);
@@ -55,7 +57,7 @@ export function CategorySelector({
         ))}
 
         {/* New + Button */}
-        <button
+        {allowCustomCategories && <button
           onClick={() => setShowNewCatForm(!showNewCatForm)}
           className={clsx(
             'px-4 py-2 rounded-lg text-sm font-medium transition-all',
@@ -74,7 +76,7 @@ export function CategorySelector({
             </svg>
             {t('New')}
           </span>
-        </button>
+        </button>}
       </div>
 
       {/* Inline New Category Form */}

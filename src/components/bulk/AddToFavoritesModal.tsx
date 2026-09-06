@@ -15,12 +15,14 @@ interface AddToFavoritesModalProps {
   isOpen: boolean;
   onClose: () => void;
   presentation?: 'default' | 'discovery';
+  blocked?: boolean;
 }
 
 export function AddToFavoritesModal({
   isOpen,
   onClose,
   presentation = 'default',
+  blocked = false,
 }: AddToFavoritesModalProps) {
   const { t } = useTranslation();
   const isDiscovery = presentation === 'discovery';
@@ -31,6 +33,7 @@ export function AddToFavoritesModal({
   if (!isOpen) return null;
 
   const handleApply = () => {
+    if (blocked) return;
     const ids = Array.from(selectedIds);
     if (selectedList === 'quick') {
       for (const id of ids) {
@@ -160,7 +163,7 @@ export function AddToFavoritesModal({
           <button onClick={onClose} className="btn btn-ghost text-sm">
             {t('Keep Favorites')}
           </button>
-          <button onClick={handleApply} className="btn btn-primary text-sm">
+          <button onClick={handleApply} disabled={blocked} title={blocked ? t('Needs Review') : undefined} className="btn btn-primary text-sm">
             {t('Add to Favorites')}
           </button>
         </div>

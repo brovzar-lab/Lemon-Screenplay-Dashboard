@@ -123,6 +123,11 @@ describe('browser writer identity', () => {
 });
 
 describe('reanalysis persistence safety', () => {
+  it('cannot silently reanalyze a Coverage report through V9', async () => {
+    await expect(reanalyzeFromStorage(createTestScreenplay({ analysisVersion: 'coverage_v1' }), 'sonnet'))
+      .rejects.toThrow('Coverage reanalysis uses Intake');
+    expect(mockQueueScreenplayReanalysis).not.toHaveBeenCalled();
+  });
   it('preserves a Haiku composite selection into the authoritative queue', async () => {
     await reanalyzeFromStorage(
       createTestScreenplay({ projectId: 'Writer_Parity.pdf' }),

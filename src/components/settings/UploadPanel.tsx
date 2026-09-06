@@ -17,15 +17,15 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useQueryClient } from '@tanstack/react-query';
 import { isUploadJobReady, useUploadStore } from '@/stores/uploadStore';
-import { useScreenplays, SCREENPLAYS_QUERY_KEY } from '@/hooks/useScreenplays';
-import { uploadPdfToIngestQueue } from '@/lib/firebase';
-import { subscribeToIngestJob } from '@/lib/ingestQueueClient';
+import { useScreenplays } from '@/hooks/useScreenplays';
+import { getIngestUploadGeneration, uploadPdfToIngestQueue } from '@/lib/firebase';
+import { BadFormatModal } from '@/components/badFormat/BadFormatModal';
+import { subscribeToIngestQueue } from '@/lib/ingestQueueClient';
 import useCategories from '@/hooks/useCategories';
 import { useToastStore } from '@/stores/toastStore';
-import { getPdfFileError } from '@/lib/pdfValidation';
-import { computeContentHash } from '@/lib/analysisIdentity';
+import { getPdfFileError, INGEST_COLLECTION_IDS } from '@/lib/pdfValidation';
+import { analysisVersionTime, computeContentHash } from '@/lib/analysisIdentity';
 import { findAnalysisByContentHash } from '@/lib/analysisLookup';
 import { toDocId } from '@/lib/analysisStore';
 import { IntakeConfirmationDialog } from '@/components/intake';
@@ -86,6 +86,7 @@ export function UploadPanel({
   const [selectedModel, setSelectedModel] = useState<ModelOption>(initialModel);
   const [intakeEngine, setIntakeEngine] = useState<IntakeEngine>('coverage_v1');
   const [showConfirmation, setShowConfirmation] = useState(false);
+  const [showUploadIssues, setShowUploadIssues] = useState(false);
   const { categoryIds, addCategory: addCategoryToStore } = useCategories();
 
   const {
@@ -99,9 +100,9 @@ export function UploadPanel({
     isProcessing,
     setProcessing,
     getFile,
+    reconcileQueue,
   } = useUploadStore();
   const { data: screenplays } = useScreenplays();
-  const queryClient = useQueryClient();
 
   // ─── File selection + duplicate detection ──────────────────────────────────
 
@@ -197,8 +198,7 @@ export function UploadPanel({
   //
   // Browser uploads PDF to ingest-queue/{collection}/{uploadId}/{filename}.pdf in Storage.
   // The onScreenplayUploaded Cloud Function creates the Firestore queue doc.
-  // The VPS daemon claims it, runs V9 analysis, writes uploaded_analyses.
-  // Browser subscribes to the queue doc by storage_path and mirrors status.
+  // The daemon routes the selected engine; the server queue owns job status.
 
   const processOne = useCallback(async (
     jobId: string,
@@ -216,23 +216,26 @@ export function UploadPanel({
 
     try {
       updateJob(jobId, { status: 'uploading', progress: 5 });
-      const { storagePath } = await uploadPdfToIngestQueue(file, job.category, {
+      const { storagePath, storageGeneration } = await uploadPdfToIngestQueue(file, job.category, {
         engine,
         requestedModel,
         targetProjectId: job.targetProjectId,
         separateProject: job.separateProject,
         uploadId: job.uploadId,
         dependsOnUploadId: job.dependsOnUploadId,
+        onPrepared: (path) => updateJob(jobId, { ingestQueueStoragePath: path }),
       });
       updateJob(jobId, {
-        status: 'uploaded',
-        progress: 15,
+        ...(useUploadStore.getState().jobs.find((item) => item.id === jobId)?.queueJobId
+          ? {} : { status: 'uploaded' as const, progress: 15 }),
         ingestQueueStoragePath: storagePath,
+        storageGeneration,
       });
     } catch (err) {
+      if (useUploadStore.getState().jobs.find((item) => item.id === jobId)?.queueJobId) return;
       console.error('[Upload] Failed to enqueue job:', err);
       useToastStore.getState().addToast(t('Upload failed'));
-      updateJob(jobId, { status: 'error', error: 'Upload failed' });
+      updateJob(jobId, { status: 'error', error: 'Upload failed. Intake will reconnect if the file was accepted.' });
     }
   }, [getFile, updateJob, t]);
 
@@ -265,84 +268,46 @@ export function UploadPanel({
   ]);
 
   // Reconnect to accepted queue jobs after navigation or a browser reload.
-  useEffect(() => {
-    if (isProcessing) return;
-    const resumableJobs = useUploadStore.getState().jobs.filter(
-      (job) => (
-        job.status === 'uploaded'
-        || job.status === 'queued'
-        || job.status === 'analyzing'
-        || job.status === 'promoting'
-        || job.status === 'waiting_for_budget'
-        || job.status === 'needs_review'
-      ) && job.ingestQueueStoragePath,
-    );
-    const subscriptions = resumableJobs.map((job) => subscribeToIngestJob(
-      job.ingestQueueStoragePath!,
-      (update) => {
-        if (update.status === 'pending') {
-          updateJob(job.id, {
-            status: 'queued',
-            progress: 20,
-            error: undefined,
-          });
-        } else if (update.status === 'processing') {
-          updateJob(job.id, { status: 'analyzing', progress: 60, error: undefined });
-        } else if (update.status === 'waiting_for_budget') {
-          updateJob(job.id, {
-            status: 'waiting_for_budget',
-            progress: 20,
-            error: 'Waiting for the next daily AI budget window',
-          });
-        } else if (update.status === 'waiting_for_engine') {
-          updateJob(job.id, {
-            status: 'queued',
-            progress: 20,
-            error: 'Waiting for the Coverage V1.2 worker',
-          });
-        } else if (update.status === 'complete') {
-          updateJob(job.id, {
-            status: 'complete',
-            progress: 100,
-            error: undefined,
-            result: {
-              title: inferTitleFromFilename(job.filename),
-              author: 'See analysis',
-              analysisPath: 'firestore',
-              projectId: update.screenplayDocId,
-            },
-            completedAt: new Date().toISOString(),
-          });
-          queryClient.invalidateQueries({ queryKey: SCREENPLAYS_QUERY_KEY });
-        } else if (update.status === 'failed') {
-          if (update.error) console.error('[Upload] Daemon analysis failed:', update.error);
-          updateJob(job.id, { status: 'error', error: 'Daemon analysis failed' });
-        } else if (update.status === 'skipped') {
-          if (update.error) console.warn('[Upload] Job skipped:', update.error);
-          updateJob(job.id, { status: 'skipped', error: 'Job skipped' });
-        } else if (update.status === 'needs_review') {
-          if (update.error) console.warn('[Upload] Evidence needs review:', update.error);
-          updateJob(job.id, {
-            status: 'needs_review',
-            error: 'The screenplay evidence needs review',
-          });
-        }
-      },
-      (err) => {
-        console.error('[Upload] Queue subscription failed:', err);
-        updateJob(job.id, { status: 'error', error: 'Queue connection failed' });
-      },
-    ));
-    return () => subscriptions.forEach((unsubscribe) => unsubscribe());
-  }, [isProcessing, queryClient, updateJob]);
+  useEffect(() => subscribeToIngestQueue(reconcileQueue, () => {
+    useToastStore.getState().addToast(t('Queue connection lost. Uploaded files remain safe; reconnecting.'), 'warning');
+  }), [reconcileQueue, t]);
 
   // Retry a failed job: reset to pending and re-trigger processing
-  const retryJob = useCallback((jobId: string) => {
-    updateJob(jobId, { status: 'pending', error: undefined, progress: 0, isDuplicate: false });
-    setTimeout(() => { processJobs(); }, 100);
-  }, [updateJob, processJobs]);
+  const retryJob = useCallback(async (jobId: string) => {
+    const job = useUploadStore.getState().jobs.find((item) => item.id === jobId);
+    if (job?.queueJobId || job?.replacesQueueJobId) { setShowUploadIssues(true); return; }
+    if (job?.ingestQueueStoragePath) {
+      try {
+        const generation = await getIngestUploadGeneration(job.ingestQueueStoragePath);
+        if (useUploadStore.getState().jobs.find((item) => item.id === jobId)?.queueJobId) return;
+        if (generation) {
+          updateJob(jobId, { status: 'uploaded', storageGeneration: generation, error: undefined,
+            connectionError: 'Reconnecting to the accepted upload. No new analysis was requested.' });
+          return;
+        }
+      } catch {
+        if (useUploadStore.getState().jobs.find((item) => item.id === jobId)?.queueJobId) return;
+        updateJob(jobId, { connectionError: 'Upload receipt could not be checked. No new upload was sent.' });
+        return;
+      }
+    }
+    if (useUploadStore.getState().jobs.find((item) => item.id === jobId)?.queueJobId) return;
+    updateJob(jobId, { status: 'pending', error: undefined, connectionError: undefined, progress: 0 });
+    // Return to the existing confirmation, not an unannounced paid retry.
+  }, [updateJob]);
 
   const pendingJobs = jobs.filter(isUploadJobReady);
+  const displayedJobs = jobs.map((job) => {
+    if (!job.result?.versionId || !['complete', 'needs_review'].includes(job.status)) return job;
+    const current = screenplays?.find((screenplay) => screenplay.projectId === job.result?.projectId);
+    const visible = current?.latestVersionId === job.result.versionId;
+    if (current && analysisVersionTime(current.latestVersionId) > analysisVersionTime(job.result.versionId)) {
+      return { ...job, connectionError: 'A newer report is shown for this project.' };
+    }
+    return visible ? job : { ...job, result: undefined,
+      status: job.status === 'complete' ? 'promoting' as const : job.status,
+      connectionError: 'Report saved. Waiting for this version to appear on the dashboard.' };
+  });
   const selectedEngine: IntakeEngine = presentation === 'intake' ? intakeEngine : 'v9';
 
   // Calculate batch cost estimate (only actionable pending jobs)
@@ -369,6 +334,7 @@ export function UploadPanel({
   if (presentation === 'intake') {
     return (
       <div className="space-y-6" data-testid="intake-workbench">
+        {showUploadIssues && <BadFormatModal open onClose={() => setShowUploadIssues(false)} />}
         <section className="dsc-card overflow-hidden" aria-labelledby="intake-routing-heading">
           <div className="border-b border-[var(--dsc-line)] px-5 py-4 sm:px-7">
             <p className="dsc-kicker">{t('Analysis engine')}</p>
@@ -379,7 +345,7 @@ export function UploadPanel({
                 </h2>
                 <p className="mt-1 text-sm text-[var(--dsc-ink-2)]">
                   {t(selectedEngine === 'coverage_v1'
-                    ? 'Qualitative coverage with verified facts, pages, citations, and chronology. Unsealed reports stop in Needs Review.'
+                    ? 'A complete reading and separate fact-check. Unresolved questions stay visible in Needs Review.'
                     : 'V9 remains available here only as the emergency rollback route.')}
                 </p>
               </div>
@@ -400,7 +366,7 @@ export function UploadPanel({
                     </p>
                     <p className="mt-1 text-sm text-[var(--dsc-ink-2)]">
                       {t(selectedEngine === 'coverage_v1'
-                        ? 'Ready only after the evidence and consistency gates pass.'
+                        ? 'Ready means checked, not infallible. Human judgment remains essential.'
                         : 'Use only if Coverage V1.2 must be rolled back.')}
                     </p>
                   </div>
@@ -444,7 +410,8 @@ export function UploadPanel({
               )}
             </div>
             <CategorySelector
-              categoryIds={categoryIds}
+              categoryIds={categoryIds.filter((id) => INGEST_COLLECTION_IDS.includes(id))}
+              allowCustomCategories={false}
               selectedCategory={selectedCategory}
               onSelectCategory={setSelectedCategory}
               onAddCategory={addCategoryToStore}
@@ -473,7 +440,7 @@ export function UploadPanel({
                 {[
                   [t('Identity'), t('Exact duplicates stop before any AI spend.')],
                   [t('Revisions'), t('Same-title drafts wait for your project decision.')],
-                  [t('Authority'), t('Coverage V1.2 runs only after final confirmation and publishes only sealed reports.')],
+                  [t('Authority'), t('Coverage V1.2 runs after confirmation. Useful drafts remain available even when they need human review.')],
                 ].map(([label, copy]) => (
                   <li key={label} className="grid grid-cols-[0.75rem_1fr] gap-3">
                     <span className="mt-1.5 h-2 w-2 rounded-full bg-[var(--dsc-accent)]" aria-hidden="true" />
@@ -493,7 +460,7 @@ export function UploadPanel({
 
         <section className="dsc-card p-5 sm:p-7" aria-labelledby="intake-queue-heading">
           <UploadQueue
-            jobs={jobs}
+            jobs={displayedJobs}
             isProcessing={isProcessing}
             isConfigured
             selectedModel={selectedModel}
@@ -530,6 +497,7 @@ export function UploadPanel({
 
   return (
     <div className="space-y-8">
+      {showUploadIssues && <BadFormatModal open onClose={() => setShowUploadIssues(false)} />}
       <div>
         <h2 className="text-xl font-display text-gold-200 mb-2">{t('Upload Screenplays')}</h2>
         <p className="text-sm text-black-400">
@@ -545,7 +513,8 @@ export function UploadPanel({
       />
 
       <CategorySelector
-        categoryIds={categoryIds}
+        categoryIds={categoryIds.filter((id) => INGEST_COLLECTION_IDS.includes(id))}
+        allowCustomCategories={false}
         selectedCategory={selectedCategory}
         onSelectCategory={setSelectedCategory}
         onAddCategory={addCategoryToStore}
@@ -554,7 +523,7 @@ export function UploadPanel({
       <UploadDropzone onFilesSelected={handleFileSelect} />
 
       <UploadQueue
-        jobs={jobs}
+        jobs={displayedJobs}
         isProcessing={isProcessing}
         isConfigured
         selectedModel={selectedModel}

@@ -12,6 +12,17 @@ vi.mock('./analysisStore', () => ({
 import { normalizeAnalyses } from './api';
 
 describe('normalizeAnalyses quarantine visibility', () => {
+  it('selects the newest Coverage revision even when Firestore returns it first', async () => {
+    const report = { analysis_version: 'coverage_v1', title: 'Revision fixture', status: 'needs_review',
+      verdict: 'CONSIDER', confidence: 'medium', coverage: { synopsis: 'A saved draft with uncertainty.' } };
+    const wrappers = [2000, 1000].map((time) => ({ project_id: 'coverage-project', version_id: `${'a'.repeat(64)}_${time}`,
+      report_json: JSON.stringify(report) }));
+    const result = await normalizeAnalyses(wrappers);
+    expect(result).toHaveLength(1);
+    expect(result[0].latestVersionId).toBe(`${'a'.repeat(64)}_2000`);
+    expect(result[0].coverage?.status).toBe('needs_review');
+    expect(result[0].producerProjection?.rankable).toBe(false);
+  });
   beforeEach(() => {
     mockQuarantineAnalysis.mockClear();
     useToastStore.getState().clearToasts();

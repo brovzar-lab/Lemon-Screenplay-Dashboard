@@ -51,6 +51,7 @@ export function CoverageReportPanel({ screenplay }: { screenplay: Screenplay }) 
   return (
     <div className="coverage-report mx-auto max-w-4xl px-1 pb-10 text-slate-900">
       <header className="mb-8 flex flex-wrap items-center gap-4 border-b border-slate-200 pb-5">
+        {detail.status === 'needs_review' && <strong className="text-sm text-amber-800">{t('Needs Review · provisional coverage')}</strong>}
         <RecommendationBadge tier={screenplay.recommendation} />
         <div className="text-sm text-slate-600">
           <div>
@@ -84,6 +85,20 @@ export function CoverageReportPanel({ screenplay }: { screenplay: Screenplay }) 
           </ul>
         </div>
       ) : null}
+
+      {detail.reviewSummary && (
+        <Section title={t('Independent review')}>
+          <p className="mb-3 text-sm leading-6">{detail.reviewSummary}</p>
+          {detail.reviewIssues?.map((issue, index) => (
+            <div key={`${issue.field}-${index}`} className="mb-3 rounded border border-slate-200 p-3 text-sm">
+              <strong>{issue.field}</strong>{' · '}
+              <span>{t(issue.category === 'interpretation' ? 'Human taste' : issue.category === 'uncertain' ? 'Uncertain fact' : 'Factual correction')}</span>
+              {issue.page && <span>{' · '}{t('Page')} {issue.page}</span>}
+              <p className="mt-1 leading-6">{issue.note}</p>
+            </div>
+          ))}
+        </Section>
+      )}
 
       {detail.synopsis.trim() && (
         <Section title={t('Synopsis')}>

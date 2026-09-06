@@ -7,7 +7,9 @@ import {
   type BadFormatJob,
   type SkipReason,
 } from '@/lib/badFormatStore';
-import { uploadPdfToIngestQueue } from '@/lib/firebase';
+import { getIngestUploadGeneration, uploadPdfToIngestQueue } from '@/lib/firebase';
+import { computeContentHash } from '@/lib/analysisIdentity';
+import { useUploadStore } from '@/stores/uploadStore';
 import { useToastStore } from '@/stores/toastStore';
 import { useTranslation } from 'react-i18next';
 
@@ -24,6 +26,7 @@ function reasonLabel(reason: SkipReason): string {
 }
 
 function guidance(job: BadFormatJob): string {
+  if (job.status === 'needs_review' && job.coverage_v1_report_id) return 'Coverage was saved with unresolved questions. Open it from Intake to read the report and review notes. Do not repeat paid analysis to fix a connection problem.';
   if (job.status === 'needs_review') return 'No verdict was saved because the screenplay or its page citations could not be verified. Review the technical details before replacing or dismissing this upload.';
   if (job.status === 'failed' && job.retryable === false) return 'This job cannot be retried safely. Dismiss it, then upload the PDF again and choose whether it is a new revision or a separate project.';
   if (job.status === 'failed') return 'The analysis service could not finish. Retry when you are ready; this starts a paid analysis.';
@@ -118,13 +121,45 @@ export function BadFormatModal({ open, onClose }: BadFormatModalProps) {
       return;
     }
     setBusyIds((current) => new Set(current).add(job.id));
+    let replacementId: string | undefined;
     try {
-      await uploadPdfToIngestQueue(file, job.collection_id, { requestedModel: model });
-      await resolveUploadIssues('dismiss', [job.id]);
+      const contentHash = await computeContentHash(file);
+      const store = useUploadStore.getState();
+      const existing = store.jobs.find((item) => item.replacesQueueJobId === job.id && item.contentHash === contentHash);
+      replacementId = existing?.id ?? store.addJob(file.name, job.collection_id, file);
+      const id = replacementId;
+      store.updateJob(id, { replacesQueueJobId: job.id, contentHash, engine: job.engine ?? 'v9' });
+      // The accepted receipt survives this modal, failed dismissal and reload.
+      const generation = existing?.storageGeneration ?? (existing?.ingestQueueStoragePath
+        ? await getIngestUploadGeneration(existing.ingestQueueStoragePath) : null);
+      if (!existing?.queueJobId && !generation && !useUploadStore.getState().jobs.find((item) => item.id === id)?.queueJobId) {
+        store.updateJob(id, { status: 'uploading' });
+        const receipt = await uploadPdfToIngestQueue(file, job.collection_id, {
+          uploadId: useUploadStore.getState().jobs.find((item) => item.id === id)?.uploadId,
+          engine: job.engine ?? 'v9',
+          requestedModel: job.engine === 'coverage_v1' ? 'sonnet' : model,
+          targetProjectId: job.target_project_id,
+          separateProject: job.separate_project,
+          dependsOnUploadId: job.depends_on_upload_id,
+          onPrepared: (path) => store.updateJob(id, { ingestQueueStoragePath: path }),
+        });
+        if (!useUploadStore.getState().jobs.find((item) => item.id === id)?.queueJobId) {
+          store.updateJob(id, { status: 'uploaded', storageGeneration: receipt.storageGeneration, error: undefined });
+        }
+      }
+      try {
+        await resolveUploadIssues('dismiss', [job.id]);
+      } catch {
+        addToast(t('Replacement accepted. The old issue could not be dismissed; do not upload again.'), 'warning');
+        return;
+      }
       addToast(t('Replacement uploaded and queued for analysis.'), 'success');
     } catch (error) {
+      if (replacementId && !useUploadStore.getState().jobs.find((item) => item.id === replacementId)?.queueJobId) {
+        useUploadStore.getState().updateJob(replacementId, { status: 'error', error: 'Upload receipt could not be checked. No new upload was sent.' });
+      }
       console.error('[BadFormatModal] Replacement upload failed:', error);
-      addToast(t('The replacement could not be uploaded.'));
+      addToast(t('Replacement not confirmed. Check Intake before trying again.'), 'warning');
     } finally {
       setBusyIds((current) => {
         const next = new Set(current);

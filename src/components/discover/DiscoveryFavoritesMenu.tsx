@@ -4,7 +4,7 @@ import { clsx } from 'clsx';
 import { useFavoritesStore } from '@/stores/favoritesStore';
 import { getScreenplayDisplayAuthor, getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
 import type { Screenplay } from '@/types';
-import { isCoverageV1Screenplay, isDecisionReady } from '@/lib/producerProjection';
+import { isCoverageNeedsReview, isCoverageV1Screenplay, isDecisionReady } from '@/lib/producerProjection';
 import { RecommendationBadge } from '@/components/ui/RecommendationBadge';
 import { useTranslation } from 'react-i18next';
 
@@ -22,10 +22,12 @@ export function DiscoveryFavoritesMenu({ screenplays, onOpen }: DiscoveryFavorit
   const triggerRef = useRef<HTMLButtonElement>(null);
   const lists = useFavoritesStore((state) => state.lists ?? []);
   const quickFavorites = useFavoritesStore((state) => state.quickFavorites ?? []);
+  // Keep saved IDs intact so a later checked revision can reappear in its list.
+  const eligibleIds = useMemo(() => new Set(screenplays.filter((screenplay) => !isCoverageNeedsReview(screenplay)).map((screenplay) => screenplay.id)), [screenplays]);
 
   const totalSaved = useMemo(
-    () => new Set([...quickFavorites, ...lists.flatMap((list) => list.screenplayIds)]).size,
-    [lists, quickFavorites],
+    () => new Set([...quickFavorites, ...lists.flatMap((list) => list.screenplayIds)].filter((id) => eligibleIds.has(id))).size,
+    [lists, quickFavorites, eligibleIds],
   );
   const selectedIds = useMemo(
     () =>
@@ -38,7 +40,7 @@ export function DiscoveryFavoritesMenu({ screenplays, onOpen }: DiscoveryFavorit
     const byId = new Map(screenplays.map((screenplay) => [screenplay.id, screenplay]));
     return selectedIds.flatMap((id) => {
       const screenplay = byId.get(id);
-      return screenplay ? [screenplay] : [];
+      return screenplay && !isCoverageNeedsReview(screenplay) ? [screenplay] : [];
     });
   }, [screenplays, selectedIds]);
   const selectedName =
@@ -131,7 +133,7 @@ export function DiscoveryFavoritesMenu({ screenplays, onOpen }: DiscoveryFavorit
                   )}
                 >
                   {t('Quick Favorites')}
-                  <span className="dsc-num ml-2 text-xs opacity-70">{quickFavorites.length}</span>
+                  <span className="dsc-num ml-2 text-xs opacity-70">{quickFavorites.filter((id) => eligibleIds.has(id)).length}</span>
                 </button>
                 {lists.map((list) => (
                   <button
@@ -148,7 +150,7 @@ export function DiscoveryFavoritesMenu({ screenplays, onOpen }: DiscoveryFavorit
                   >
                     {list.name}
                     <span className="dsc-num ml-2 text-xs opacity-70">
-                      {list.screenplayIds.length}
+                      {list.screenplayIds.filter((id) => eligibleIds.has(id)).length}
                     </span>
                   </button>
                 ))}

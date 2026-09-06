@@ -5,7 +5,7 @@ import { DiscoveryPitchDeckModal } from '@/components/discover/DiscoveryPitchDec
 import { useHasSelection, useSelectionCount, useSelectionStore } from '@/stores/selectionStore';
 import type { Screenplay } from '@/types';
 import { getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
-import { isCoverageV1Screenplay, isDecisionReady } from '@/lib/producerProjection';
+import { isCoverageNeedsReview, isCoverageV1Screenplay, isDecisionReady } from '@/lib/producerProjection';
 import { RecommendationBadge } from '@/components/ui/RecommendationBadge';
 import { useTranslation } from 'react-i18next';
 
@@ -157,6 +157,8 @@ export function DiscoverySelectionBar({
             <button
               type="button"
               onClick={() => setShowFavoritesModal(true)}
+              disabled={selectedScreenplays.some(isCoverageNeedsReview)}
+              title={selectedScreenplays.some(isCoverageNeedsReview) ? t('Needs Review') : undefined}
               className="dsc-btn shrink-0"
             >
               {t('Add to favorites')}
@@ -195,6 +197,7 @@ export function DiscoverySelectionBar({
         isOpen={showFavoritesModal}
         onClose={() => setShowFavoritesModal(false)}
         presentation="discovery"
+        blocked={selectedScreenplays.some(isCoverageNeedsReview)}
       />
       <DiscoveryPitchDeckModal
         isOpen={showPitchDeckModal}

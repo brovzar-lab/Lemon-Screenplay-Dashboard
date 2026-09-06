@@ -15,7 +15,57 @@ const possibleMatch: UploadJob = {
 
 describe('revision-aware upload decisions', () => {
   beforeEach(() => {
-    useUploadStore.setState({ jobs: [], isProcessing: false });
+    useUploadStore.setState({ jobs: [], isProcessing: false, dismissedQueueJobs: {} });
+  });
+
+  it('does not bind an unacknowledged upload to an ambiguous generation', () => {
+    useUploadStore.setState({ jobs: [{ ...possibleMatch, status: 'uploading', ingestQueueStoragePath: 'gs://bucket/same.pdf' }] });
+    useUploadStore.getState().reconcileQueue(['1', '2'].map((generation) => ({
+      jobId: generation, status: 'complete', filename: 'Same.pdf', category: 'LEMON',
+      queuedAt: '', storagePath: 'gs://bucket/same.pdf', storageGeneration: generation,
+    })));
+    expect(useUploadStore.getState().jobs[0].queueJobId).toBeUndefined();
+  });
+
+  it('keeps dismissed terminal history hidden but brings back a retried server job', () => {
+    const remote = { jobId: 'remote', status: 'failed' as const, filename: 'Same.pdf', category: 'LEMON', queuedAt: '', storagePath: 'gs://bucket/same.pdf' };
+    useUploadStore.getState().reconcileQueue([remote]);
+    useUploadStore.getState().clearCompleted();
+    useUploadStore.getState().reconcileQueue([remote]);
+    expect(useUploadStore.getState().jobs).toHaveLength(0);
+    useUploadStore.getState().reconcileQueue([{ ...remote, status: 'pending' }]);
+    expect(useUploadStore.getState().jobs[0].status).toBe('queued');
+  });
+
+  it('recovers desktop jobs and preserves review report routes without a local File', () => {
+    useUploadStore.getState().reconcileQueue([{
+      jobId: 'desktop-job', status: 'needs_review', filename: 'Review.pdf',
+      category: 'LEMON', queuedAt: '2026-09-06T00:00:00Z',
+      storagePath: 'gs://bucket/review.pdf', storageGeneration: '42',
+      screenplayDocId: 'review-project', reportId: 'review-report',
+      error: 'The ending needs human review.',
+    }]);
+    expect(useUploadStore.getState().jobs[0]).toMatchObject({
+      status: 'needs_review', queueJobId: 'desktop-job', storageGeneration: '42',
+      result: { projectId: 'review-project', analysisPath: 'review-report' },
+      error: 'The ending needs human review.',
+    });
+  });
+
+  it('does not reconcile an older generation over the accepted upload', () => {
+    useUploadStore.setState({ jobs: [{ ...possibleMatch, status: 'error',
+      ingestQueueStoragePath: 'gs://bucket/same.pdf', storageGeneration: '2',
+    }] });
+    useUploadStore.getState().reconcileQueue([{
+      jobId: 'old-job', status: 'complete', filename: 'Same.pdf', category: 'LEMON',
+      queuedAt: '', storagePath: 'gs://bucket/same.pdf', storageGeneration: '1',
+    }]);
+    expect(useUploadStore.getState().jobs[0].status).toBe('error');
+    useUploadStore.getState().reconcileQueue([{
+      jobId: 'new-job', status: 'processing', filename: 'Same.pdf', category: 'LEMON',
+      queuedAt: '', storagePath: 'gs://bucket/same.pdf', storageGeneration: '2',
+    }]);
+    expect(useUploadStore.getState().jobs[0]).toMatchObject({ status: 'analyzing', queueJobId: 'new-job', error: undefined });
   });
 
   it('blocks an unresolved title suggestion from the analysis queue', () => {
