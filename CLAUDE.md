@@ -3,7 +3,19 @@
 ## Where Were We (WWW)
 <!-- Current continuity, not a log. Verify live deployment state separately. -->
 
-**Last session:** 2026-09-06, no-spend bounded Coverage implementation.
+**Last session:** 2026-09-06, authorized bounded Cosquillitas pilot stopped.
+
+- Current pilot outcome: BLOCK. Exact candidate `a7bd7cd` made one successful
+  provider request, then the new reader rejected the real transport's nested
+  accounting format. Server charge $0.356658 settled; local $1.094012
+  reservation remains untouched. No second call or production change occurred.
+- The complete raw draft is saved privately. Independent comparison found
+  repeated existing-evidence and climax-order errors. No paid review ran and
+  nothing was published Ready. See `docs/COSQUILLITAS-BOUNDED-PILOT.md` for
+  exact evidence, the no-network reproduction and the next no-spend repair.
+- Do not rerun the pilot, clear its reservation, or treat the prior $5 envelope
+  as permission for another attempt. Fix and test the real receipt adapter,
+  then plan evidence-bound recovery without repurchasing the existing reading.
 
 - Work remains on `claude/lemon-dashboard-v9-review-w3nuz0`, based on `d3ef81d`.
   See `docs/COVERAGE-BOUNDED-IMPLEMENTATION.md` for the complete implementation,
@@ -25,8 +37,8 @@
 - No inference, deployment, worker activation, requeue or production-data write
   occurred during this implementation. Prior paid authorizations are not active.
   Do not unlock the 20-script paid benchmark or use the old canary to qualify
-  the new reader. The next proposed gate is one separately approved private
-  Cosquillitas pilot, at most three calls and $5 total, then audit comparison.
+  the new reader. The separately approved $5/three-call pilot subsequently ran
+  and stopped as described above. Its paid qualification did not pass.
 - Do not claim current Hosting/Functions/VPS version alignment from these local
   tests. Reverify live revisions before any future activation or release.
 
