@@ -182,11 +182,43 @@ def _settled_usage(usage: Any) -> bool:
     if any(type(usage.get(field)) is not int or usage[field] < 0 for field in fields):
         return False
     calls = usage.get('calls')
-    return (usage['call_count'] == 1 and isinstance(calls, list) and len(calls) == 1
-            and isinstance(calls[0], dict)
-            and calls[0].get('usage_accounting_state') == 'exact_settled_provider_usage'
-            and type(calls[0].get('actual_cost_microusd')) is int
-            and calls[0]['actual_cost_microusd'] == usage['actual_cost_microusd'])
+    if (usage['call_count'] != 1 or not isinstance(calls, list) or len(calls) != 1
+            or not isinstance(calls[0], dict) or usage.get('failed_calls')):
+        return False
+    call = calls[0]
+    if any(type(call[field]) is not int or call[field] != usage[field]
+           for field in fields if field in call):
+        return False
+    state = call.get('usage_accounting_state')
+    if (state not in (None, 'exact_settled_provider_usage')
+            or call.get('uncertainty_status') not in (None, 'settled_after_ambiguous_ack')
+            or call.get('validation_result') == 'failed_accounting'):
+        return False
+    nested = call.get('usage')
+    if 'usage' not in call:
+        # Older flat receipts prove cost explicitly; compare any other counters
+        # they carry without requiring fields that format never provided.
+        return (state == 'exact_settled_provider_usage'
+                and type(call.get('actual_cost_microusd')) is int
+                and call['actual_cost_microusd'] == usage['actual_cost_microusd'])
+    if (not isinstance(nested, dict)
+            or any(type(nested.get(field)) is not int or nested[field] != usage[field]
+                   for field in fields)):
+        return False
+    # Reuse the actual adapter's routing, rounding and token-cost validation.
+    from ingest_v9 import _validated_settled_usage, _independent_cost_microusd, LlmAccountingError
+    try:
+        validated = _validated_settled_usage(
+            nested, expected_model=call.get('returned_model'), configured_inference_geo=None)
+        cost = _independent_cost_microusd(call.get('returned_model'), validated)
+    except (LlmAccountingError, ValueError, TypeError):
+        return False
+    return (cost == usage['actual_cost_microusd']
+            and all(type(record[field]) is type(expected) and record[field] == expected
+                    for field, expected in validated.items()
+                    for record in (usage, call) if field in record)
+            and all(call.get(field, 0) == 0 for field in
+                    ('cost_variance_microusd', 'exact_cost_variance_nanousd')))
 
 
 def run_coverage_v1(
@@ -302,6 +334,15 @@ def run_coverage_v1(
             result = (transport or cv.default_transport)(**request)
         except Exception as error:
             error_usage = getattr(error, "usage", None)
+            save("transport_" + stage, {
+                "request_sha256": fingerprint, "call_number": guard.calls_started,
+                "failure": {"type": type(error).__name__, "message": str(error),
+                            "usage": error_usage,
+                            "rejected_output": getattr(error, "rejected_output", None),
+                            "call_evidence": getattr(error, "call_evidence", None),
+                            "attempt_history": getattr(error, "attempt_history", None),
+                            "proven_no_spend": getattr(error, "proven_no_spend", False)},
+            })
             if getattr(error, "proven_no_spend", False):
                 if error_usage is not None and error_usage != cv._empty_usage():
                     raise cv.CoverageUnresolvedSpendError("Contradictory no-spend receipt; no further call allowed", reserve) from error
@@ -313,6 +354,13 @@ def run_coverage_v1(
                 guard.settle_failure(fingerprint, request["stage"], error_usage, error)
                 raise
             raise cv.CoverageUnresolvedSpendError("Unsettled model request; no further call allowed", reserve) from error
+        # Evidence is not a settled receipt. Preserve the complete return before
+        # checking its accounting; a malformed bill must not erase paid output.
+        # A failed write leaves the reservation locked and prevents another call.
+        save("transport_" + stage, {
+            "request_sha256": fingerprint, "call_number": guard.calls_started,
+            "result": result,
+        })
         if not isinstance(result, tuple) or len(result) != 3 or not _settled_usage(result[2]):
             raise cv.CoverageUnresolvedSpendError('Malformed settlement; reservation retained and spending stopped', reserve)
         usage = cv._merge_usage(usage, result[2])

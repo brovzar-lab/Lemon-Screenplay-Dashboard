@@ -78,7 +78,9 @@ PYTHONPATH=. .venv/bin/python benchmark-artifacts/cosquillitas-bounded-a7bd7cd/r
 ```
 
 Result: `REPRODUCED`, network calls zero, checkpoint integrity PASS. This is a
-diagnostic of the defect, not a passing regression for a fix.
+historical diagnostic at `a7bd7cd`, not a passing regression for a fix. Its
+assertion intentionally expects the old rejection and no longer passes on the
+repaired source. Use `execution/test_coverage_reader.py` for repair regressions.
 
 ## Draft-quality comparison
 
@@ -123,3 +125,63 @@ implied by this report. The five-script and twenty-script gates remain closed.
 Private evidence stays Git-ignored under
 `benchmark-artifacts/cosquillitas-bounded-a7bd7cd/`: the original driver,
 downloaded results, read-only server settlement snapshot and reproduction.
+
+## Subsequent no-spend repair
+
+The real-transport receipt mismatch has been repaired locally. Nested per-call
+usage must match every aggregate token/cost counter and pass the existing
+adapter's routing, exact-cost and rounding checks. Older explicit flat receipts
+remain supported. Uncertain, malformed or contradictory accounting still
+retains the reservation and stops further spending.
+
+The reader now saves the entire transport return (including full usage) or
+exception usage/rejected output in a hash-bound `transport_<stage>` checkpoint
+before inspecting it. This is diagnostic evidence, not an accepted receipt.
+Capture/write failures retain the spending lock. There is no automatic receipt
+migration, budget clearing, or changed-binding replay.
+
+Seven new no-network regressions exercise the real `call_llm` adapter with only
+HTTP simulated: two-call completion and zero-call replay; failed first output
+settlement/no repurchase; malformed bills/timeout with draft preservation;
+visible factual issues; interrupted durable capture; and settled truncated
+review with preserved draft and failure evidence. The original mocked-transport
+tests also remain, including legacy flat receipts and tampering checks.
+The seventh test deliberately corrupts the real adapter's returned duplicate
+billing fields at the public transport boundary; the saved evidence survives,
+but the bill cannot settle. Timeout evidence retains request fingerprints,
+attempt history and the explicit no-spend marker when provided.
+
+The private draft was recovered separately as
+`benchmark-artifacts/cosquillitas-bounded-a7bd7cd/recovered-review-draft.json`.
+Its coverage content is identical to the saved tool input, with explicit
+Needs Review reasons outside it, `coverage_unscored`, `rankable: false`, and
+`replay_eligible: false`. The original raw-response and budget file hashes still
+match the preserved evidence. Independent review confirms that timestamps and
+model agreement cannot reconstruct the missing request/response receipt link.
+No receipt was fabricated, and the original paid checkpoint remains locked.
+
+This repair does not establish the quality of an independent model review or
+qualify the product for unattended ingestion. Any future evaluation should
+reuse the existing draft as a review input rather than buying its reading
+again, with an explicit accounting/release binding and separate authorization.
+
+### Final no-spend verification
+
+- `npm run test:python`: 847 passing, including 23 bounded-reader tests.
+- Desktop ingest Python suite: 21 passing.
+- `npm run test:run`: 1,112 passing, 148 files.
+- `npm run build`: TypeScript and Vite PASS; existing chunk-size warning only.
+- Original paid-artifact hashes and recovered-draft equality: PASS.
+- Model calls, new inference spend, deployments and production mutations: zero.
+
+### Standards review
+
+PASS. No documented-standard violations or remaining material smell concerns.
+The small repeated counter predicate was consolidated. Review was read-only.
+
+### Specification review
+
+PASS. Initial review found missing duplicate-cost comparisons and incomplete
+timeout evidence. Both were reproduced with failing tests and fixed before
+the final suite. No remaining spec blocker or scope creep was found. This
+approval covers the local repair, not live qualification or another paid call.

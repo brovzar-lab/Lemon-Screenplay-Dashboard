@@ -3,7 +3,19 @@
 ## Where Were We (WWW)
 <!-- Current continuity, not a log. Verify live deployment state separately. -->
 
-**Last session:** 2026-09-06, authorized bounded Cosquillitas pilot stopped.
+**Last session:** 2026-09-06, no-spend real-transport receipt repair.
+
+- Receipt-format repair is implemented locally in `coverage_reader.py` using
+  existing adapter accounting helpers. Full transport results/failure evidence
+  are checkpointed before validation. Seven new tests exercise the real adapter
+  with only HTTP simulated; no new inference or production changes were made.
+- The old paid draft is recovered privately as `recovered-review-draft.json`
+  under `benchmark-artifacts/cosquillitas-bounded-a7bd7cd/`, explicitly Needs
+  Review and not replay-eligible. Its original content and paid checkpoint are
+  unchanged. Missing receipt linkage prevents safe automatic settlement/replay.
+- Final repair proof: 847 Python execution tests (23 bounded-reader), 21 desktop
+  ingest tests, 1,112 frontend tests, TypeScript/Vite build; independent Standards
+  and Specification reviews PASS. This is local no-spend proof, not a live run.
 
 - Current pilot outcome: BLOCK. Exact candidate `a7bd7cd` made one successful
   provider request, then the new reader rejected the real transport's nested
@@ -14,8 +26,9 @@
   nothing was published Ready. See `docs/COSQUILLITAS-BOUNDED-PILOT.md` for
   exact evidence, the no-network reproduction and the next no-spend repair.
 - Do not rerun the pilot, clear its reservation, or treat the prior $5 envelope
-  as permission for another attempt. Fix and test the real receipt adapter,
-  then plan evidence-bound recovery without repurchasing the existing reading.
+  as permission for another attempt. A future separately authorized review-only
+  evaluation can use the saved draft; it must not pretend to resume the old
+  locked checkpoint or repurchase the existing reading.
 
 - Work remains on `claude/lemon-dashboard-v9-review-w3nuz0`, based on `d3ef81d`.
   See `docs/COVERAGE-BOUNDED-IMPLEMENTATION.md` for the complete implementation,
