@@ -16123,6 +16123,238 @@ class TestCheckpointsAndResume(unittest.TestCase):
         self.assertEqual(usage["call_count"], len(batches) - 1)
         self.assertEqual(len(resume.calls), len(batches) - 1)
 
+    def test_split_detail_dollar_cap_runs_later_fitting_batches(self):
+        coverage = valid_coverage()
+        audit = provider_audit_core(coverage)
+        normalized = cv.normalize_audit_tool_input(
+            copy.deepcopy(audit), range(1, 7)
+        )
+        rows = cv.build_detail_audit_rows(
+            coverage,
+            cv.build_existing_evidence_checks(coverage, SCREENPLAY_TEXT),
+            normalized["sequence_ledger"],
+        )
+        store = new_store()
+
+        def request_slots(kwargs):
+            properties = kwargs.get("tool", {}).get(
+                "input_schema", {}
+            ).get("properties", {})
+            return {
+                slot
+                for group in (
+                    "text_results",
+                    "focused_results",
+                    "count_results",
+                    "citation_results",
+                    "sequence_results",
+                    "sequence_knowledge_results",
+                )
+                for slot in properties.get(group, {}).get(
+                    "items", {}
+                ).get("properties", {}).get("slot", {}).get("enum", [])
+            }
+
+        with patch.object(
+            cv, "MAX_DETAIL_DIRECT_SLOTS", 5
+        ), patch.object(
+            cv, "MAX_DETAIL_AUDIT_ROWS", 10
+        ), patch.object(cv, "PRIOR_DETAIL_MAIN_BATCH_ROWS", 10):
+            batches = cv._detail_main_batches(rows)
+            blocked_slots = {row["slot"] for row in batches[1]}
+
+            def reserve(kwargs):
+                return 100 if request_slots(kwargs) == blocked_slots else 1
+
+            transport = FakeTransport([
+                (coverage, settled_usage(1)),
+                (audit, settled_usage(1)),
+                *(
+                    (typed_detail_payload_for_rows(batch), settled_usage(1))
+                    for index, batch in enumerate(batches)
+                    if index != 1
+                ),
+            ])
+            with patch.object(
+                cv,
+                "_request_cost_ceiling_microusd",
+                side_effect=reserve,
+            ):
+                report, usage = run_engine(
+                    store,
+                    transport,
+                    max_calls=20,
+                    max_cost_usd=0.00005,
+                )
+
+            detail_calls = [
+                call for call in transport.calls
+                if call["stage"] == "coverage_v1.fact_audit_details"
+            ]
+            called_slots = set().union(
+                *(request_slots(call) for call in detail_calls)
+            )
+            self.assertTrue(blocked_slots.isdisjoint(called_slots))
+            self.assertTrue({
+                row["slot"]
+                for batch in batches[2:]
+                for row in batch
+            }.issubset(called_slots))
+            self.assertEqual(report["status"], "needs_review")
+            self.assertEqual(usage["call_count"], 1 + len(batches))
+            evidence = {
+                row["field_path"]: row
+                for row in report["fact_audit"][
+                    "existing_evidence_verdicts"
+                ]
+            }
+            for row in batches[1]:
+                self.assertEqual(
+                    evidence[row["identifier"]]["classification"],
+                    "unclassified",
+                )
+            for row in [value for batch in batches[2:] for value in batch]:
+                group = (
+                    report["fact_audit"]["citation_relevance"]
+                    if row["kind"] == "citation_relevance"
+                    else report["fact_audit"]["sequence_evidence"]
+                )
+                result = next(
+                    value for value in group
+                    if value.get("owner", value.get("field_path"))
+                    == row["identifier"]
+                )
+                self.assertNotEqual(
+                    result["classification"], "unclassified"
+                )
+
+            budget_path = next(store.root.glob("*/budget.json"))
+            budget_before = budget_path.read_bytes()
+            replay = FakeTransport([])
+            with patch.object(
+                cv,
+                "_request_cost_ceiling_microusd",
+                side_effect=reserve,
+            ):
+                replayed, replay_usage = run_engine(
+                    store,
+                    replay,
+                    max_calls=20,
+                    max_cost_usd=0.00005,
+                )
+
+        self.assertEqual(replayed["status"], "needs_review")
+        self.assertEqual(replay.calls, [])
+        self.assertEqual(replay_usage["call_count"], 0)
+        self.assertEqual(budget_path.read_bytes(), budget_before)
+
+    def test_later_split_detail_receipt_replays_after_progress_crash(self):
+        class FailProgressAfterDetail(cv.LocalCheckpointStore):
+            fail_progress = False
+
+            def save(self, key, stage, record):
+                if stage == "audit_details_progress" and self.fail_progress:
+                    self.fail_progress = False
+                    raise RuntimeError("crash after later detail receipt")
+                super().save(key, stage, record)
+
+        coverage = valid_coverage()
+        audit = provider_audit_core(coverage)
+        normalized = cv.normalize_audit_tool_input(
+            copy.deepcopy(audit), range(1, 7)
+        )
+        rows = cv.build_detail_audit_rows(
+            coverage,
+            cv.build_existing_evidence_checks(coverage, SCREENPLAY_TEXT),
+            normalized["sequence_ledger"],
+        )
+        store = FailProgressAfterDetail(
+            Path(tempfile.mkdtemp()) / "cv1"
+        )
+
+        def request_slots(kwargs):
+            properties = kwargs.get("tool", {}).get(
+                "input_schema", {}
+            ).get("properties", {})
+            return {
+                slot
+                for group in (
+                    "text_results",
+                    "focused_results",
+                    "count_results",
+                    "citation_results",
+                    "sequence_results",
+                    "sequence_knowledge_results",
+                )
+                for slot in properties.get(group, {}).get(
+                    "items", {}
+                ).get("properties", {}).get("slot", {}).get("enum", [])
+            }
+
+        with patch.object(
+            cv, "MAX_DETAIL_DIRECT_SLOTS", 5
+        ), patch.object(
+            cv, "MAX_DETAIL_AUDIT_ROWS", 10
+        ), patch.object(cv, "PRIOR_DETAIL_MAIN_BATCH_ROWS", 10):
+            batches = cv._detail_main_batches(rows)
+            blocked_slots = {row["slot"] for row in batches[1]}
+            crash_slots = {row["slot"] for row in batches[2]}
+
+            def reserve(kwargs):
+                return 100 if request_slots(kwargs) == blocked_slots else 1
+
+            class ArmCrashTransport(FakeTransport):
+                def __call__(self, **kwargs):
+                    result = super().__call__(**kwargs)
+                    if request_slots(kwargs) == crash_slots:
+                        store.fail_progress = True
+                    return result
+
+            first = ArmCrashTransport([
+                (coverage, settled_usage(1)),
+                (audit, settled_usage(1)),
+                (typed_detail_payload_for_rows(batches[0]), settled_usage(1)),
+                (typed_detail_payload_for_rows(batches[2]), settled_usage(1)),
+            ])
+            with patch.object(
+                cv,
+                "_request_cost_ceiling_microusd",
+                side_effect=reserve,
+            ), self.assertRaisesRegex(
+                RuntimeError, "crash after later detail receipt"
+            ):
+                run_engine(
+                    store,
+                    first,
+                    max_calls=20,
+                    max_cost_usd=0.00005,
+                )
+
+            crashed_call = first.calls[-1]
+            crashed_fingerprint = cv._request_fingerprint(crashed_call)
+            resume = FakeTransport([
+                (typed_detail_payload_for_rows(batch), settled_usage(1))
+                for batch in batches[3:]
+            ])
+            with patch.object(
+                cv,
+                "_request_cost_ceiling_microusd",
+                side_effect=reserve,
+            ):
+                report, usage = run_engine(
+                    store,
+                    resume,
+                    max_calls=20,
+                    max_cost_usd=0.00005,
+                )
+
+        self.assertEqual(report["status"], "needs_review")
+        self.assertEqual(usage["call_count"], len(batches) - 3)
+        self.assertNotIn(
+            crashed_fingerprint,
+            {cv._request_fingerprint(call) for call in resume.calls},
+        )
+
     def test_audit_contract_drift_reuses_stage_bound_coverage(self):
         coverage = valid_coverage()
         store = new_store()

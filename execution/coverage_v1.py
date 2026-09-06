@@ -20845,9 +20845,7 @@ def run_coverage_v1(
             save_progress()
 
         main_capacity_exhausted = False
-        for request_index, (
-            batch, batch_plan, request_kwargs,
-        ) in enumerate(main_requests):
+        for batch, batch_plan, request_kwargs in main_requests:
             batch_sha256 = str(batch_plan["batch_sha256"])
             if batch_sha256 in completed_main:
                 continue
@@ -20856,30 +20854,15 @@ def run_coverage_v1(
             except CoverageCallCapacityExhaustedError:
                 if len(main_requests) == 1:
                     raise
-                remaining = [
-                    pending_row
-                    for pending_batch, pending_plan, _pending_kwargs in (
-                        main_requests[request_index:]
-                    )
-                    if str(pending_plan["batch_sha256"])
-                    not in completed_main
-                    for pending_row in pending_batch
-                ]
-                unresolved_slots = {
-                    *(str(row["slot"]) for row in remaining),
-                    *text_retry_plan,
-                    *focused_retry_plan,
-                    *grounded_retry_plan,
-                    *typed_a_plan,
-                    *typed_b_plan,
-                }
-                preserve_unclassified([
-                    row for row in all_rows
-                    if str(row["slot"]) in unresolved_slots
-                ], clear_plans=False)
+                reservation = _request_cost_ceiling_microusd(
+                    request_kwargs
+                )
+                if not guard.capacity_exhausted_for(reservation):
+                    raise
                 main_capacity_exhausted = True
-                save_progress()
-                break
+                if guard.calls_started >= guard.max_calls:
+                    break
+                continue
             detail_input = _expand_detail_audit_payload(
                 detail_input, batch
             )
@@ -20993,6 +20976,29 @@ def run_coverage_v1(
                     "rejected_candidate": rejected,
                 }
             completed_main.add(batch_sha256)
+            save_progress()
+
+        if main_capacity_exhausted:
+            unresolved_slots = {
+                *(
+                    str(row["slot"])
+                    for pending_batch, pending_plan, _pending_kwargs in (
+                        main_requests
+                    )
+                    if str(pending_plan["batch_sha256"])
+                    not in completed_main
+                    for row in pending_batch
+                ),
+                *text_retry_plan,
+                *focused_retry_plan,
+                *grounded_retry_plan,
+                *typed_a_plan,
+                *typed_b_plan,
+            }
+            preserve_unclassified([
+                row for row in all_rows
+                if str(row["slot"]) in unresolved_slots
+            ], clear_plans=False)
             save_progress()
 
         rows_by_slot = {str(row["slot"]): row for row in all_rows}

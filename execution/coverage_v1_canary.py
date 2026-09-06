@@ -147,38 +147,45 @@ def _release_quality_bars(
 ) -> Dict[str, Any]:
     reports = [row for row in rows if row.get("cost")]
     ready = [row for row in reports if row.get("status") == "sealed"]
-    quality_population = ready if qualification is not None else reports
     bars: Dict[str, Any] = {
-        "zero_unverified_citations": all(
+        "ready_reports_zero_unverified_citations": all(
             (row.get("citations_unverified") or 0) == 0
-            for row in quality_population
+            for row in ready
         ),
         "every_report_sealed": bool(reports) and len(ready) == len(reports),
-        "zero_central_failures": all(
+        "ready_reports_zero_central_failures": all(
             row["release_quality"]["central_failures"] == 0
-            for row in quality_population
+            for row in ready
         ),
-        "zero_unresolved_evidence": all(
+        "ready_reports_zero_unresolved_evidence": all(
             row["release_quality"]["unresolved_evidence"] == 0
-            for row in quality_population
+            for row in ready
         ),
-        "citation_integrity_verified": all(
+        "ready_reports_citation_integrity_verified": all(
             row["release_quality"]["citation_integrity_verified"]
-            for row in quality_population
+            for row in ready
         ),
-        "zero_focused_evidence_contradictions": all(
+        "ready_reports_zero_focused_evidence_contradictions": all(
             row["release_quality"]["focused_evidence_contradictions"] == 0
-            for row in quality_population
+            for row in ready
+        ),
+        "all_reports_zero_unresolved_evidence": all(
+            row["release_quality"]["unresolved_evidence"] == 0
+            for row in reports
+        ),
+        "all_reports_citation_integrity_verified": all(
+            row["release_quality"]["citation_integrity_verified"]
+            for row in reports
         ),
     }
     quality_passed = all(
         bars[name]
         for name in (
-            "zero_unverified_citations",
-            "zero_central_failures",
-            "zero_unresolved_evidence",
-            "citation_integrity_verified",
-            "zero_focused_evidence_contradictions",
+            "ready_reports_zero_unverified_citations",
+            "ready_reports_zero_central_failures",
+            "ready_reports_zero_unresolved_evidence",
+            "ready_reports_citation_integrity_verified",
+            "ready_reports_zero_focused_evidence_contradictions",
         )
     )
     if qualification is None:
@@ -761,11 +768,11 @@ def run_canary(
                 name for name, value in bars.items()
                 if name in {
                     "every_report_sealed",
-                    "zero_unverified_citations",
-                    "zero_central_failures",
-                    "zero_unresolved_evidence",
-                    "citation_integrity_verified",
-                    "zero_focused_evidence_contradictions",
+                    "ready_reports_zero_unverified_citations",
+                    "ready_reports_zero_central_failures",
+                    "ready_reports_zero_unresolved_evidence",
+                    "ready_reports_citation_integrity_verified",
+                    "ready_reports_zero_focused_evidence_contradictions",
                     "at_least_minimum_ready",
                     "all_required_titles_ready",
                     "only_safe_terminal_states",

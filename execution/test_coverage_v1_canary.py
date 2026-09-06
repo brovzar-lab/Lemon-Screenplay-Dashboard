@@ -206,11 +206,15 @@ class PaidBatchTests(unittest.TestCase):
         self.assertTrue(bars["batch_within_authorization"])
         self.assertTrue(bars["every_script_within_cap"])
         self.assertTrue(bars["within_configured_call_cap"])
-        self.assertTrue(bars["zero_unverified_citations"])
+        self.assertTrue(bars["ready_reports_zero_unverified_citations"])
         self.assertTrue(bars["every_report_sealed"])
-        self.assertTrue(bars["zero_unresolved_evidence"])
-        self.assertTrue(bars["citation_integrity_verified"])
-        self.assertTrue(bars["zero_focused_evidence_contradictions"])
+        self.assertTrue(bars["ready_reports_zero_unresolved_evidence"])
+        self.assertTrue(bars["ready_reports_citation_integrity_verified"])
+        self.assertTrue(
+            bars["ready_reports_zero_focused_evidence_contradictions"]
+        )
+        self.assertTrue(bars["all_reports_zero_unresolved_evidence"])
+        self.assertTrue(bars["all_reports_citation_integrity_verified"])
         self.assertTrue(bars["release_quality_passed"])
         self.assertTrue(bars["resume_repaid_nothing"])
         self.assertTrue(bars["invocation_settled_cost_target_060"])
@@ -283,6 +287,10 @@ class PaidBatchTests(unittest.TestCase):
         self.assertEqual(bars["needs_review_count"], 2)
         self.assertTrue(bars["all_required_titles_ready"])
         self.assertTrue(bars["only_safe_terminal_states"])
+        self.assertTrue(bars["ready_reports_zero_unresolved_evidence"])
+        self.assertTrue(bars["ready_reports_citation_integrity_verified"])
+        self.assertFalse(bars["all_reports_zero_unresolved_evidence"])
+        self.assertFalse(bars["all_reports_citation_integrity_verified"])
         self.assertTrue(bars["release_quality_passed"])
 
         rows[0]["status"] = "needs_review"
