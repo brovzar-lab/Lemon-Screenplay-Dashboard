@@ -39,6 +39,188 @@ COSQUILLITAS_PDF = (
     / "benchmark-artifacts/coverage-v1-audit-packages/01-COSQUILLITAS/SCREENPLAY.pdf"
 )
 
+RESULT_COMPONENT_SUBJECT_CASES = (
+    ("The tunnel through the stadium collapses.", "The stadium collapses.", "The tunnel collapses."),
+    ("The scaffolding throughout the stadium collapses.", "The stadium collapses.", "The scaffolding collapses."),
+    ("The tunnel from the stadium collapses.", "The stadium collapses.", "The tunnel collapses."),
+    ("The support for the stadium collapses.", "The stadium collapses.", "The support collapses."),
+    ("The car toward the stadium collapses.", "The stadium collapses.", "The car collapses."),
+    ("The car towards the stadium collapses.", "The stadium collapses.", "The car collapses."),
+    ("The car past the stadium collapses.", "The stadium collapses.", "The car collapses."),
+    ("The banner upon the stadium collapses.", "The stadium collapses.", "The banner collapses."),
+    ("The scaffolding astride the stadium collapses.", "The stadium collapses.", "The scaffolding collapses."),
+    ("The crane amid the stadium collapses.", "The stadium collapses.", "The crane collapses."),
+    ("El túnel bajo el estadio colapsa.", "El estadio colapsa.", "El túnel colapsa."),
+    ("La valla junto al estadio colapsa.", "El estadio colapsa.", "La valla colapsa."),
+    ("La valla frente al estadio colapsa.", "El estadio colapsa.", "La valla colapsa."),
+    ("El túnel cercano al estadio colapsa.", "El estadio colapsa.", "El túnel colapsa."),
+    ("El túnel próximo al estadio colapsa.", "El estadio colapsa.", "El túnel colapsa."),
+    ("La valla tras el estadio colapsa.", "El estadio colapsa.", "La valla colapsa."),
+    ("El auto hacia el estadio colapsa.", "El estadio colapsa.", "El auto colapsa."),
+    ("La valla ante el estadio colapsa.", "El estadio colapsa.", "La valla colapsa."),
+    ("El túnel por el estadio colapsa.", "El estadio colapsa.", "El túnel colapsa."),
+    ("The stadium-owned roof collapses.", "The stadium collapses.", "The roof collapses."),
+    ("The city-owned stadium collapses.", "The city collapses.", "The stadium collapses."),
+    ("The city‐owned stadium collapses.", "The city collapses.", "The stadium collapses."),
+    ("The city‑owned stadium collapses.", "The city collapses.", "The stadium collapses."),
+    ("The city‒owned stadium collapses.", "The city collapses.", "The stadium collapses."),
+    ("The city−owned stadium collapses.", "The city collapses.", "The stadium collapses."),
+    ("The roof that covers the stadium collapses.", "The stadium collapses.", "The roof collapses."),
+    ("The company that owns the stadium collapses.", "The stadium collapses.", "The company collapses."),
+    ("El techo que cubre el estadio colapsa.", "El estadio colapsa.", "El techo colapsa."),
+    ("La empresa que posee el estadio colapsa.", "El estadio colapsa.", "La empresa colapsa."),
+    ("Tony, who watches Carlos, collapses.", "Carlos collapses.", "Tony collapses."),
+    ("Tony, who follows Carlos, collapses.", "Carlos collapses.", "Tony collapses."),
+    ("Tony, who protects Carlos, collapses.", "Carlos collapses.", "Tony collapses."),
+    ("El techo que alberga público colapsa.", "El público colapsa.", "El techo colapsa."),
+    (
+        "The roof that covers the stadium, which hosts the final, collapses.",
+        "The stadium collapses.",
+        "The roof collapses.",
+    ),
+    (
+        "The company that owns the stadium, which hosts the final, collapses.",
+        "The stadium collapses.",
+        "The company collapses.",
+    ),
+    (
+        "La empresa que posee el estadio, que alberga la final, colapsa.",
+        "El estadio colapsa.",
+        "La empresa colapsa.",
+    ),
+    (
+        "The roof collapses or the stadium collapses.",
+        "The stadium collapses.",
+        "The roof collapses or the stadium collapses.",
+    ),
+    (
+        "Either the roof collapses or the stadium collapses.",
+        "The stadium collapses.",
+        "Either the roof collapses or the stadium collapses.",
+    ),
+    (
+        "El techo colapsa o el estadio colapsa.",
+        "El estadio colapsa.",
+        "El techo colapsa o el estadio colapsa.",
+    ),
+    (
+        "Neither the roof nor the stadium collapses.",
+        "The stadium collapses.",
+        "Neither the roof nor the stadium collapses.",
+    ),
+    (
+        "Ni el techo ni el estadio colapsa.",
+        "El estadio colapsa.",
+        "Ni el techo ni el estadio colapsa.",
+    ),
+    ("The roof or the stadium collapses.", "The stadium collapses.", "The roof or the stadium collapses."),
+)
+
+COMPOUND_ATOM_PROPOSITION_MISMATCHES = (
+    ("Tony performs the anthem; the crowd celebrates.", "Tony performs.\nThe crowd celebrates."),
+    ("Tony requests an encore; the crowd celebrates.", "Tony requests.\nThe crowd celebrates."),
+    ("Tony performs the anthem; the crowd celebrates.", "Tony performs surgery.\nThe crowd celebrates."),
+    ("Tony performs the anthem; the crowd celebrates.", "Tony performs a comedy routine.\nThe crowd celebrates."),
+    ("Tony performs a low note; the crowd celebrates.", "Tony performs a high note.\nThe crowd celebrates."),
+    ("Tony performs a high note; the crowd celebrates.", "Tony performs a low note.\nThe crowd celebrates."),
+    ("Tony performs in the lobby; the crowd celebrates.", "Tony performs on the stage.\nThe crowd celebrates."),
+    ("Tony performs on the stage; the crowd celebrates.", "Tony performs in the lobby.\nThe crowd celebrates."),
+    ("Tony requests an encore; the crowd celebrates.", "Tony requests a refund.\nThe crowd celebrates."),
+    ("Tony asks for an encore; the crowd celebrates.", "Tony asks for silence.\nThe crowd celebrates."),
+    ("Tony demands an encore; the crowd celebrates.", "Tony demands the trophy.\nThe crowd celebrates."),
+    ("Tony performs before the ceremony; the crowd celebrates.", "Tony performs after the ceremony.\nThe crowd celebrates."),
+    ("Tony performs after the ceremony; the crowd celebrates.", "Tony performs before the ceremony.\nThe crowd celebrates."),
+    ("Tony performs if the conductor agrees; the crowd celebrates.", "Tony performs unless the conductor agrees.\nThe crowd celebrates."),
+    ("Tony performs unless the conductor agrees; the crowd celebrates.", "Tony performs if the conductor agrees.\nThe crowd celebrates."),
+    ("Tony performs because the crowd asks; the judges celebrate.", "Tony performs although the crowd asks.\nThe judges celebrate."),
+    ("Tony performs although the crowd asks; the judges celebrate.", "Tony performs because the crowd asks.\nThe judges celebrate."),
+    ("Tony performs when the ceremony ends; the crowd celebrates.", "Tony performs until the ceremony ends.\nThe crowd celebrates."),
+    ("Tony performs until the ceremony ends; the crowd celebrates.", "Tony performs when the ceremony ends.\nThe crowd celebrates."),
+    ("Tony performs during the ceremony; the crowd celebrates.", "Tony performs after the ceremony.\nThe crowd celebrates."),
+    ("Tony performs after the ceremony; the crowd celebrates.", "Tony performs during the ceremony.\nThe crowd celebrates."),
+    ("Tony performs the national anthem on stage; the crowd celebrates.", "Tony performs a national comedy routine on stage.\nThe crowd celebrates."),
+    ("Tony requests an encore from the judges; the crowd celebrates.", "Tony requests a refund from the judges.\nThe crowd celebrates."),
+    ("Tony performs before the trophy ceremony; the crowd celebrates.", "Tony performs before the wedding ceremony.\nThe crowd celebrates."),
+    ("Tony performs if the conductor agrees; the crowd celebrates.", "Tony performs if security agrees.\nThe crowd celebrates."),
+    ("Tony performs a slow anthem; the crowd celebrates.", "Tony performs a fast anthem.\nThe crowd celebrates."),
+    ("Tony performs the anthem; the crowd celebrates.", "Tony performs surgery, not the anthem.\nThe crowd celebrates."),
+    ("Tony performs the anthem; the crowd celebrates.", "Tony performs surgery rather than the anthem.\nThe crowd celebrates."),
+    ("Tony performs the anthem; the crowd celebrates.", "Tony performs surgery beneath the anthem banner.\nThe crowd celebrates."),
+    ("Tony performs the anthem; the crowd celebrates.", "Tony performs the anthem banner.\nThe crowd celebrates."),
+    ("Tony requests an encore; the crowd celebrates.", "Tony requests a refund, not an encore.\nThe crowd celebrates."),
+    ("Tony requests an encore; the crowd celebrates.", "Tony requests a refund instead of an encore.\nThe crowd celebrates."),
+    ("Tony performs before the trophy ceremony; the crowd celebrates.", "Tony performs before the wedding ceremony beside the trophy poster.\nThe crowd celebrates."),
+    ("Tony performs if the conductor agrees; the crowd celebrates.", "Tony performs if security agrees beside the conductor.\nThe crowd celebrates."),
+    ("Tony performs a slow anthem; the crowd celebrates.", "Tony performs a fast anthem marked slow.\nThe crowd celebrates."),
+    (
+        "The victory anthem is performed by Tony; the crowd celebrates.",
+        "The funeral anthem is performed by Tony.\nThe crowd celebrates.",
+    ),
+    (
+        "The anthem for the winners is performed by Tony; the crowd celebrates.",
+        "The anthem for the losers is performed by Tony.\nThe crowd celebrates.",
+    ),
+    (
+        "The national anthem is performed by Tony; the crowd celebrates.",
+        "The comedy anthem is performed by Tony.\nThe crowd celebrates.",
+    ),
+    (
+        "The anthem, Tony performs; the crowd celebrates.",
+        "The surgery, Tony performs.\nThe crowd celebrates.",
+    ),
+    (
+        "Tony performs the anthem; the crowd celebrates.",
+        "Tony, perform the anthem!\nThe crowd celebrates.",
+    ),
+    (
+        "Tony canta otra; la gente celebra.",
+        "Tony, canta otra!\nLa gente celebra.",
+    ),
+    (
+        "Tony now performs the anthem; the crowd celebrates.",
+        "Tony, now perform the anthem!\nThe crowd celebrates.",
+    ),
+    (
+        "Tony ahora canta otra; la gente celebra.",
+        "Tony, ahora canta otra!\nLa gente celebra.",
+    ),
+    (
+        "Tony then performs the anthem; the crowd celebrates.",
+        "Tony, then perform the anthem!\nThe crowd celebrates.",
+    ),
+    (
+        "Tony luego canta otra; la gente celebra.",
+        "Tony, luego canta otra!\nLa gente celebra.",
+    ),
+    (
+        "Tony performs the anthem; the crowd celebrates.",
+        "Tony! Perform the anthem!\nThe crowd celebrates.",
+    ),
+    (
+        "Tony canta otra; la gente celebra.",
+        "Tony! Canta otra!\nLa gente celebra.",
+    ),
+    (
+        "Tony performs the anthem; the crowd celebrates.",
+        "Perform the anthem!\nThe crowd celebrates.",
+    ),
+    (
+        "Tony canta otra; la gente celebra.",
+        "Canta otra!\nLa gente celebra.",
+    ),
+)
+
+COMPOUND_DIRECTIVE_SCOPE_MISMATCHES = (
+    (
+        "Tony, after Carlos sings, performs the anthem; the crowd celebrates.",
+        "Tony, after Carlos sings, perform the anthem!\nThe crowd celebrates.",
+    ),
+    (
+        "Tony, después de que Carlos canta, interpreta el himno; la gente celebra.",
+        "Tony, después de que Carlos canta, interpreta el himno!\nLa gente celebra.",
+    ),
+)
+
 
 @lru_cache(maxsize=1)
 def real_cosquillitas_source():
@@ -633,6 +815,14 @@ def sequence_source_token(
                 )
             ]
             candidates = literal_candidates or candidates
+            if field == "result":
+                asserted_candidates = [
+                    candidate for candidate in candidates
+                    if cv._sequence_event_assertion_matches(
+                        str(beat.get(field, "")), candidate[1]
+                    )
+                ]
+                candidates = asserted_candidates or candidates
         actor_names = [
             cv._fold_evidence_text(name)
             for name in cv._sequence_named_actors(
@@ -4287,6 +4477,65 @@ El público pide otra canción
                 "Carlos shoots Ana",
             ),
             (
+                "later source window cannot hide a different line actor",
+                (
+                    "[PAGE 1]\nDiego waits by the gate.\n"
+                    "Carlos, beside Ana while Tony watches him silently, "
+                    "opens the old vault door and escapes into the alley "
+                    "alone tonight.\n"
+                ),
+                "Diego",
+                "Diego opens the old vault door and escapes into the alley.",
+                "Diego waits by the gate",
+                "opens the old vault door and escapes",
+            ),
+            (
+                "earlier actor mention cannot hide a later clause subject",
+                (
+                    "[PAGE 1]\nDiego waits by the gate.\n"
+                    "Diego watches the contest quietly while Carlos, beside "
+                    "Ana and Tony, opens the old vault door and escapes into "
+                    "the alley alone tonight.\n"
+                ),
+                "Diego",
+                "Diego opens the old vault door.",
+                "Diego waits by the gate",
+                "opens the old vault door and escapes",
+            ),
+            *(
+                (
+                    f"{connector} cannot hide a later clause subject",
+                    (
+                        "[PAGE 1]\nAt dusk, Diego watches the contest quietly "
+                        f"{connector} Carlos, beside Ana and Tony, opens the "
+                        "old vault door and escapes into the alley alone "
+                        "tonight.\n"
+                    ),
+                    "Diego",
+                    "Diego opens the old vault door.",
+                    "Diego watches the contest quietly",
+                    "opens the old vault door and escapes",
+                )
+                for connector in (
+                    "after", "because", "before", "if", "now that", "once",
+                    "since", "though", "unless", "until", "whenever", "where",
+                    "while", "—",
+                )
+            ),
+            (
+                "nested clause cannot hide a different actor",
+                (
+                    "[PAGE 1]\nAt dusk, Diego watches the contest quietly "
+                    "(while Carlos beside Ana and Tony slowly crosses the "
+                    "hall and opens the old vault door) then smiles at the "
+                    "cheering crowd loudly.\n"
+                ),
+                "Diego",
+                "Diego opens the old vault door.",
+                "Diego watches the contest quietly",
+                "opens the old vault door",
+            ),
+            (
                 "named actor used as a prepositional coactor",
                 "[PAGE 1]\nWith Diego, Carlos wins the race.\n",
                 "Diego",
@@ -4481,6 +4730,1368 @@ El público pide otra canción
 
                 self.assertIsNone(decoded)
                 self.assertIsNotNone(reason)
+
+    def test_sequence_action_range_cannot_launder_another_actor(self):
+        cases = (
+            (
+                "named generic actor on a later line",
+                (
+                    "[PAGE 1]\nDiego waits by the gate.\n"
+                    "Diego watches the vault.\nThe man opens the vault.\n"
+                ),
+                "p001-l001",
+                "p001-l002-l003",
+            ),
+            (
+                "bare role on a later line",
+                (
+                    "[PAGE 1]\nDiego waits by the gate.\n"
+                    "Diego watches the vault.\nSecurity opens the vault.\n"
+                ),
+                "p001-l001",
+                "p001-l002-l003",
+            ),
+            (
+                "another actor inside one ranged line",
+                (
+                    "[PAGE 1]\nDiego waits by the gate.\n"
+                    "Diego watches while the man opens the vault.\n"
+                ),
+                "p001-l001",
+                "p001-l002-l002",
+            ),
+            (
+                "later continuation hides security",
+                (
+                    "[PAGE 1]\nAt dusk, Diego watches the contest quietly "
+                    "because security slowly crosses\n"
+                    "the hall then opens the old vault door.\n"
+                    "The crowd cheers loudly for everyone.\n"
+                ),
+                "p001-l001w01",
+                "p001-l001-l002",
+            ),
+            (
+                "same-line degenerate range hides security",
+                (
+                    "[PAGE 1]\nAt dusk, Diego watches the contest quietly "
+                    "because security slowly crosses the hall then opens the "
+                    "old vault door.\n"
+                ),
+                "p001-l001w01",
+                "p001-l001-l001",
+            ),
+            (
+                "actor-only cue cannot prove a later generic action",
+                (
+                    "[PAGE 1]\nDiego waits by the gate.\nDIEGO\n"
+                    "security opens the old vault door.\n"
+                ),
+                "p001-l002",
+                "p001-l002-l003",
+            ),
+        )
+        for label, source, actor_source, action_source in cases:
+            with self.subTest(label=label):
+                row = {
+                    "slot": "row_001",
+                    "kind": "sequence_evidence",
+                    "identifier": "sequence_ledger[0]",
+                    "subject": {
+                        "beat": {
+                            "order": 1,
+                            "phase": "climax",
+                            "page": 1,
+                            "actor": "Diego",
+                            "action": "Diego opens the vault.",
+                            "result": "NOT LOCATED",
+                            "character_knowledge": "NOT LOCATED",
+                            "audience_knowledge": "NOT LOCATED",
+                        },
+                        "required_fields": ["actor", "action"],
+                        "claim_sha256": "a" * 64,
+                    },
+                }
+                decoded, reason = cv._decode_grounded_detail_value(
+                    {
+                        "classification": "supported",
+                        "checks": [
+                            {
+                                "field": "actor",
+                                "source_id": (
+                                    f"row_001:actor:{actor_source}"
+                                ),
+                                "supports": True,
+                            },
+                            {
+                                "field": "action",
+                                "source_id": (
+                                    f"row_001:action:{action_source}"
+                                ),
+                                "supports": True,
+                            },
+                        ],
+                        "note": "The range is claimed to support the action.",
+                    },
+                    row,
+                    source,
+                )
+
+                self.assertIsNone(decoded)
+                self.assertIsNotNone(reason)
+
+    def test_sequence_action_point_binds_actor_to_claimed_predicate(self):
+        def decode(
+            action_line,
+            action_source="p001-l002",
+            claim="Diego opens the vault.",
+            actor="Diego",
+        ):
+            source = (
+                f"[PAGE 1]\n{actor} wait by the gate.\n"
+                f"{action_line}\n"
+            )
+            beat = {
+                "order": 1,
+                "phase": "climax",
+                "page": 1,
+                "actor": actor,
+                "action": claim,
+                "result": "NOT LOCATED",
+                "character_knowledge": "NOT LOCATED",
+                "audience_knowledge": "NOT LOCATED",
+            }
+            atoms = cv._sequence_material_claim_atoms(beat)
+            row = {
+                "slot": "row_001",
+                "kind": "sequence_evidence",
+                "identifier": "sequence_ledger[0]",
+                "subject": {
+                    "beat": beat,
+                    "material_claim_atoms": atoms,
+                    "required_fields": ["actor", "action"],
+                    "claim_sha256": "a" * 64,
+                },
+            }
+            return cv._decode_grounded_detail_value(
+                {
+                    "classification": "supported",
+                    "checks": [
+                        {
+                            "field": "actor",
+                            "source_id": "row_001:actor:p001-l001",
+                            "supports": True,
+                        },
+                        {
+                            "field": "action",
+                            "source_id": f"row_001:action:{action_source}",
+                            "supports": True,
+                        },
+                    ],
+                    "material_atom_results": [
+                        {
+                            "atom_id": atom["atom_id"],
+                            "disposition": (
+                                "supported"
+                                if atom["field"] == "action"
+                                else "not_located"
+                            ),
+                            "source_id": (
+                                f"row_001:{atom['atom_id']}:{action_source}"
+                                if atom["field"] == "action"
+                                else cv.SEQUENCE_SOURCE_NOT_LOCATED
+                            ),
+                        }
+                        for atom in atoms
+                    ],
+                    "note": "The point is claimed to support the action.",
+                },
+                row,
+                source,
+            )
+
+        attacks = [
+            *(
+                (
+                    connector,
+                    f"Diego watches {connector} the man opens the vault.",
+                )
+                for connector in (
+                    "while", "if", "unless", "though", "whenever",
+                )
+            ),
+            ("bare security", "Diego watches while security opens the vault."),
+            ("because security", "Diego watches because security opens the vault."),
+            ("semicolon security", "Diego watches; security opens the vault."),
+            (
+                "same predicate while",
+                "Diego opens a window while the man opens the vault.",
+            ),
+            (
+                "same predicate comma",
+                "Diego opens a window, the man opens the vault.",
+            ),
+            (
+                "same predicate but",
+                "Diego opens a window but the man opens the vault.",
+            ),
+            (
+                "fronted participle",
+                "Diego watches; opening the vault, the man escapes.",
+            ),
+            (
+                "fronted participle after",
+                "Diego watches; after opening the vault, the man escapes.",
+            ),
+            (
+                "perception complement",
+                "Diego watches security open the vault.",
+            ),
+            (
+                "relative clause",
+                "Diego watches the man who opens the vault.",
+            ),
+            (
+                "directive complement",
+                "Diego asks the man to open the vault.",
+            ),
+            (
+                "reduced relative",
+                "Diego watches a woman opening the vault.",
+            ),
+            (
+                "perception child",
+                "Diego sees the child open the vault.",
+            ),
+            (
+                "unknown controller with explicit noun phrase",
+                "Diego encourages the man to open the vault.",
+            ),
+            (
+                "unknown controller with bare subject",
+                "Diego expects security to open the vault.",
+            ),
+            (
+                "knowledge complement with auxiliary",
+                "Diego knows security will open the vault.",
+            ),
+            (
+                "finite knowledge complement",
+                "Diego believes security opens the vault.",
+            ),
+            (
+                "reflexive hides controller subject",
+                "Diego expects security itself to open the vault.",
+            ),
+            (
+                "human reflexive hides controller subject",
+                "Diego expects security herself to open the vault.",
+            ),
+            (
+                "modifier hides controller subject",
+                "Diego expects security alone to open the vault.",
+            ),
+            (
+                "state modifier hides controller subject",
+                "Diego expects security ready to open the vault.",
+            ),
+            (
+                "nonhuman pronoun cannot inherit named human actor",
+                "Diego knows it will open the vault.",
+            ),
+            (
+                "colon imperative",
+                "Diego orders the man: Open the vault.",
+            ),
+            (
+                "quoted directive",
+                "Diego tells the man, “Open the vault.”",
+            ),
+            (
+                "quoted shout",
+                "Diego shouts, “Open the vault!”",
+            ),
+            (
+                "written imperative",
+                "Diego writes: OPEN THE VAULT.",
+            ),
+            (
+                "heard imperative",
+                "Diego hears the command: open the vault.",
+            ),
+            (
+                "reported action",
+                "Diego says he opens the vault.",
+            ),
+            (
+                "claimed action",
+                "Diego claims he opens the vault.",
+            ),
+            (
+                "promised action",
+                "Diego promises to open the vault.",
+            ),
+            (
+                "imagined action",
+                "Diego imagines opening the vault.",
+            ),
+            (
+                "written proposition",
+                "Diego writes: Diego opens the vault.",
+            ),
+            (
+                "reported proposition after comma",
+                "Diego tells security, Diego opens the vault.",
+            ),
+            (
+                "intended action",
+                "Diego expects to open the vault.",
+            ),
+            (
+                "prepared action",
+                "Diego prepares to open the vault.",
+            ),
+            (
+                "decided action",
+                "Diego decides to open the vault.",
+            ),
+            (
+                "rehearsed action",
+                "Diego rehearses opening the vault.",
+            ),
+            (
+                "unlisted reported action",
+                "Diego states he opens the vault.",
+            ),
+            (
+                "periphrastic future action",
+                "Diego was going to open the vault.",
+            ),
+            (
+                "epistemic action",
+                "Diego apparently opens the vault.",
+            ),
+            (
+                "fronted epistemic action",
+                "Hypothetically, Diego opens the vault.",
+            ),
+            (
+                "possible action",
+                "Diego possibly opens the vault.",
+            ),
+            (
+                "fronted possible action",
+                "Maybe, Diego opens the vault.",
+            ),
+            (
+                "trailing possible action",
+                "Diego opens the vault, perhaps.",
+            ),
+            (
+                "trailing seeming action",
+                "Diego opens the vault, or so it seems.",
+            ),
+            (
+                "trailing conditional action",
+                "Diego opens the vault, if the rumor is true.",
+            ),
+            (
+                "trailing unless action",
+                "Diego opens the vault, unless the report is wrong.",
+            ),
+            (
+                "provided action",
+                "Diego opens the vault provided that security agrees.",
+            ),
+            (
+                "assumed action",
+                "Diego opens the vault assuming security agrees.",
+            ),
+            (
+                "interrogative action",
+                "Diego opens the vault?",
+            ),
+            (
+                "fragment-qualified action",
+                "Diego opens the vault; maybe.",
+            ),
+            (
+                "sentence-qualified action",
+                "Diego opens the vault. Maybe.",
+            ),
+            (
+                "seeming sentence-qualified action",
+                "Diego opens the vault. Or so it seems.",
+            ),
+            (
+                "dash-qualified action",
+                "Diego opens the vault — maybe.",
+            ),
+            (
+                "ellipsis-qualified action",
+                "Diego opens the vault… maybe.",
+            ),
+            (
+                "parenthesized-qualified action",
+                "Diego opens the vault. (Maybe.)",
+            ),
+            (
+                "comparative hypothetical action",
+                "Diego acts as if he opens the vault.",
+            ),
+            (
+                "bare infinitive action",
+                "Diego dares open the vault.",
+            ),
+            (
+                "comparative as-though action",
+                "Diego acts as though he opens the vault.",
+            ),
+        ]
+        for label, action_line in attacks:
+            with self.subTest(label=label):
+                decoded, reason = decode(action_line)
+                self.assertIsNone(decoded)
+                self.assertIsNotNone(reason)
+
+        decoded, reason = decode(
+            "Diego convence a seguridad de abrir la bóveda.",
+            claim="Diego abre la bóveda.",
+        )
+        self.assertIsNone(decoded)
+        self.assertIn("does not support", reason or "")
+
+        decoded, reason = decode(
+            "Diego dice que se abre la bóveda.",
+            claim="Diego abre la bóveda.",
+        )
+        self.assertIsNone(decoded)
+        self.assertIn("does not support", reason or "")
+
+        for action_line in (
+            "Diego va a abrir la bóveda.",
+            "Diego debería abrir la bóveda.",
+            "Diego supuestamente abre la bóveda.",
+            "Posiblemente, Diego abre la bóveda.",
+            "Quizá, Diego abre la bóveda.",
+            "Diego abre la bóveda, quizá.",
+            "Diego abre la bóveda, o eso parece.",
+            "Diego abre la bóveda, según Carlos.",
+            "Diego abre la bóveda siempre que seguridad acepte.",
+            "Diego abre la bóveda con tal de que seguridad acepte.",
+            "Diego abre la bóveda?",
+            "Diego abre la bóveda; quizá.",
+            "Diego abre la bóveda. Quizá.",
+            "Diego abre la bóveda. O eso parece.",
+            "Diego abre la bóveda… quizá.",
+            "Diego abre la bóveda. (Quizá.)",
+            "Diego decide abrir la bóveda.",
+            "Diego contempla abrir la bóveda.",
+            "Diego acuerda abrir la bóveda.",
+            "Diego parece abrir la bóveda.",
+        ):
+            decoded, reason = decode(
+                action_line, claim="Diego abre la bóveda."
+            )
+            self.assertIsNone(decoded)
+            self.assertIsNotNone(reason)
+            for action_source in ("p001-l002-l002", "p001-l001-l002"):
+                decoded, reason = decode(
+                    action_line,
+                    action_source,
+                    claim="Diego abre la bóveda.",
+                )
+                self.assertIsNone(decoded)
+                self.assertIsNotNone(reason)
+
+        for actor, action_line, claim in (
+            (
+                "Diego and Carlos",
+                "Diego and Carlos himself open the vault.",
+                "Diego and Carlos open the vault.",
+            ),
+            (
+                "The judges",
+                "The judges itself open the vault.",
+                "The judges open the vault.",
+            ),
+            (
+                "Diego and Carlos",
+                "Diego and Carlos expect himself to open the vault.",
+                "Diego and Carlos open the vault.",
+            ),
+        ):
+            decoded, reason = decode(
+                action_line, claim=claim, actor=actor
+            )
+            self.assertIsNone(decoded)
+            self.assertIn("does not support", reason or "")
+
+        for actor, action_line, claim in (
+            (
+                "Security",
+                "Security need only open the vault.",
+                "Security open the vault.",
+            ),
+            (
+                "Security",
+                "Security had better open the vault.",
+                "Security open the vault.",
+            ),
+            (
+                "The judges",
+                "The judges need only open the vault.",
+                "The judges open the vault.",
+            ),
+        ):
+            for action_source in (
+                "p001-l002", "p001-l002-l002", "p001-l001-l002",
+            ):
+                decoded, reason = decode(
+                    action_line,
+                    action_source,
+                    claim=claim,
+                    actor=actor,
+                )
+                self.assertIsNone(decoded)
+                self.assertIn("does not support", reason or "")
+
+        for action_line in (
+            "Diego expects security to open the vault.",
+            "Diego orders the man: Open the vault.",
+            "Diego tells the man, “Open the vault.”",
+            "Diego says he opens the vault.",
+            "Diego states he opens the vault.",
+            "Diego prepares to open the vault.",
+            "Diego rehearses opening the vault.",
+            "Diego apparently opens the vault.",
+            "Hypothetically, Diego opens the vault.",
+            "Diego possibly opens the vault.",
+            "Maybe, Diego opens the vault.",
+            "Diego opens the vault, perhaps.",
+            "Diego opens the vault, or so it seems.",
+            "Diego opens the vault, if the rumor is true.",
+            "Diego opens the vault, unless the report is wrong.",
+            "Diego opens the vault provided that security agrees.",
+            "Diego opens the vault assuming security agrees.",
+            "Diego opens the vault?",
+            "Diego opens the vault; maybe.",
+            "Diego opens the vault. Maybe.",
+            "Diego opens the vault. Or so it seems.",
+            "Diego opens the vault… maybe.",
+            "Diego opens the vault. (Maybe.)",
+            "Diego acts as if he opens the vault.",
+            "Diego dares open the vault.",
+            "Diego acts as though he opens the vault.",
+            "Diego writes: Diego opens the vault.",
+            "Diego tells security, Diego opens the vault.",
+        ):
+            for action_source in ("p001-l002-l002", "p001-l001-l002"):
+                with self.subTest(
+                    action_line=action_line,
+                    action_source=action_source,
+                ):
+                    decoded, reason = decode(action_line, action_source)
+                    self.assertIsNone(decoded)
+                    self.assertIn("does not support", reason or "")
+
+        decoded, reason = decode("Diego watches then opens the vault.")
+        self.assertIsNotNone(decoded, reason)
+        self.assertIsNone(reason)
+
+        decoded, reason = decode(
+            "Diego says he will open the vault; then Diego opens the vault.",
+        )
+        self.assertIsNotNone(decoded, reason)
+        self.assertIsNone(reason)
+
+        decoded, reason = decode(
+            "Diego writes: Diego opens the vault. Later, Diego opens the vault.",
+        )
+        self.assertIsNotNone(decoded, reason)
+        self.assertIsNone(reason)
+
+        for qualified_claim in (
+            "Diego opens the vault?",
+            "Diego opens the vault; maybe.",
+        ):
+            self.assertTrue(cv._sequence_action_source_has_bound_claim(
+                "Diego", qualified_claim, qualified_claim
+            ))
+
+        decoded, reason = decode("Diego himself opens the vault.")
+        self.assertIsNotNone(decoded, reason)
+        self.assertIsNone(reason)
+
+        decoded, reason = decode(
+            "Diego and Carlos themselves open the vault.",
+            claim="Diego and Carlos open the vault.",
+            actor="Diego and Carlos",
+        )
+        self.assertIsNotNone(decoded, reason)
+        self.assertIsNone(reason)
+
+    def test_sequence_result_requires_the_claimed_assertion_status(self):
+        def decode(
+            result_line,
+            claim="The vault opens.",
+            result_source="p001-l003",
+            actor="Diego",
+        ):
+            source = (
+                f"[PAGE 1]\n{actor} waits by the gate.\n"
+                f"{actor} checks his watch.\n{result_line}\n"
+            )
+            beat = {
+                "order": 1,
+                "phase": "climax",
+                "page": 1,
+                "actor": actor,
+                "action": f"{actor} checks his watch.",
+                "result": claim,
+                "character_knowledge": "NOT LOCATED",
+                "audience_knowledge": "NOT LOCATED",
+            }
+            atoms = cv._sequence_material_claim_atoms(beat)
+            row = {
+                "slot": "row_001",
+                "kind": "sequence_evidence",
+                "identifier": "sequence_ledger[0]",
+                "subject": {
+                    "beat": beat,
+                    "material_claim_atoms": atoms,
+                    "required_fields": ["actor", "action", "result"],
+                    "claim_sha256": "a" * 64,
+                },
+            }
+            sources = {
+                "action": "p001-l002",
+                "result": result_source,
+            }
+            return cv._decode_grounded_detail_value(
+                {
+                    "classification": "supported",
+                    "checks": [
+                        {
+                            "field": field,
+                            "source_id": f"row_001:{field}:{source_id}",
+                            "supports": True,
+                        }
+                        for field, source_id in (
+                            ("actor", "p001-l001"),
+                            ("action", "p001-l002"),
+                            ("result", result_source),
+                        )
+                    ],
+                    "material_atom_results": [
+                        {
+                            "atom_id": atom["atom_id"],
+                            "disposition": "supported",
+                            "source_id": (
+                                f"row_001:{atom['atom_id']}:"
+                                f"{sources[atom['field']]}"
+                            ),
+                        }
+                        for atom in atoms
+                    ],
+                    "note": "Every event is claimed as completed staging.",
+                },
+                row,
+                source,
+            )
+
+        for result_line in (
+            "The vault will open.",
+            "The vault should open.",
+            "The vault was going to open.",
+            "The vault is about to open.",
+            "The vault is poised to open.",
+            "The vault is on the verge of opening.",
+            "The vault is moments from opening.",
+            "The vault has yet to open.",
+            "The vault remains to be opened.",
+            "The vault had better open.",
+            "The vault need only open.",
+            "The vault is expected to open.",
+            "The vault appears to open.",
+            "The vault prepares to open.",
+            "The vault decides to open.",
+            "The vault dares open.",
+            "The vault awaits opening.",
+            "The vault awaits being opened.",
+            "The vault threatens opening.",
+            "The vault reportedly opens.",
+            "The rumor is that the vault opens.",
+            "The vault looks open.",
+            "The vault starts to open.",
+            "The vault begins opening.",
+            "The vault continues opening.",
+            "The vault is halfway open.",
+            "The vault partially opens.",
+            "The vault is still opening.",
+            "The vault was being opened, but security stopped it before completion.",
+            "The vault was being slowly opened, but security stopped it before completion.",
+            "The vault remains unopened.",
+            "The vault remains sealed.",
+            "The vault stays locked.",
+            "The vault sits in view while the window opens.",
+            "The window beside the vault opens.",
+            "The window by the vault opens.",
+            "The window facing the vault opens.",
+            "The window rather than the vault opens.",
+            "The vault sits in view while the hatch opens.",
+            "The vault sits beside the hatch that opens.",
+            "The vault whose window opens fills the frame.",
+            "The vault stays locked because the hatch opens.",
+            "The vault stays locked as the hatch opens.",
+            "The vault stays locked after the hatch opens.",
+            "The vault opens, but not fully.",
+            "The vault stops before opening.",
+            "The vault jams before opening.",
+            "The vault opens?",
+            "The vault opens, if security agrees.",
+            "The vault opens provided security agrees.",
+            "The vault opens only when security agrees.",
+            "The vault opens as long as security agrees.",
+            "The vault opens on condition that security agrees.",
+            "The vault opens depending on security.",
+            "The vault opens… maybe.",
+            "The vault opens. (Maybe.)",
+            "La bóveda debería abrir.",
+            "La bóveda va a abrir.",
+            "La bóveda está por abrirse.",
+            "La bóveda está a punto de abrirse.",
+            "La bóveda parece abrir.",
+            "La bóveda supuestamente abre.",
+            "El rumor es que la bóveda abre.",
+            "La bóveda luce abierta.",
+            "La bóveda empieza a abrir.",
+            "La bóveda está a segundos de abrirse.",
+            "La bóveda está medio abierta.",
+            "La bóveda abre pero nunca del todo.",
+            "La bóveda queda a la vista mientras la compuerta abre.",
+            "La bóveda está junto a la compuerta que abre.",
+            "La bóveda cuya compuerta abre llena la pantalla.",
+            "La bóveda queda cerrada porque la compuerta abre.",
+            "La bóveda queda cerrada después de que la compuerta abre.",
+            "La bóveda abre, si seguridad acepta.",
+            "La bóveda abre?",
+        ):
+            for source_id in ("p001-l003", "p001-l002-l003"):
+                with self.subTest(result_line=result_line, source_id=source_id):
+                    claim = (
+                        "La bóveda abre."
+                        if result_line.startswith("La bóveda")
+                        else "The vault opens."
+                    )
+                    decoded, reason = decode(
+                        result_line, claim=claim, result_source=source_id
+                    )
+                    self.assertIsNone(decoded)
+                    self.assertIsNotNone(reason)
+
+        for result_line, claim in (
+            ("Tony's rival wins.", "Tony wins."),
+            ("Tony’s rival wins.", "Tony wins."),
+            ("Tony's captor escapes.", "Tony escapes."),
+        ):
+            for source_id in ("p001-l003", "p001-l002-l003"):
+                decoded, reason = decode(
+                    result_line, claim=claim, result_source=source_id
+                )
+                self.assertIsNone(decoded)
+                self.assertIsNotNone(reason)
+
+        for result_line, claim in (
+            ("Tony sees Carlos has the trophy.", "Tony has the trophy."),
+            ("Tony sees Carlos is alive.", "Tony is alive."),
+            (
+                "Tony congratulates Carlos, who becomes champion.",
+                "Tony becomes champion.",
+            ),
+        ):
+            for source_id in ("p001-l003", "p001-l002-l003"):
+                with self.subTest(
+                    result_line=result_line, source_id=source_id,
+                ):
+                    decoded, reason = decode(
+                        result_line,
+                        claim=claim,
+                        result_source=source_id,
+                        actor="Tony",
+                    )
+                    self.assertIsNone(decoded)
+                    self.assertIsNotNone(reason)
+
+        for result_line, claim in (
+            ("The vault door opens.", "The vault opens."),
+            ("The trophy case opens.", "The trophy opens."),
+            ("The stadium gate opens.", "The stadium opens."),
+            ("The stadium roof collapses.", "The stadium collapses."),
+            ("The stadium's roof collapses.", "The stadium collapses."),
+            ("The roof atop the stadium collapses.", "The stadium collapses."),
+            ("The roof above the stadium collapses.", "The stadium collapses."),
+            (
+                "The roof adjacent to the stadium collapses.",
+                "The stadium collapses.",
+            ),
+            ("The fence along the stadium collapses.", "The stadium collapses."),
+            (
+                "The tunnel underneath the stadium collapses.",
+                "The stadium collapses.",
+            ),
+            ("El techo del estadio colapsa.", "El estadio colapsa."),
+            ("El techo sobre el estadio colapsa.", "El estadio colapsa."),
+            (
+                "El techo sobre el estadio se derrumba.",
+                "El estadio se derrumba.",
+            ),
+            ("El techo sobre el estadio cruje.", "El estadio cruje."),
+        ) + tuple(
+            (source, false_claim)
+            for source, false_claim, _true_claim
+            in RESULT_COMPONENT_SUBJECT_CASES
+        ):
+            for source_id in ("p001-l003", "p001-l002-l003"):
+                with self.subTest(
+                    result_line=result_line, source_id=source_id,
+                ):
+                    decoded, reason = decode(
+                        result_line,
+                        claim=claim,
+                        result_source=source_id,
+                    )
+                    self.assertIsNone(decoded)
+                    self.assertIsNotNone(reason)
+
+        for result_line, claim, preserved_claim, actor in (
+            (
+                "Neither the roof nor the stadium collapses.",
+                "The stadium collapses.",
+                "Neither the roof nor the stadium collapses.",
+                "The stadium",
+            ),
+            (
+                "Ni el techo ni el estadio colapsa.",
+                "El estadio colapsa.",
+                "Ni el techo ni el estadio colapsa.",
+                "El estadio",
+            ),
+            (
+                "The stadium does not, under any circumstances, collapse.",
+                "The stadium collapses.",
+                "The stadium does not collapse.",
+                "The stadium",
+            ),
+            (
+                "Under no circumstances does the stadium collapse.",
+                "The stadium collapses.",
+                "Under no circumstances does the stadium collapse.",
+                "The stadium",
+            ),
+            (
+                "Under no circumstances does the roof collapse and "
+                "nevertheless the stadium collapses.",
+                "The stadium does not collapse.",
+                "The stadium collapses.",
+                "The stadium",
+            ),
+            (
+                "Bajo ninguna circunstancia colapsa el techo y sin embargo "
+                "el estadio colapsa.",
+                "El estadio no colapsa.",
+                "El estadio colapsa.",
+                "El estadio",
+            ),
+            (
+                "Carlos does not leave and wins the trophy.",
+                "Carlos does not win the trophy.",
+                "Carlos wins the trophy.",
+                "Carlos",
+            ),
+            (
+                "Carlos does not leave and win the trophy.",
+                "Carlos wins the trophy.",
+                "Carlos does not win the trophy.",
+                "Carlos",
+            ),
+            (
+                "Carlos no sale y gana el trofeo.",
+                "Carlos no gana el trofeo.",
+                "Carlos gana el trofeo.",
+                "Carlos",
+            ),
+            (
+                "The stadium does not, under absolutely any conceivable "
+                "circumstances whatsoever, collapse.",
+                "The stadium collapses.",
+                "The stadium does not collapse.",
+                "The stadium",
+            ),
+            (
+                "Without leaving, Carlos wins the trophy.",
+                "Carlos does not win the trophy.",
+                "Carlos wins the trophy.",
+                "Carlos",
+            ),
+            (
+                "Without winning the trophy, Carlos leaves.",
+                "Carlos does not leave.",
+                "Carlos leaves.",
+                "Carlos",
+            ),
+            (
+                "With no trophy in hand, Carlos wins the contest.",
+                "Carlos does not win the contest.",
+                "Carlos wins the contest.",
+                "Carlos",
+            ),
+            (
+                "The contestant with no trophy in hand wins the contest.",
+                "The contestant does not win the contest.",
+                "The contestant wins the contest.",
+                "The contestant",
+            ),
+            (
+                "The contestant with no trophy in hand wins the contest.",
+                "The contestant has the trophy.",
+                "The contestant has no trophy.",
+                "The contestant",
+            ),
+            (
+                "The contestant carrying no trophy wins the contest.",
+                "The contestant does not win the contest.",
+                "The contestant wins the contest.",
+                "The contestant",
+            ),
+            (
+                "The contestant unable to leave wins the contest.",
+                "The contestant does not win the contest.",
+                "The contestant wins the contest.",
+                "The contestant",
+            ),
+            (
+                "The contestants unable to leave win the contest.",
+                "The contestants do not win the contest.",
+                "The contestants win the contest.",
+                "The contestants",
+            ),
+            (
+                "The contestant not on the team wins the contest.",
+                "The contestant does not win the contest.",
+                "The contestant wins the contest.",
+                "The contestant",
+            ),
+            (
+                "The contestant no longer with the team wins the contest.",
+                "The contestant does not win the contest.",
+                "The contestant wins the contest.",
+                "The contestant",
+            ),
+            (
+                "The contestant holds no trophy, wins the contest.",
+                "The contestant holds no trophy and does not win the contest.",
+                "The contestant holds no trophy and wins the contest.",
+                "The contestant",
+            ),
+            (
+                "Sin salir, Carlos gana el trofeo.",
+                "Carlos no gana el trofeo.",
+                "Carlos gana el trofeo.",
+                "Carlos",
+            ),
+            (
+                "The stadium that does not host the final collapses.",
+                "The stadium does not collapse.",
+                "The stadium collapses.",
+                "The stadium",
+            ),
+            (
+                "The stadium that does not win the trophy collapses.",
+                "The stadium does not collapse.",
+                "The stadium collapses.",
+                "The stadium",
+            ),
+            (
+                "El estadio que no alberga la final colapsa.",
+                "El estadio no colapsa.",
+                "El estadio colapsa.",
+                "El estadio",
+            ),
+            (
+                "El estadio que no gana el trofeo colapsa.",
+                "El estadio no colapsa.",
+                "El estadio colapsa.",
+                "El estadio",
+            ),
+            (
+                "The stadium that does not host the final does not collapse.",
+                "The stadium collapses.",
+                "The stadium does not collapse.",
+                "The stadium",
+            ),
+            (
+                "El estadio que no alberga la final no colapsa.",
+                "El estadio colapsa.",
+                "El estadio no colapsa.",
+                "El estadio",
+            ),
+            (
+                "Carlos (who does not leave) wins the trophy.",
+                "Carlos does not win the trophy.",
+                "Carlos wins the trophy.",
+                "Carlos",
+            ),
+            (
+                "Carlos, who does not leave, wins the trophy.",
+                "Carlos does not win the trophy.",
+                "Carlos wins the trophy.",
+                "Carlos",
+            ),
+            (
+                "Carlos does not leave (Tony wins the trophy).",
+                "Carlos does not leave (Tony does not win the trophy).",
+                "Carlos does not leave (Tony wins the trophy).",
+                "Carlos and Tony",
+            ),
+            (
+                "Carlos no sale (Tony gana el trofeo).",
+                "Carlos no sale (Tony no gana el trofeo).",
+                "Carlos no sale (Tony gana el trofeo).",
+                "Carlos and Tony",
+            ),
+        ):
+            for source_id in ("p001-l003", "p001-l002-l003"):
+                decoded, reason = decode(
+                    result_line,
+                    claim=claim,
+                    result_source=source_id,
+                    actor=actor,
+                )
+                self.assertIsNone(decoded)
+                self.assertIsNotNone(reason)
+
+                decoded, reason = decode(
+                    result_line,
+                    claim=preserved_claim,
+                    result_source=source_id,
+                    actor=actor,
+                )
+                self.assertIsNotNone(decoded, reason)
+                self.assertIsNone(reason)
+
+        modifier_source = "With no trophy in hand, Carlos wins the contest."
+        self.assertTrue(cv._sequence_negation_matches(
+            "Carlos does not have the trophy.", modifier_source
+        ))
+        self.assertFalse(cv._sequence_negation_matches(
+            "Carlos has the trophy.", modifier_source
+        ))
+        participial_source = (
+            "The contestant carrying no trophy wins the contest."
+        )
+        self.assertTrue(cv._sequence_negation_matches(
+            "The contestant has no trophy.", participial_source
+        ))
+        self.assertFalse(cv._sequence_negation_matches(
+            "The contestant has the trophy.", participial_source
+        ))
+        inability_source = (
+            "The contestant unable to leave wins the contest."
+        )
+        self.assertTrue(cv._sequence_negation_matches(
+            "The contestant does not leave.", inability_source
+        ))
+        self.assertFalse(cv._sequence_negation_matches(
+            "The contestant leaves.", inability_source
+        ))
+        state_modifier_source = (
+            "The contestant not on the team wins the contest."
+        )
+        self.assertTrue(cv._sequence_negation_matches(
+            "The contestant is not on the team.", state_modifier_source
+        ))
+        self.assertFalse(cv._sequence_negation_matches(
+            "The contestant is on the team.", state_modifier_source
+        ))
+        longer_state_source = (
+            "The contestant no longer with the team wins the contest."
+        )
+        self.assertTrue(cv._sequence_negation_matches(
+            "The contestant is no longer with the team.",
+            longer_state_source,
+        ))
+        self.assertFalse(cv._sequence_negation_matches(
+            "The contestant is with the team.", longer_state_source
+        ))
+
+        compound_claim = (
+            "Tony announces the winner; the crowd celebrates."
+        )
+        for result_line in (
+            "Tony announces the winner.\nThe crowd cancels the celebration.",
+            "Tony announces the winner.\nThe crowd discusses a future celebration.",
+            "Tony announces the winner.\nThe crowd hears the word celebration.",
+            "Tony announces the winner.\nThe crowd flees from the celebration.",
+            "Tony announces the winner.\nThe crowd nearly celebrates.",
+            "Tony announces the winner.\nThe crowd almost celebrates.",
+            "Tony announces the winner.\nThe crowd pretends it celebrates.",
+            "Tony announces the winner.\nThe crowd celebrates in rehearsal.",
+            "Tony announces the winner.\nThe crowd considers celebrating.",
+            "Tony announces the winner.\nThe crowd watches others celebrate.",
+            "Tony announces the winner.\nHe celebrates.",
+        ):
+            decoded, reason = decode(
+                result_line,
+                claim=compound_claim,
+                result_source="p001-l003-l004",
+                actor="Tony",
+            )
+            self.assertIsNone(decoded)
+            self.assertIsNotNone(reason)
+
+        for claim, result_line in COMPOUND_ATOM_PROPOSITION_MISMATCHES:
+            decoded, reason = decode(
+                result_line,
+                claim=claim,
+                result_source="p001-l003-l004",
+                actor="Tony",
+            )
+            self.assertIsNone(decoded)
+            self.assertIsNotNone(reason)
+
+        for claim, result_line in COMPOUND_DIRECTIVE_SCOPE_MISMATCHES:
+            self.assertTrue(cv._sequence_compound_has_directive_mismatch(
+                claim, result_line
+            ))
+            decoded, reason = decode(
+                result_line,
+                claim=claim,
+                result_source="p001-l003-l004",
+                actor="Tony",
+            )
+            self.assertIsNone(decoded)
+            self.assertIsNotNone(reason)
+            self.assertFalse(cv._sequence_compound_has_directive_mismatch(
+                claim, claim.replace("; ", "\n", 1)
+            ))
+
+        spanish_compound_claim = (
+            "Tony announces the winner; la gente celebra."
+        )
+        for result_line in (
+            "Tony announces the winner.\nLa gente casi celebra.",
+            "Tony announces the winner.\nLa gente finge que celebra.",
+            "Tony announces the winner.\nLa gente celebra durante el ensayo.",
+            "Tony announces the winner.\nLa gente considera celebrar.",
+        ):
+            decoded, reason = decode(
+                result_line,
+                claim=spanish_compound_claim,
+                result_source="p001-l003-l004",
+                actor="Tony",
+            )
+            self.assertIsNone(decoded)
+            self.assertIsNotNone(reason)
+
+        for qualified_claim in (
+            "The vault will open.",
+            "The vault opens, if security agrees.",
+            "The vault opens?",
+            "The vault is about to open.",
+            "The vault is moments from opening.",
+            "The vault has yet to open.",
+            "The vault remains to be opened.",
+            "The vault is halfway open.",
+            "The vault awaits opening.",
+            "The vault is still opening.",
+            "The vault was being opened, but security stopped it before completion.",
+            "The vault was being slowly opened, but security stopped it before completion.",
+            "The vault remains unopened.",
+            "The vault opens, but not fully.",
+            "The vault opens provided security agrees.",
+            "The vault stops before opening.",
+            "The vault opens only when security agrees.",
+            "The vault opens as long as security agrees.",
+            "La bóveda debería abrir.",
+            "La bóveda abre, si seguridad acepta.",
+            "La bóveda está por abrirse.",
+            "La bóveda está medio abierta.",
+            "La bóveda abre pero nunca del todo.",
+            "The rumor is that the vault opens.",
+            "The vault looks open.",
+        ):
+            for source_id in ("p001-l003", "p001-l002-l003"):
+                with self.subTest(
+                    qualified_claim=qualified_claim, source_id=source_id,
+                ):
+                    decoded, reason = decode(
+                        qualified_claim,
+                        claim=qualified_claim,
+                        result_source=source_id,
+                    )
+                    self.assertIsNotNone(decoded, reason)
+                    self.assertIsNone(reason)
+
+        decoded, reason = decode(
+            "The vault opens, but not fully. Then the vault opens fully."
+        )
+        self.assertIsNotNone(decoded, reason)
+        self.assertIsNone(reason)
+
+        decoded, reason = decode(
+            "Tony announces the winner.\nLa gente celebra.",
+            claim=spanish_compound_claim,
+            result_source="p001-l003-l004",
+            actor="Tony",
+        )
+        self.assertIsNotNone(decoded, reason)
+        self.assertIsNone(reason)
+
+        qualified_compound_claim = (
+            "Tony announces the winner; the crowd celebrates in rehearsal."
+        )
+        decoded, reason = decode(
+            "Tony announces the winner.\nThe crowd celebrates.",
+            claim=qualified_compound_claim,
+            result_source="p001-l003-l004",
+            actor="Tony",
+        )
+        self.assertIsNone(decoded)
+        self.assertIsNotNone(reason)
+
+        decoded, reason = decode(
+            "Tony announces the winner.\nThe crowd celebrates in rehearsal.",
+            claim=qualified_compound_claim,
+            result_source="p001-l003-l004",
+            actor="Tony",
+        )
+        self.assertIsNotNone(decoded, reason)
+        self.assertIsNone(reason)
+
+        for claim_qualifier, source_qualifier in (
+            ("nearly", "barely"),
+            ("barely", "nearly"),
+        ):
+            claim = (
+                "Tony announces the winner; the crowd "
+                f"{claim_qualifier} celebrates."
+            )
+            decoded, reason = decode(
+                "Tony announces the winner.\nThe crowd "
+                f"{source_qualifier} celebrates.",
+                claim=claim,
+                result_source="p001-l003-l004",
+                actor="Tony",
+            )
+            self.assertIsNone(decoded)
+            self.assertIsNotNone(reason)
+
+            decoded, reason = decode(
+                "Tony announces the winner.\nThe crowd "
+                f"{claim_qualifier} celebrates.",
+                claim=claim,
+                result_source="p001-l003-l004",
+                actor="Tony",
+            )
+            self.assertIsNotNone(decoded, reason)
+            self.assertIsNone(reason)
+
+        decoded, reason = decode(
+            "The vault appears in frame.\nThe window opens.",
+            result_source="p001-l003-l004",
+        )
+        self.assertIsNone(decoded)
+        self.assertIsNotNone(reason)
+
+        decoded, reason = decode(
+            "The window beside the vault opens.",
+            claim="The window opens.",
+        )
+        self.assertIsNotNone(decoded, reason)
+        self.assertIsNone(reason)
+
+        for result_line, claim in (
+            ("The vault and window open.", "The vault opens."),
+            ("The window facing the vault opens.", "The window opens."),
+            ("The window rather than the vault opens.", "The window opens."),
+            ("The vault sits beside the hatch that opens.", "The hatch opens."),
+            ("The vault whose window opens fills the frame.", "The window opens."),
+            ("The vault that opens.", "The vault opens."),
+            (
+                "La bóveda está junto a la compuerta que abre.",
+                "La compuerta abre.",
+            ),
+            (
+                "La bóveda cuya compuerta abre llena la pantalla.",
+                "La compuerta abre.",
+            ),
+            (
+                "Diego detiene el último penal y se desploma sobre el pasto.",
+                "Diego se desploma sobre el pasto.",
+            ),
+        ):
+            decoded, reason = decode(result_line, claim=claim)
+            self.assertIsNotNone(decoded, reason)
+            self.assertIsNone(reason)
+
+        for result_line in ("Tony's car opens.", "Tony opens the car."):
+            decoded, reason = decode(
+                result_line, claim="The car opens.", actor="Tony"
+            )
+            self.assertIsNotNone(decoded, reason)
+            self.assertIsNone(reason)
+
+        for result_line, claim in (
+            ("The vault door opens.", "The door opens."),
+            ("The trophy case opens.", "The case opens."),
+            ("The stadium gate opens.", "The gate opens."),
+            ("The stadium roof collapses.", "The roof collapses."),
+            ("The stadium's roof collapses.", "The roof collapses."),
+            ("The roof atop the stadium collapses.", "The roof collapses."),
+            ("The roof above the stadium collapses.", "The roof collapses."),
+            (
+                "The roof adjacent to the stadium collapses.",
+                "The roof collapses.",
+            ),
+            (
+                "The tunnel underneath the stadium collapses.",
+                "The tunnel collapses.",
+            ),
+        ) + tuple(
+            (source, true_claim)
+            for source, _false_claim, true_claim
+            in RESULT_COMPONENT_SUBJECT_CASES
+        ):
+            for source_id in ("p001-l003", "p001-l002-l003"):
+                decoded, reason = decode(
+                    result_line,
+                    claim=claim,
+                    result_source=source_id,
+                    actor="Tony" if "Tony" in result_line else "Diego",
+                )
+                self.assertIsNotNone(decoded, reason)
+                self.assertIsNone(reason)
+
+        decoded, reason = decode(
+            "Tony announces the winner.\nThe crowd celebrates.",
+            claim=compound_claim,
+            result_source="p001-l003-l004",
+            actor="Tony",
+        )
+        self.assertIsNotNone(decoded, reason)
+        self.assertIsNone(reason)
+
+        for claim, _mismatched_source in COMPOUND_ATOM_PROPOSITION_MISMATCHES:
+            first, second = claim.split("; ", maxsplit=1)
+            decoded, reason = decode(
+                f"{first}.\n{second}",
+                claim=claim,
+                result_source="p001-l003-l004",
+                actor="Tony",
+            )
+            self.assertIsNotNone(decoded, reason)
+            self.assertIsNone(reason)
 
     def test_sequence_result_and_audience_require_field_relevance(self):
         cases = (
@@ -6629,6 +8240,7 @@ El público pide otra canción
                     or "atomic event" in str(reason)
                     or "actor-action event" in str(reason)
                     or "compound event" in str(reason)
+                    or "changes assertion status" in str(reason)
                     or "numeric fact" in str(reason)
                     or "does not stage the beat actor" in str(reason),
                     reason,
@@ -7160,6 +8772,101 @@ El público pide otra canción
             "union_parameter_count": 0,
             "maximum_depth": 5,
         })
+        plan = cv._detail_main_plan(rows)
+        planned_slots = [
+            slot for batch in plan for slot in batch["slots"]
+        ]
+        self.assertEqual(
+            [len(batch["slots"]) for batch in plan],
+            [21, 4, 12, 8, 10],
+        )
+        self.assertEqual(
+            [batch["source_mode"] for batch in plan],
+            [
+                "full_text", "full_anchor_index", "bounded_sequence",
+                "bounded_sequence", "bound_citations",
+            ],
+        )
+        self.assertEqual(len(planned_slots), len(set(planned_slots)))
+        self.assertEqual(set(planned_slots), {row["slot"] for row in rows})
+        legacy_rows = [
+            {"slot": f"legacy_{index:03d}"} for index in range(83)
+        ]
+        self.assertEqual(
+            [len(batch) for batch in cv._prior_detail_main_batches(legacy_rows)],
+            [64, 19],
+        )
+
+    def test_large_detail_prompt_projects_only_required_source_context(self):
+        row = {
+            "slot": "row_001",
+            "kind": "existing_evidence",
+            "identifier": "story_spine.ending",
+            "subject": {
+                "field_path": "story_spine.ending",
+                "trigger": "absolute_negative",
+                "claim": "The ending is never resolved.",
+                "exact_term_hits": {"ending": [1, 2, 3]},
+                "matched_pages": [1, 2, 3],
+            },
+        }
+        blocks = cv._bounded_detail_audit_user_blocks(
+            SCREENPLAY_TEXT,
+            "El Último Portero",
+            valid_coverage(),
+            cv.build_page_reference_map(SCREENPLAY_TEXT, 6, None),
+            [row],
+            "full_text",
+        )
+        prompt = "\n".join(str(block.get("text", "")) for block in blocks)
+
+        self.assertIn("# SCREENPLAY TEXT", prompt)
+        self.assertIn("# CHARACTER PAGE INDEX", prompt)
+        self.assertNotIn("# COMPLETE COVERAGE REPORT", prompt)
+        self.assertNotIn("# PAGE REFERENCE MAP", prompt)
+        self.assertNotIn("exact_term_hits", prompt)
+        self.assertIn('"matched_page_ranges":"1-3"', prompt)
+
+    def test_bounded_sequence_packet_includes_every_permitted_source_page(self):
+        source = """\
+[PAGE 1]
+Diego enters the contest.
+[PAGE 2]
+Diego wins the final contest.
+[PAGE 3]
+Richie reveals the recording.
+[PAGE 4]
+An unrelated epilogue continues.
+"""
+        rows = [
+            {
+                "slot": "row_001",
+                "kind": "sequence_evidence",
+                "identifier": "sequence_ledger[1]",
+                "subject": {
+                    "beat": {"page": 1},
+                    "source_page_range": [1, 2],
+                },
+            },
+            {
+                "slot": "row_002",
+                "kind": "sequence_evidence",
+                "identifier": "sequence_ledger[2]",
+                "subject": {
+                    "beat": {"page": 1},
+                    "literal_source_binding": {
+                        "source_ids": ["p003-l001"],
+                    },
+                },
+            },
+        ]
+
+        packet = cv._grounded_detail_source_packet(source, rows)
+
+        self.assertEqual(cv._detail_anchor_pages(rows), {1, 2, 3})
+        self.assertIn("[PAGE 2]", packet)
+        self.assertIn("[PAGE 3]", packet)
+        self.assertNotIn("[PAGE 4]", packet)
 
     def test_typed_detail_arrays_reject_duplicate_or_missing_slots(self):
         rows = [
@@ -7454,10 +9161,10 @@ El público pide otra canción
 
         self.assertEqual(len(rows), 59)
         self.assertEqual(report["status"], "needs_review")
-        self.assertIn(
-            "guard.existing_evidence",
-            report["fact_audit"]["central_failures"],
-        )
+        self.assertTrue(any(
+            "guard.existing_evidence" in reason
+            for reason in report["review_reasons"]
+        ))
         self.assertEqual(report["cost"]["call_count"], 4)
         self.assertEqual(len(transport.calls), 4)
 
@@ -9819,8 +11526,13 @@ El público pide otra canción
             encoding="utf-8",
         )
 
+        detail_rows = cv.build_detail_audit_rows(
+            coverage,
+            cv.build_existing_evidence_checks(coverage, SCREENPLAY_TEXT),
+            good_normalized["sequence_ledger"],
+        )
         resume = FakeTransport([(
-            supported_detail_payload(coverage, good_normalized),
+            typed_detail_payload_for_rows(detail_rows),
             settled_usage(),
         )])
         with (
@@ -12448,6 +14160,51 @@ class TestRepairBudget(unittest.TestCase):
 
 
 class TestCheckpointsAndResume(unittest.TestCase):
+    def test_detail_23_migration_reuses_only_the_unchanged_sibling(self):
+        rows = [
+            {
+                "slot": f"row_{index:03d}",
+                "kind": "existing_evidence",
+                "identifier": f"field[{index}]",
+                "subject": {
+                    "field_path": f"field[{index}]",
+                    "trigger": "absolute_negative",
+                    "claim": claim,
+                },
+            }
+            for index, claim in enumerate(
+                ("The source is never planted.", "The ending is unresolved."),
+                start=1,
+            )
+        ]
+        prior_rows = copy.deepcopy(rows)
+        prior_rows[1]["subject"]["claim"] = "The old ending is unresolved."
+        progress = {
+            "detail_contract_version": cv.PRIOR_DETAIL_AUDIT_CONTRACT_VERSION,
+            "evidence_rows": [
+                {
+                    "field_path": row["identifier"],
+                    "classification": "supported",
+                    "note": "Checked against the complete screenplay.",
+                }
+                for row in rows
+            ],
+            "citation_rows": [],
+        }
+
+        accepted, citations, pending, feedback = (
+            cv._migrate_source_anchor_progress(
+                progress, prior_rows, rows, SCREENPLAY_TEXT
+            )
+        )
+
+        self.assertEqual(citations, [])
+        self.assertEqual(
+            [row["field_path"] for row in accepted], ["field[1]"]
+        )
+        self.assertEqual([row["slot"] for row in pending], ["row_002"])
+        self.assertIn("different canonical subject", feedback["row_002"]["reason"])
+
     def test_detail_16_migration_strips_false_source_anchors_idempotently(self):
         source = (
             "[PAGE 1]\nDiego waits by the gate.\n"
@@ -12526,6 +14283,532 @@ class TestCheckpointsAndResume(unittest.TestCase):
             source,
         )[0]
         self.assertEqual(migrated_again, accepted)
+
+    def test_stored_result_cannot_launder_a_noncompleted_event(self):
+        row = {
+            "slot": "row_001",
+            "kind": "sequence_evidence",
+            "identifier": "sequence_ledger[0]",
+            "subject": {
+                "beat": {
+                    "order": 1,
+                    "phase": "climax",
+                    "page": 1,
+                    "actor": "Diego",
+                    "action": "Diego checks his watch.",
+                    "result": "The vault opens.",
+                    "character_knowledge": "NOT LOCATED",
+                    "audience_knowledge": "NOT LOCATED",
+                },
+                "required_fields": ["actor", "action", "result"],
+                "claim_sha256": "a" * 64,
+            },
+        }
+
+        for result_line in (
+            "The vault is moments from opening.",
+            "The vault remains to be opened.",
+            "The vault stops before opening.",
+            "The vault opens only when security agrees.",
+            "The vault awaits opening.",
+            "The vault is still opening.",
+            "The vault was being opened, but security stopped it before completion.",
+            "The vault was being slowly opened, but security stopped it before completion.",
+            "The vault remains unopened.",
+            "The vault remains sealed.",
+            "The vault stays locked.",
+            "The vault sits in view while the window opens.",
+            "The window beside the vault opens.",
+            "The window by the vault opens.",
+            "The window facing the vault opens.",
+            "The window rather than the vault opens.",
+            "The vault sits in view while the hatch opens.",
+            "The vault sits beside the hatch that opens.",
+            "The vault whose window opens fills the frame.",
+            "The vault stays locked because the hatch opens.",
+            "The vault stays locked as the hatch opens.",
+            "The vault stays locked after the hatch opens.",
+            "The vault opens, but not fully.",
+            "La bóveda abre pero nunca del todo.",
+            "La bóveda queda a la vista mientras la compuerta abre.",
+            "La bóveda está junto a la compuerta que abre.",
+            "La bóveda cuya compuerta abre llena la pantalla.",
+            "La bóveda queda cerrada porque la compuerta abre.",
+            "La bóveda queda cerrada después de que la compuerta abre.",
+        ):
+            source = (
+                "[PAGE 1]\nDiego waits by the gate.\n"
+                f"Diego checks his watch.\n{result_line}\n"
+            )
+            for result_source_id in ("p001-l003", "p001-l002-l003"):
+                with self.subTest(
+                    result_line=result_line,
+                    result_source_id=result_source_id,
+                ):
+                    self._assert_stored_result_is_rejected(
+                        source, row, result_source_id
+                    )
+
+        possessive_row = copy.deepcopy(row)
+        for result_line, claim in (
+            ("Tony's rival wins.", "Tony wins."),
+            ("Tony’s rival wins.", "Tony wins."),
+            ("Tony's captor escapes.", "Tony escapes."),
+        ):
+            possessive_row["subject"]["beat"]["result"] = claim
+            source = (
+                "[PAGE 1]\nDiego waits by the gate.\n"
+                f"Diego checks his watch.\n{result_line}\n"
+            )
+            for result_source_id in ("p001-l003", "p001-l002-l003"):
+                with self.subTest(
+                    result_line=result_line,
+                    result_source_id=result_source_id,
+                ):
+                    self._assert_stored_result_is_rejected(
+                        source, possessive_row, result_source_id
+                    )
+
+        displaced_subject_row = copy.deepcopy(row)
+        displaced_subject_row["subject"]["beat"].update({
+            "actor": "Tony",
+            "action": "Tony checks his watch.",
+        })
+        for result_line, claim in (
+            ("Tony sees Carlos has the trophy.", "Tony has the trophy."),
+            ("Tony sees Carlos is alive.", "Tony is alive."),
+            (
+                "Tony congratulates Carlos, who becomes champion.",
+                "Tony becomes champion.",
+            ),
+        ):
+            displaced_subject_row["subject"]["beat"]["result"] = claim
+            source = (
+                "[PAGE 1]\nTony waits by the gate.\n"
+                f"Tony checks his watch.\n{result_line}\n"
+            )
+            for result_source_id in ("p001-l003", "p001-l002-l003"):
+                with self.subTest(
+                    result_line=result_line,
+                    result_source_id=result_source_id,
+                ):
+                    self._assert_stored_result_is_rejected(
+                        source, displaced_subject_row, result_source_id
+                    )
+
+        component_row = copy.deepcopy(row)
+        for result_line, claim in (
+            ("The vault door opens.", "The vault opens."),
+            ("The trophy case opens.", "The trophy opens."),
+            ("The stadium gate opens.", "The stadium opens."),
+            ("The stadium roof collapses.", "The stadium collapses."),
+            ("The stadium's roof collapses.", "The stadium collapses."),
+            ("The roof atop the stadium collapses.", "The stadium collapses."),
+            ("The roof above the stadium collapses.", "The stadium collapses."),
+            (
+                "The roof adjacent to the stadium collapses.",
+                "The stadium collapses.",
+            ),
+            ("The fence along the stadium collapses.", "The stadium collapses."),
+            (
+                "The tunnel underneath the stadium collapses.",
+                "The stadium collapses.",
+            ),
+            ("El techo del estadio colapsa.", "El estadio colapsa."),
+            ("El techo sobre el estadio colapsa.", "El estadio colapsa."),
+            (
+                "El techo sobre el estadio se derrumba.",
+                "El estadio se derrumba.",
+            ),
+            ("El techo sobre el estadio cruje.", "El estadio cruje."),
+        ) + tuple(
+            (source, false_claim)
+            for source, false_claim, _true_claim
+            in RESULT_COMPONENT_SUBJECT_CASES
+        ):
+            component_row["subject"]["beat"]["result"] = claim
+            source = (
+                "[PAGE 1]\nDiego waits by the gate.\n"
+                f"Diego checks his watch.\n{result_line}\n"
+            )
+            for result_source_id in ("p001-l003", "p001-l002-l003"):
+                with self.subTest(
+                    result_line=result_line,
+                    result_source_id=result_source_id,
+                ):
+                    self._assert_stored_result_is_rejected(
+                        source, component_row, result_source_id
+                    )
+
+        for result_line, claim, actor, action in (
+            (
+                "Neither the roof nor the stadium collapses.",
+                "The stadium collapses.",
+                "The stadium",
+                "The stadium remains visible.",
+            ),
+            (
+                "Ni el techo ni el estadio colapsa.",
+                "El estadio colapsa.",
+                "El estadio",
+                "El estadio permanece visible.",
+            ),
+            (
+                "The stadium does not, under any circumstances, collapse.",
+                "The stadium collapses.",
+                "The stadium",
+                "The stadium remains visible.",
+            ),
+            (
+                "Under no circumstances does the stadium collapse.",
+                "The stadium collapses.",
+                "The stadium",
+                "The stadium remains visible.",
+            ),
+            (
+                "Under no circumstances does the roof collapse and "
+                "nevertheless the stadium collapses.",
+                "The stadium does not collapse.",
+                "The stadium",
+                "The stadium remains visible.",
+            ),
+            (
+                "Bajo ninguna circunstancia colapsa el techo y sin embargo "
+                "el estadio colapsa.",
+                "El estadio no colapsa.",
+                "El estadio",
+                "El estadio permanece visible.",
+            ),
+            (
+                "Carlos does not leave and wins the trophy.",
+                "Carlos does not win the trophy.",
+                "Carlos",
+                "Carlos remains visible.",
+            ),
+            (
+                "Carlos does not leave and win the trophy.",
+                "Carlos wins the trophy.",
+                "Carlos",
+                "Carlos remains visible.",
+            ),
+            (
+                "Carlos no sale y gana el trofeo.",
+                "Carlos no gana el trofeo.",
+                "Carlos",
+                "Carlos permanece visible.",
+            ),
+            (
+                "The stadium does not, under absolutely any conceivable "
+                "circumstances whatsoever, collapse.",
+                "The stadium collapses.",
+                "The stadium",
+                "The stadium remains visible.",
+            ),
+            (
+                "Without leaving, Carlos wins the trophy.",
+                "Carlos does not win the trophy.",
+                "Carlos",
+                "Carlos remains visible.",
+            ),
+            (
+                "Without winning the trophy, Carlos leaves.",
+                "Carlos does not leave.",
+                "Carlos",
+                "Carlos remains visible.",
+            ),
+            (
+                "With no trophy in hand, Carlos wins the contest.",
+                "Carlos does not win the contest.",
+                "Carlos",
+                "Carlos remains visible.",
+            ),
+            (
+                "With no trophy in hand, Carlos wins the contest.",
+                "Carlos has the trophy.",
+                "Carlos",
+                "Carlos remains visible.",
+            ),
+            (
+                "The contestant with no trophy in hand wins the contest.",
+                "The contestant does not win the contest.",
+                "The contestant",
+                "The contestant remains visible.",
+            ),
+            (
+                "The contestant with no trophy in hand wins the contest.",
+                "The contestant has the trophy.",
+                "The contestant",
+                "The contestant remains visible.",
+            ),
+            (
+                "The contestant carrying no trophy wins the contest.",
+                "The contestant does not win the contest.",
+                "The contestant",
+                "The contestant remains visible.",
+            ),
+            (
+                "The contestant carrying no trophy wins the contest.",
+                "The contestant has the trophy.",
+                "The contestant",
+                "The contestant remains visible.",
+            ),
+            (
+                "The contestant unable to leave wins the contest.",
+                "The contestant does not win the contest.",
+                "The contestant",
+                "The contestant remains visible.",
+            ),
+            (
+                "The contestant unable to leave wins the contest.",
+                "The contestant leaves.",
+                "The contestant",
+                "The contestant remains visible.",
+            ),
+            (
+                "The contestants unable to leave win the contest.",
+                "The contestants do not win the contest.",
+                "The contestants",
+                "The contestants remain visible.",
+            ),
+            (
+                "The contestant not on the team wins the contest.",
+                "The contestant does not win the contest.",
+                "The contestant",
+                "The contestant remains visible.",
+            ),
+            (
+                "The contestant no longer with the team wins the contest.",
+                "The contestant does not win the contest.",
+                "The contestant",
+                "The contestant remains visible.",
+            ),
+            (
+                "The contestant holds no trophy, wins the contest.",
+                "The contestant holds no trophy and does not win the contest.",
+                "The contestant",
+                "The contestant remains visible.",
+            ),
+            (
+                "Sin salir, Carlos gana el trofeo.",
+                "Carlos no gana el trofeo.",
+                "Carlos",
+                "Carlos permanece visible.",
+            ),
+            (
+                "The stadium that does not host the final collapses.",
+                "The stadium does not collapse.",
+                "The stadium",
+                "The stadium remains visible.",
+            ),
+            (
+                "The stadium that does not win the trophy collapses.",
+                "The stadium does not collapse.",
+                "The stadium",
+                "The stadium remains visible.",
+            ),
+            (
+                "El estadio que no alberga la final colapsa.",
+                "El estadio no colapsa.",
+                "El estadio",
+                "El estadio permanece visible.",
+            ),
+            (
+                "El estadio que no gana el trofeo colapsa.",
+                "El estadio no colapsa.",
+                "El estadio",
+                "El estadio permanece visible.",
+            ),
+            (
+                "The stadium that does not host the final does not collapse.",
+                "The stadium collapses.",
+                "The stadium",
+                "The stadium remains visible.",
+            ),
+            (
+                "El estadio que no alberga la final no colapsa.",
+                "El estadio colapsa.",
+                "El estadio",
+                "El estadio permanece visible.",
+            ),
+            (
+                "Carlos (who does not leave) wins the trophy.",
+                "Carlos does not win the trophy.",
+                "Carlos",
+                "Carlos remains visible.",
+            ),
+            (
+                "Carlos, who does not leave, wins the trophy.",
+                "Carlos does not win the trophy.",
+                "Carlos",
+                "Carlos remains visible.",
+            ),
+            (
+                "Carlos does not leave (Tony wins the trophy).",
+                "Carlos does not leave (Tony does not win the trophy).",
+                "Carlos and Tony",
+                "Carlos and Tony remain visible.",
+            ),
+            (
+                "Carlos no sale (Tony gana el trofeo).",
+                "Carlos no sale (Tony no gana el trofeo).",
+                "Carlos and Tony",
+                "Carlos and Tony remain visible.",
+            ),
+        ):
+            correlative_row = copy.deepcopy(row)
+            correlative_row["subject"]["beat"].update({
+                "actor": actor,
+                "action": action,
+                "result": claim,
+            })
+            source = (
+                f"[PAGE 1]\n{actor} waits by the gate.\n"
+                f"{action}\n{result_line}\n"
+            )
+            for result_source_id in ("p001-l003", "p001-l002-l003"):
+                self._assert_stored_result_is_rejected(
+                    source, correlative_row, result_source_id
+                )
+
+        compound_row = copy.deepcopy(row)
+        compound_row["subject"]["beat"].update({
+            "actor": "Tony",
+            "action": "Tony checks his watch.",
+            "result": "Tony announces the winner; the crowd celebrates.",
+        })
+        for last_line in (
+            "The crowd cancels the celebration.",
+            "The crowd discusses a future celebration.",
+            "The crowd hears the word celebration.",
+            "The crowd flees from the celebration.",
+            "The crowd nearly celebrates.",
+            "The crowd almost celebrates.",
+            "The crowd pretends it celebrates.",
+            "The crowd celebrates in rehearsal.",
+            "The crowd considers celebrating.",
+            "The crowd watches others celebrate.",
+            "He celebrates.",
+        ):
+            source = (
+                "[PAGE 1]\nTony waits by the gate.\n"
+                "Tony checks his watch.\nTony announces the winner.\n"
+                f"{last_line}\n"
+            )
+            self._assert_stored_result_is_rejected(
+                source, compound_row, "p001-l003-l004"
+            )
+
+        for claim, result_line in COMPOUND_ATOM_PROPOSITION_MISMATCHES:
+            compound_row["subject"]["beat"]["result"] = claim
+            source = (
+                "[PAGE 1]\nTony waits by the gate.\n"
+                "Tony checks his watch.\n"
+                f"{result_line}\n"
+            )
+            self._assert_stored_result_is_rejected(
+                source, compound_row, "p001-l003-l004"
+            )
+
+        for claim, result_line in COMPOUND_DIRECTIVE_SCOPE_MISMATCHES:
+            compound_row["subject"]["beat"]["result"] = claim
+            source = (
+                "[PAGE 1]\nTony waits by the gate.\n"
+                "Tony checks his watch.\n"
+                f"{result_line}\n"
+            )
+            self._assert_stored_result_is_rejected(
+                source, compound_row, "p001-l003-l004"
+            )
+
+        compound_row["subject"]["beat"]["result"] = (
+            "Tony announces the winner; la gente celebra."
+        )
+        for last_line in (
+            "La gente casi celebra.",
+            "La gente finge que celebra.",
+            "La gente celebra durante el ensayo.",
+            "La gente considera celebrar.",
+        ):
+            source = (
+                "[PAGE 1]\nTony waits by the gate.\n"
+                "Tony checks his watch.\nTony announces the winner.\n"
+                f"{last_line}\n"
+            )
+            self._assert_stored_result_is_rejected(
+                source, compound_row, "p001-l003-l004"
+            )
+
+        compound_row["subject"]["beat"]["result"] = (
+            "Tony announces the winner; the crowd celebrates in rehearsal."
+        )
+        self._assert_stored_result_is_rejected(
+            (
+                "[PAGE 1]\nTony waits by the gate.\n"
+                "Tony checks his watch.\nTony announces the winner.\n"
+                "The crowd celebrates.\n"
+            ),
+            compound_row,
+            "p001-l003-l004",
+        )
+
+        for claim_qualifier, source_qualifier in (
+            ("nearly", "barely"),
+            ("barely", "nearly"),
+        ):
+            compound_row["subject"]["beat"]["result"] = (
+                "Tony announces the winner; the crowd "
+                f"{claim_qualifier} celebrates."
+            )
+            self._assert_stored_result_is_rejected(
+                (
+                    "[PAGE 1]\nTony waits by the gate.\n"
+                    "Tony checks his watch.\nTony announces the winner.\n"
+                    f"The crowd {source_qualifier} celebrates.\n"
+                ),
+                compound_row,
+                "p001-l003-l004",
+            )
+
+    def _assert_stored_result_is_rejected(
+        self, source, row, result_source_id,
+    ):
+        checks = []
+        for field, source_id in (
+            ("actor", "p001-l001"),
+            ("action", "p001-l002"),
+            ("result", result_source_id),
+        ):
+            anchor = cv._sequence_source_anchor(source, source_id)
+            self.assertIsNotNone(anchor)
+            checks.append({
+                "field": field,
+                "page": anchor["page"],
+                "excerpt": anchor["excerpt"],
+                "supports": True,
+                "source_anchor_id": source_id,
+            })
+        progress = {
+            "evidence_rows": [{
+                "field_path": row["identifier"],
+                "classification": "supported",
+                "note": "The stored row claimed a completed event.",
+                "checks": checks,
+                "claim_sha256": row["subject"]["claim_sha256"],
+                "grounding_valid": True,
+            }],
+            "citation_rows": [],
+        }
+
+        accepted, citations, pending, feedback = (
+            cv._migrate_source_anchor_progress(
+                progress, [row], [row], source
+            )
+        )
+
+        self.assertEqual(accepted, [])
+        self.assertEqual(citations, [])
+        self.assertEqual([item["slot"] for item in pending], ["row_001"])
+        self.assertIn("result", feedback["row_001"]["reason"])
 
     def test_detail_17_range_migration_reuses_only_exact_unchanged_rows(self):
         class FailAuditSave(cv.LocalCheckpointStore):
@@ -13517,6 +15800,269 @@ class TestCheckpointsAndResume(unittest.TestCase):
         self.assertEqual(finish.calls, [])
         self.assertEqual(finish_usage["call_count"], 0)
         self.assertEqual(report["status"], "sealed")
+
+    def test_split_detail_receipt_replays_after_progress_crash(self):
+        class FailProgressAfterDetail(cv.LocalCheckpointStore):
+            fail_progress = False
+
+            def save(self, key, stage, record):
+                if stage == "audit_details_progress" and self.fail_progress:
+                    self.fail_progress = False
+                    raise RuntimeError("crash after split detail receipt")
+                super().save(key, stage, record)
+
+        coverage = valid_coverage()
+        audit = provider_audit_core(coverage)
+        normalized = cv.normalize_audit_tool_input(
+            copy.deepcopy(audit), range(1, 7)
+        )
+        rows = cv.build_detail_audit_rows(
+            coverage,
+            cv.build_existing_evidence_checks(coverage, SCREENPLAY_TEXT),
+            normalized["sequence_ledger"],
+        )
+        store = FailProgressAfterDetail(
+            Path(tempfile.mkdtemp()) / "cv1"
+        )
+
+        class ArmCrashTransport(FakeTransport):
+            def __call__(self, **kwargs):
+                result = super().__call__(**kwargs)
+                if kwargs.get("stage") == "coverage_v1.fact_audit_details":
+                    store.fail_progress = True
+                return result
+
+        with patch.object(
+            cv, "MAX_DETAIL_DIRECT_SLOTS", 5
+        ), patch.object(
+            cv, "MAX_DETAIL_AUDIT_ROWS", 10
+        ), patch.object(cv, "PRIOR_DETAIL_MAIN_BATCH_ROWS", 10):
+            batches = cv._detail_main_batches(rows)
+            first = ArmCrashTransport([
+                (coverage, settled_usage()),
+                (audit, settled_usage()),
+                (typed_detail_payload_for_rows(batches[0]), settled_usage()),
+            ])
+            with self.assertRaisesRegex(
+                RuntimeError, "crash after split detail receipt"
+            ):
+                run_engine(
+                    store, first, max_calls=2 + len(batches),
+                    max_cost_usd=5.0,
+                )
+
+            first_detail_fingerprint = cv._request_fingerprint(first.calls[-1])
+            receipt_path = next(store.root.glob("*/call_receipts.json"))
+            receipts_before_resume = json.loads(
+                receipt_path.read_text(encoding="utf-8")
+            )["payload"]["receipts"]
+            self.assertIn(first_detail_fingerprint, receipts_before_resume)
+            self.assertEqual(len(receipts_before_resume), 3)
+            resume = FakeTransport([
+                (typed_detail_payload_for_rows(batch), settled_usage())
+                for batch in batches[1:]
+            ])
+            report, usage = run_engine(
+                store, resume, max_calls=2 + len(batches),
+                max_cost_usd=5.0,
+            )
+
+        self.assertEqual(report["status"], "sealed")
+        self.assertEqual(usage["call_count"], len(batches) - 1)
+        self.assertEqual(len(resume.calls), len(batches) - 1)
+        self.assertEqual(report["cost"]["call_count"], 2 + len(batches))
+        self.assertNotIn(
+            first_detail_fingerprint,
+            {cv._request_fingerprint(call) for call in resume.calls},
+        )
+
+    def test_prior_detail_chunks_replay_after_first_or_tail_receipt_crash(self):
+        class FailProgressAfterDetail(cv.LocalCheckpointStore):
+            fail_progress = False
+
+            def save(self, key, stage, record):
+                if stage == "audit_details_progress" and self.fail_progress:
+                    self.fail_progress = False
+                    raise RuntimeError("crash after prior detail receipt")
+                super().save(key, stage, record)
+
+        def prior_batches(detail_rows):
+            return [
+                detail_rows[start:start + cv.MAX_DETAIL_AUDIT_ROWS]
+                for start in range(0, len(detail_rows), cv.MAX_DETAIL_AUDIT_ROWS)
+            ]
+
+        def prior_plan(detail_rows):
+            return [
+                {
+                    "slots": [str(row["slot"]) for row in batch],
+                    "batch_sha256": cv.canonical_json_hash(batch),
+                    "source_mode": "legacy_full",
+                    "max_tokens": cv.AUDIT_MAX_TOKENS,
+                    "thinking_budget": cv.AUDIT_THINKING_BUDGET,
+                }
+                for batch in prior_batches(detail_rows)
+            ]
+
+        current_blocks = cv.build_detail_audit_user_blocks
+
+        def prior_blocks(*args, **kwargs):
+            kwargs["include_bound_ranges"] = False
+            return current_blocks(*args, **kwargs)
+
+        coverage = valid_coverage()
+        audit = provider_audit_core(coverage)
+        normalized = cv.normalize_audit_tool_input(
+            copy.deepcopy(audit), range(1, 7)
+        )
+        rows = cv.build_detail_audit_rows(
+            coverage,
+            cv.build_existing_evidence_checks(coverage, SCREENPLAY_TEXT),
+            normalized["sequence_ledger"],
+        )
+
+        for crash_after in (1, 3):
+            with self.subTest(crash_after=crash_after):
+                store = FailProgressAfterDetail(
+                    Path(tempfile.mkdtemp()) / "cv1"
+                )
+
+                class ArmCrashTransport(FakeTransport):
+                    detail_calls = 0
+
+                    def __call__(self, **kwargs):
+                        result = super().__call__(**kwargs)
+                        if kwargs.get("stage") == "coverage_v1.fact_audit_details":
+                            self.detail_calls += 1
+                            if self.detail_calls == crash_after:
+                                store.fail_progress = True
+                        return result
+
+                with patch.object(
+                    cv, "MAX_DETAIL_DIRECT_SLOTS", 5
+                ), patch.object(
+                    cv, "MAX_DETAIL_AUDIT_ROWS", 10
+                ), patch.object(
+                    cv, "PRIOR_DETAIL_MAIN_BATCH_ROWS", 10
+                ), patch.object(
+                    cv, "DETAIL_AUDIT_CONTRACT_VERSION",
+                    cv.PRIOR_DETAIL_AUDIT_CONTRACT_VERSION,
+                ), patch.object(
+                    cv, "_detail_main_batches", side_effect=prior_batches
+                ), patch.object(
+                    cv, "_detail_main_plan", side_effect=prior_plan
+                ), patch.object(
+                    cv, "build_detail_audit_user_blocks",
+                    side_effect=prior_blocks,
+                ):
+                    old_batches = prior_batches(rows)
+                    first = ArmCrashTransport([
+                        (coverage, settled_usage()),
+                        (audit, settled_usage()),
+                        *(
+                            (typed_detail_payload_for_rows(batch), settled_usage())
+                            for batch in old_batches[:crash_after]
+                        ),
+                    ])
+                    with self.assertRaisesRegex(
+                        RuntimeError, "crash after prior detail receipt"
+                    ):
+                        run_engine(
+                            store,
+                            first,
+                            max_calls=2 + len(old_batches),
+                            max_cost_usd=5.0,
+                        )
+
+                with patch.object(
+                    cv, "MAX_DETAIL_DIRECT_SLOTS", 5
+                ), patch.object(
+                    cv, "MAX_DETAIL_AUDIT_ROWS", 10
+                ), patch.object(
+                    cv, "PRIOR_DETAIL_MAIN_BATCH_ROWS", 10
+                ):
+                    pending = [
+                        row
+                        for batch in old_batches[crash_after:]
+                        for row in batch
+                    ]
+                    resume_batches = cv._detail_main_batches(pending)
+                    resume = FakeTransport([
+                        (typed_detail_payload_for_rows(batch), settled_usage())
+                        for batch in resume_batches
+                    ])
+                    report, usage = run_engine(
+                        store, resume, max_calls=20, max_cost_usd=5.0
+                    )
+
+                self.assertEqual(report["status"], "sealed")
+                self.assertEqual(len(resume.calls), len(resume_batches))
+                self.assertEqual(usage["call_count"], len(resume_batches))
+                self.assertEqual(
+                    report["cost"]["call_count"],
+                    2 + crash_after + len(resume_batches),
+                )
+
+    def test_split_detail_call_cap_resumes_more_than_one_legacy_batch(self):
+        coverage = valid_coverage()
+        audit = provider_audit_core(coverage)
+        normalized = cv.normalize_audit_tool_input(
+            copy.deepcopy(audit), range(1, 7)
+        )
+        rows = cv.build_detail_audit_rows(
+            coverage,
+            cv.build_existing_evidence_checks(coverage, SCREENPLAY_TEXT),
+            normalized["sequence_ledger"],
+        )
+        store = new_store()
+
+        with patch.object(
+            cv, "MAX_DETAIL_DIRECT_SLOTS", 5
+        ), patch.object(
+            cv, "MAX_DETAIL_AUDIT_ROWS", 10
+        ), patch.object(cv, "PRIOR_DETAIL_MAIN_BATCH_ROWS", 10):
+            batches = cv._detail_main_batches(rows)
+            first_report, _first_usage = run_engine(
+                store,
+                FakeTransport([
+                    (coverage, settled_usage()),
+                    (audit, settled_usage()),
+                    (typed_detail_payload_for_rows(batches[0]), settled_usage()),
+                ]),
+                max_calls=3,
+                max_cost_usd=5.0,
+            )
+            progress_path = next(
+                store.root.glob("*/audit_details_progress.json")
+            )
+            progress = json.loads(
+                progress_path.read_text(encoding="utf-8")
+            )["payload"]
+            unresolved = sum(
+                len(batch) for batch in batches[1:]
+            )
+
+            self.assertEqual(first_report["status"], "needs_review")
+            self.assertGreater(unresolved, cv.MAX_DETAIL_AUDIT_ROWS)
+            self.assertEqual(
+                progress["completed_main_batches"],
+                [cv.canonical_json_hash(batches[0])],
+            )
+
+            resume = FakeTransport([
+                (typed_detail_payload_for_rows(batch), settled_usage())
+                for batch in batches[1:]
+            ])
+            report, usage = run_engine(
+                store,
+                resume,
+                max_calls=2 + len(batches),
+                max_cost_usd=5.0,
+            )
+
+        self.assertEqual(report["status"], "sealed")
+        self.assertEqual(usage["call_count"], len(batches) - 1)
+        self.assertEqual(len(resume.calls), len(batches) - 1)
 
     def test_audit_contract_drift_reuses_stage_bound_coverage(self):
         coverage = valid_coverage()
@@ -20035,6 +22581,23 @@ class TestPostDetailSequenceRepair(unittest.TestCase):
             "action",
             anchor["excerpt"],
         ))
+        for claim, excerpt in (
+            (
+                "Tony has the trophy.",
+                "Tony checks his watch. Tony sees Carlos has the trophy.",
+            ),
+            (
+                "Tony is alive.",
+                "Tony checks his watch. Tony sees Carlos is alive.",
+            ),
+            (
+                "Tony becomes champion.",
+                "Tony congratulates Carlos, who becomes champion.",
+            ),
+        ):
+            self.assertFalse(cv._sequence_compound_range_matches(
+                {"actor": "Tony", "result": claim}, "result", excerpt
+            ))
         encore = (
             "[PAGE 101]\n"
             "El público pide otra canción.\n"
@@ -20057,8 +22620,7 @@ class TestPostDetailSequenceRepair(unittest.TestCase):
                 "song is titled Otra; Cosquillitas performs it."
             ),
             "result": (
-                "Final image is Cosquillitas performing encores for a "
-                "delirious crowd; screenplay ends mid-celebration."
+                "Cosquillitas perform otra; the screenplay ends."
             ),
         }
         self.assertTrue(cv._sequence_compound_range_matches(
