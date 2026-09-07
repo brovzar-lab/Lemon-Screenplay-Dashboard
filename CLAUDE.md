@@ -3,7 +3,26 @@
 ## Where Were We (WWW)
 <!-- Current continuity, not a log. Verify live deployment state separately. -->
 
-**Last session:** 2026-09-07, existing twenty-report offline replay and corrected rollout proposal.
+**Last session:** 2026-09-07, private live rollout failed its canary gate and was rolled back.
+
+- Read `docs/PRIVATE-ROLLOUT-2026-09-07-RESULT.md` before another release.
+  Candidate `a89cfb3e5a66aa0717b3641bf72cb38d86783d9b` passed local suites,
+  deployed, and processed one real La Ciguena upload. Two calls settled for
+  $0.746298. The four-file batch did NOT run. Rollout is paused, worker stopped.
+- Three verified defects: an empty explanation on a `not_applicable` lens
+  purchased an unnecessary complete correction; the real adapter dropped a
+  proven-no-spend flag when wrapping a pre-provider budget rejection; the
+  actual Settings/Intake route does not mount `useLiveScreenplaySync`, leaving
+  the saved report without an Open action. These are NOT fixed in this commit.
+- Original server receipts are settled, but the reader's original checkpoint
+  retains a false $0.283527 review reservation. Preserve it and every original
+  artifact. No third receipt may be fabricated and no reading repurchased.
+- Production is restored to V9. Hosting SHA `ef810a505c62f604aaea815f1f80a815a2eac21d`;
+  daemon `/opt/lemon-ingest` at `51fca8cf05eb79d041c4589dcd736a04a54da02b`.
+  Old Function containers were unavailable, so original source backups were
+  rebuilt: proxy `llmproxy-00025-nef`, queue `queuemanager-00010-kob`, trigger
+  `onscreenplayuploaded-00010-xab`. All receive 100% traffic with Ready true.
+  Future deployments must verify traffic explicitly, not only latest revision.
 
 - Billy subsequently authorized the complete five-existing-script private
   rollout, including deployment and bounded inference: $50 total / $10 per
@@ -49,7 +68,8 @@
   the Richie and chronology accuracy gates. No more calibration is authorized.
   Private result: `benchmark-artifacts/cosquillitas-review-only-aae1ac6/EVALUATION-RESULT.md`.
   The original reading checkpoint and the 20-script benchmark remain locked.
-  No release deployment or worker activation occurred. Review remains advisory.
+  That earlier Cosquillitas-only task made no release deployment or worker
+  activation. The later private rollout and rollback are recorded above.
 
 - Receipt-format repair is implemented locally in `coverage_reader.py` using
   existing adapter accounting helpers. Full transport results/failure evidence
