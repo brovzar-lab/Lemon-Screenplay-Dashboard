@@ -83,6 +83,14 @@ def job_kwargs(job=None):
 
 
 class CoverageV1RouteTests(unittest.TestCase):
+    def test_first_reading_provider_rejection_stops_without_queue_retry(self):
+        with patch.object(coverage_reader, "run_coverage_v1", side_effect=ingest_v9.LlmRequestRejectedError("synthetic provider rejection")), \
+                patch.object(daemon, "check_daily_budget_available"):
+            daemon.run_coverage_v1_job(**job_kwargs())
+        update = self.doc.update.call_args.args[0]
+        self.assertEqual(update["status"], "needs_review")
+        self.assertFalse(update["retryable"])
+
     def setUp(self):
         self.prior_db = daemon._db
         daemon._db = MagicMock()

@@ -157,7 +157,12 @@ exports.queueManager = (0, https_1.onRequest)({ region: "us-central1", timeoutSe
         snapshots.forEach((snapshot) => {
             if (!snapshot.exists)
                 return;
+            if (!snapshot.updateTime)
+                throw new Error("Queue snapshot lacks a concurrency precondition.");
             const data = snapshot.data() ?? {};
+            // A pilot's provider attempts and engine binding cannot be reset in UI.
+            if (data.rollout_id && action !== "dismiss")
+                return;
             const status = data.status;
             const reason = data.skip_reason;
             if (action === "retry" && (0, queueActions_1.canRetryQueueJob)(data)) {
@@ -172,14 +177,14 @@ exports.queueManager = (0, https_1.onRequest)({ region: "us-central1", timeoutSe
                     last_heartbeat_at: null,
                     resolution_dismissed: false,
                     resolution_updated_at: firestore_1.FieldValue.serverTimestamp(),
-                });
+                }, { lastUpdateTime: snapshot.updateTime });
                 updated += 1;
             }
             else if (action === "dismiss" && (0, queueActions_1.canDismissQueueJob)(data)) {
                 batch.update(snapshot.ref, {
                     resolution_dismissed: true,
                     resolution_updated_at: firestore_1.FieldValue.serverTimestamp(),
-                });
+                }, { lastUpdateTime: snapshot.updateTime });
                 updated += 1;
             }
             else if (action === "analyze_anyway" &&
@@ -198,7 +203,7 @@ exports.queueManager = (0, https_1.onRequest)({ region: "us-central1", timeoutSe
                     bypass_tmdb: reason === "tmdb_already_produced",
                     bypass_duplicate: reason === "already_complete",
                     resolution_updated_at: firestore_1.FieldValue.serverTimestamp(),
-                });
+                }, { lastUpdateTime: snapshot.updateTime });
                 updated += 1;
             }
         });

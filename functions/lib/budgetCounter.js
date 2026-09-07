@@ -18,6 +18,7 @@ exports.dailyBudgetDocId = dailyBudgetDocId;
 exports.nextUtcReset = nextUtcReset;
 exports.reservationExpiresAtMs = reservationExpiresAtMs;
 exports.reserveLlmBudget = reserveLlmBudget;
+exports.admitRolloutExposure = admitRolloutExposure;
 exports.settleLlmBudget = settleLlmBudget;
 exports.settleUncertainLlmBudget = settleUncertainLlmBudget;
 exports.releaseLlmBudget = releaseLlmBudget;
@@ -312,6 +313,30 @@ async function reserveLlmBudget(params) {
             && (queueSnapshot?.exists !== true || queueSnapshot.data()?.status !== "processing")) {
             throw new Error(`Ingest queue job ${params.jobId} is not actively processing.`);
         }
+        // Server-owned pilot membership only. A client cannot supply a spending cap.
+        const queueData = queueSnapshot?.data();
+        const rolloutId = queueData?.rollout_id;
+        if (queueData?.engine === "coverage_v1" && !rolloutId) {
+            throw new Error("Coverage processing requires a server-owned rollout binding.");
+        }
+        if (rolloutId !== undefined && rolloutId !== null) {
+            if (typeof rolloutId !== "string" || !/^[a-zA-Z0-9_-]{1,80}$/.test(rolloutId)) {
+                throw new Error("Invalid rollout identity.");
+            }
+            const rolloutRef = db.collection(ingestQueue_1.SYSTEM_COLLECTION).doc(`coverage-rollout-${rolloutId}`);
+            const rolloutSnapshot = await transaction.get(rolloutRef);
+            const rollout = rolloutSnapshot.data();
+            if (rollout?.id !== rolloutId)
+                throw new Error("Rollout document identity mismatch.");
+            const jobs = rollout?.jobs;
+            if (!jobs || typeof jobs !== "object" || Array.isArray(jobs)
+                || Object.keys(jobs).length < 1 || Object.keys(jobs).length > 5)
+                throw new Error("Missing bounded rollout binding.");
+            const pilotSnapshots = await Promise.all(Object.keys(jobs).map((id) => transaction.get(db.collection(ingestQueue_1.INGEST_QUEUE_COLLECTION).doc(id))));
+            const pilotJobs = Object.fromEntries(pilotSnapshots.map((snapshot) => [snapshot.id, snapshot.data()]));
+            const nextRollout = admitRolloutExposure(rollout, pilotJobs, params.jobId, activeReservation.reserved_microusd);
+            transaction.update(rolloutRef, nextRollout);
+        }
         const ledger = normalizeBudgetLedger(budgetSnapshot.exists ? budgetSnapshot.data() : undefined, budgetDocumentId.replace("llm-budget-", ""), params.limitMicrousd);
         const next = admitBudgetReservation(ledger, reservationId, activeReservation, nowMs);
         transaction.set(budgetRef, {
@@ -337,6 +362,87 @@ async function reserveLlmBudget(params) {
         id: reservationId,
         budget_document_id: budgetDocumentId,
         ...activeReservation,
+    };
+}
+/**
+ * Nonrenewing conservative admission envelope, not a second billing ledger.
+ * ponytail: never refund admitted worst-case exposure; this may park early.
+ * Reuse exact daily settlement receipts for actual spend. Add reserve reuse only
+ * if measured throughput requires it, with a separately reviewed settlement path.
+ */
+function admitRolloutExposure(raw, queues, jobId, requested) {
+    const object = (value) => {
+        if (!value || typeof value !== "object" || Array.isArray(value))
+            throw new Error("Malformed rollout state.");
+        return value;
+    };
+    const integer = (value) => {
+        if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0)
+            throw new Error("Malformed rollout counter.");
+        return value;
+    };
+    const rollout = object(raw);
+    const jobs = object(rollout.jobs);
+    const limit = integer(rollout.limit_microusd);
+    const perSourceLimit = integer(rollout.source_limit_microusd);
+    const exposure = integer(rollout.admitted_exposure_microusd);
+    const attempts = integer(rollout.admitted_attempts);
+    const allowedSources = rollout.source_sha256s;
+    integer(requested);
+    if (rollout.status !== "active" || limit <= 0 || limit > 50_000_000
+        || perSourceLimit <= 0 || perSourceLimit > 10_000_000 || requested <= 0
+        || typeof rollout.release_sha !== "string" || !/^[a-f0-9]{40}$/.test(rollout.release_sha)
+        || typeof rollout.worker_id !== "string" || !rollout.worker_id
+        || typeof rollout.id !== "string" || !/^[a-zA-Z0-9_-]{1,80}$/.test(rollout.id)
+        || !Array.isArray(allowedSources) || allowedSources.length !== 5
+        || new Set(allowedSources).size !== 5
+        || !allowedSources.every((value) => typeof value === "string" && /^[a-f0-9]{64}$/.test(value))
+        || Object.keys(jobs).length < 1 || Object.keys(jobs).length > 5 || !Object.hasOwn(jobs, jobId)) {
+        throw new Error("Rollout is not authorized for this request.");
+    }
+    const sources = new Set();
+    let totalExposure = 0;
+    let totalAttempts = 0;
+    for (const [id, value] of Object.entries(jobs)) {
+        const binding = object(value);
+        const job = object(queues[id]);
+        if (typeof binding.source_sha256 !== "string" || !/^[a-f0-9]{64}$/.test(binding.source_sha256)
+            || !allowedSources.includes(binding.source_sha256)
+            || sources.has(binding.source_sha256) || job.content_hash !== binding.source_sha256
+            || job.rollout_id !== rollout.id || job.engine !== "coverage_v1"
+            || job.rollout_release_sha !== rollout.release_sha)
+            throw new Error("Rollout source or release mismatch.");
+        sources.add(binding.source_sha256);
+        const sourceExposure = integer(binding.admitted_exposure_microusd);
+        const sourceAttempts = integer(binding.admitted_attempts);
+        if (sourceExposure > perSourceLimit || sourceAttempts > 3)
+            throw new Error("Rollout source counters exceed limits.");
+        totalExposure += sourceExposure;
+        totalAttempts += sourceAttempts;
+        if (integer(job.llm_active_reservation_count ?? 0) !== 0
+            || Object.keys(object(job.llm_active_reservations ?? {})).length !== 0
+            || integer(job.llm_uncertain_call_count ?? 0) !== 0
+            || integer(job.uncertain_cost_microusd ?? 0) !== 0)
+            throw new Error("Rollout has unresolved accounting.");
+    }
+    const job = object(queues[jobId]);
+    const binding = object(jobs[jobId]);
+    const sourceExposure = integer(binding.admitted_exposure_microusd);
+    const sourceAttempts = integer(binding.admitted_attempts);
+    if (job.status !== "processing" || job.worker_id !== rollout.worker_id
+        || job.rollout_enabled !== true
+        || job.worker_release_sha !== rollout.release_sha || job.requested_model !== binding.requested_model) {
+        throw new Error("Rollout worker or model mismatch.");
+    }
+    if (exposure !== totalExposure || attempts !== totalAttempts)
+        throw new Error("Rollout counters do not reconcile.");
+    if (exposure + requested > limit || sourceExposure + requested > perSourceLimit
+        || attempts >= 15 || sourceAttempts >= 3)
+        throw new Error("ROLLOUT_LIMIT_REACHED: fixed exposure or attempt allowance exhausted.");
+    return {
+        admitted_exposure_microusd: exposure + requested,
+        admitted_attempts: attempts + 1,
+        jobs: { ...jobs, [jobId]: { ...binding, admitted_exposure_microusd: sourceExposure + requested, admitted_attempts: sourceAttempts + 1 } },
     };
 }
 async function settleLlmBudget(reservation, usage, returnedModel = reservation.model) {

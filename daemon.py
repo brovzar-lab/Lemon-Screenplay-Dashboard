@@ -64,6 +64,7 @@ import random
 import re
 import shutil
 import signal
+import subprocess
 import sys
 import tempfile
 import threading
@@ -172,7 +173,7 @@ STORAGE_BUCKET    = resolve_storage_bucket()
 CONCURRENCY       = int(os.getenv("DAEMON_CONCURRENCY", "2"))
 POLL_INTERVAL     = int(os.getenv("DAEMON_POLL_INTERVAL", "10"))
 WORK_DIR          = Path(os.getenv("DAEMON_WORK_DIR", "/tmp/lemon"))
-WORKER_ID         = f"hostinger-vps-{os.getenv('HOSTNAME', 'unknown')}-{os.getpid()}"
+WORKER_ID         = os.getenv("LEMON_WORKER_ID") or f"hostinger-vps-{os.getenv('HOSTNAME', 'unknown')}-{os.getpid()}"
 HEARTBEAT_SECS    = 60
 ORPHAN_SWEEP_SECS = int(os.getenv("DAEMON_ORPHAN_SWEEP_INTERVAL", "300"))
 MAX_ATTEMPTS      = 3
@@ -218,6 +219,57 @@ def resolve_engine_route(value: object) -> str:
 
 def coverage_v1_enabled() -> bool:
     return os.getenv("LEMON_ENGINE_COVERAGE_V1", "0") == "1"
+
+
+def owns_rollout_job(job_id: str, job: dict) -> bool:
+    """Normal workers never mutate pilot jobs; pilot workers own at most five IDs."""
+    rollout_id = os.getenv("LEMON_PILOT_ROLLOUT_ID", "")
+    bound = job.get("rollout_id")
+    if not rollout_id:
+        return bound is None
+    ids = os.getenv("LEMON_PILOT_JOB_IDS", "").split(",")
+    release = os.getenv("LEMON_RELEASE_SHA", "")
+    return (
+        1 <= len(ids) <= 5 and len(set(ids)) == len(ids) and all(ids)
+        and job_id in ids and bound == rollout_id
+        and job.get("rollout_enabled") is True
+        and job.get("engine") == "coverage_v1"
+        and bool(re.fullmatch(r"[a-f0-9]{40}", release))
+        and job.get("rollout_release_sha") == release
+    )
+
+
+def verify_pilot_checkout() -> None:
+    if not os.getenv("LEMON_PILOT_ROLLOUT_ID"):
+        return
+    root = Path(__file__).parent
+    actual = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
+    dirty = subprocess.check_output(["git", "status", "--porcelain", "--untracked-files=no"], cwd=root, text=True).strip()
+    if dirty or actual != os.getenv("LEMON_RELEASE_SHA") or CONCURRENCY != 1:
+        raise TerminalJobError("Pilot requires the exact clean release and concurrency one.")
+
+
+def pilot_job_snapshots():
+    if not os.getenv("LEMON_PILOT_ROLLOUT_ID"):
+        return None
+    ids = os.getenv("LEMON_PILOT_JOB_IDS", "").split(",")
+    if not 1 <= len(ids) <= 5 or len(set(ids)) != len(ids) or not all(ids):
+        return []
+    return [_db.collection(QUEUE_COLLECTION).document(job_id).get() for job_id in ids]
+
+
+def update_pending_owned_job(job_id: str, update: dict) -> bool:
+    """A stale pre-claim snapshot must not overwrite a newly bound/claimed job."""
+    reference = _db.collection(QUEUE_COLLECTION).document(job_id)
+    @fb_firestore.transactional
+    def update_fresh(transaction):
+        fresh = reference.get(transaction=transaction)
+        data = fresh.to_dict() if fresh.exists else {}
+        if data.get("status") != "pending" or not owns_rollout_job(job_id, data):
+            return False
+        transaction.update(reference, update)
+        return True
+    return update_fresh(_db.transaction())
 
 
 _active_job_ids: set[str] = set()
@@ -381,6 +433,8 @@ def recover_orphaned_job(reference, stale_cutoff: datetime) -> str:
             return "unchanged"
 
         data = fresh.to_dict() or {}
+        if not owns_rollout_job(reference.id, data):
+            return "unchanged"
         heartbeat = data.get("last_heartbeat_at")
         if data.get("status") != "processing":
             return "unchanged"
@@ -540,6 +594,7 @@ def claim_pending_job() -> Optional[dict]:
     Returns the job dict or None if queue is empty.
     Only claims status='pending' jobs — never touches 'complete' or 'failed'.
     """
+    verify_pilot_checkout()
     # Budget and disabled-engine waiters stay outside the claimable queue until
     # their prerequisite changes.
     try:
@@ -553,15 +608,16 @@ def claim_pending_job() -> Optional[dict]:
             log.warning(f"[engine] Could not release Coverage waiters: {error}")
 
     # Query: pending, ordered by priority desc then queued_at asc
-    candidates = (
-        _db.collection(QUEUE_COLLECTION)
-        .where("status", "==", "pending")
-        .order_by("priority", direction=fb_firestore.Query.DESCENDING)
-        .order_by("queued_at")
-        .limit(5)  # Read a few to reduce contention on the top doc
-        .stream()
-    )
-    docs = list(candidates)
+    # Direct reads avoid starvation behind unrelated pending jobs/indexes.
+    docs = pilot_job_snapshots()
+    if docs is None:
+        docs = list(
+            _db.collection(QUEUE_COLLECTION)
+            .where("status", "==", "pending")
+            .order_by("priority", direction=fb_firestore.Query.DESCENDING)
+            .order_by("queued_at")
+            .limit(5).stream()
+        )
     if not docs:
         return None
 
@@ -569,10 +625,12 @@ def claim_pending_job() -> Optional[dict]:
     for doc in docs:
         ref = doc.reference
         candidate = doc.to_dict() or {}
+        if candidate.get("status") != "pending" or not owns_rollout_job(doc.id, candidate):
+            continue
         try:
             engine = resolve_engine_route(candidate.get("engine"))
             if engine == "coverage_v1" and not coverage_v1_enabled():
-                mark_waiting_for_engine(doc.id)
+                mark_waiting_for_engine(doc.id, pending_only=True)
                 continue
             dependency, reason = same_batch_dependency_state(candidate)
             if dependency == "waiting":
@@ -582,10 +640,11 @@ def claim_pending_job() -> Optional[dict]:
                     doc.id,
                     reason or "The same-batch parent did not become Ready.",
                     failure_kind="parent_upload_not_ready",
+                    pending_only=True,
                 )
                 continue
         except TerminalJobError as error:
-            mark_terminal_failed(doc.id, error)
+            mark_terminal_failed(doc.id, error, pending_only=True)
             continue
 
         @fb_firestore.transactional
@@ -593,10 +652,13 @@ def claim_pending_job() -> Optional[dict]:
             fresh = ref.get(transaction=transaction)
             if not fresh.exists or fresh.get("status") != "pending":
                 return None   # Already claimed by another worker
+            if not owns_rollout_job(fresh.id, fresh.to_dict() or {}):
+                return None
             current_attempts = fresh.get("attempt_count") or 0
             transaction.update(ref, {
                 "status": "processing",
                 "worker_id": WORKER_ID,
+                **({"worker_release_sha": os.getenv("LEMON_RELEASE_SHA")} if os.getenv("LEMON_PILOT_ROLLOUT_ID") else {}),
                 "processing_started_at": fb_firestore.SERVER_TIMESTAMP,
                 "last_heartbeat_at": fb_firestore.SERVER_TIMESTAMP,
                 "attempt_count": fb_firestore.Increment(1),
@@ -1306,6 +1368,7 @@ def run_coverage_v1_job(
         log.warning(f"[coverage_v1] Pausing for budget — {e}")
         return
     except (
+        ingest_v9.LlmRequestRejectedError,
         coverage_v1.CoverageBudgetExceededError,
         coverage_v1.CoverageContractError,
         coverage_v1.CheckpointTamperedError,
@@ -1597,13 +1660,15 @@ def mark_waiting_for_budget(
 def resume_due_budget_jobs(now: Optional[datetime] = None) -> int:
     """Move only due budget waiters back to pending; never claim them early."""
     current = now or datetime.now(timezone.utc)
-    candidates = (
-        _db.collection(QUEUE_COLLECTION)
-        .where("status", "==", "waiting_for_budget")
-        .where("budget_resume_at", "<=", current)
-        .limit(50)
-        .stream()
-    )
+    candidates = pilot_job_snapshots()
+    if candidates is None:
+        candidates = (
+            _db.collection(QUEUE_COLLECTION)
+            .where("status", "==", "waiting_for_budget")
+            .where("budget_resume_at", "<=", current)
+            .limit(50)
+            .stream()
+        )
     resumed = 0
     for document in candidates:
         reference = document.reference
@@ -1615,6 +1680,7 @@ def resume_due_budget_jobs(now: Optional[datetime] = None) -> int:
             resume_at = data.get("budget_resume_at")
             if (
                 data.get("status") != "waiting_for_budget"
+                or not owns_rollout_job(reference.id, data)
                 or not isinstance(resume_at, datetime)
                 or resume_at > current
             ):
@@ -1634,7 +1700,7 @@ def resume_due_budget_jobs(now: Optional[datetime] = None) -> int:
     return resumed
 
 
-def mark_waiting_for_engine(job_id: str, attempt_count: Optional[int] = None) -> None:
+def mark_waiting_for_engine(job_id: str, attempt_count: Optional[int] = None, *, pending_only: bool = False) -> None:
     """Park Coverage work without skipping it or silently converting it to V9."""
     update = {
         "status": "waiting_for_engine",
@@ -1647,31 +1713,39 @@ def mark_waiting_for_engine(job_id: str, attempt_count: Optional[int] = None) ->
     }
     if attempt_count is not None:
         update["attempt_count"] = max(0, int(attempt_count) - 1)
-    _db.collection(QUEUE_COLLECTION).document(job_id).update(update)
+    if pending_only:
+        update_pending_owned_job(job_id, update)
+    else:
+        _db.collection(QUEUE_COLLECTION).document(job_id).update(update)
 
 
 def resume_waiting_for_engine_jobs() -> int:
     """Release parked Coverage work only on an explicitly enabled worker."""
     if not coverage_v1_enabled():
         return 0
-    candidates = (
-        _db.collection(QUEUE_COLLECTION)
-        .where("status", "==", "waiting_for_engine")
-        .limit(50)
-        .stream()
-    )
+    candidates = pilot_job_snapshots()
+    if candidates is None:
+        candidates = (
+            _db.collection(QUEUE_COLLECTION)
+            .where("status", "==", "waiting_for_engine")
+            .limit(50)
+            .stream()
+        )
     resumed = 0
     for snapshot in candidates:
-        snapshot.reference.update({
-            "status": "pending",
-            "failure_kind": None,
-            "last_error": None,
-        })
-        resumed += 1
+        @fb_firestore.transactional
+        def resume_owned(transaction, reference):
+            fresh = reference.get(transaction=transaction)
+            data = fresh.to_dict() if fresh.exists else {}
+            if data.get("status") != "waiting_for_engine" or not owns_rollout_job(reference.id, data):
+                return False
+            transaction.update(reference, {"status": "pending", "failure_kind": None, "last_error": None})
+            return True
+        resumed += int(resume_owned(_db.transaction(), snapshot.reference))
     return resumed
 
 
-def mark_terminal_failed(job_id: str, error: Exception) -> None:
+def mark_terminal_failed(job_id: str, error: Exception, *, pending_only: bool = False) -> None:
     """Fail a deterministic job once; retrying cannot change this outcome."""
     update = {
         "status": "failed",
@@ -1686,7 +1760,11 @@ def mark_terminal_failed(job_id: str, error: Exception) -> None:
     usage_evidence = _analysis_usage_evidence(getattr(error, "usage", None))
     if usage_evidence is not None:
         update["failure_usage"] = usage_evidence
-    _db.collection(QUEUE_COLLECTION).document(job_id).update(update)
+    if pending_only:
+        if not update_pending_owned_job(job_id, update):
+            return
+    else:
+        _db.collection(QUEUE_COLLECTION).document(job_id).update(update)
     log.error(f"[job] {job_id} → FAILED (terminal): {error}")
 
 
@@ -1697,6 +1775,7 @@ def mark_needs_review(
     evidence: Optional[dict] = None,
     failure_kind: str = "evidence_review",
     extra: Optional[dict] = None,
+    pending_only: bool = False,
 ) -> None:
     """Stop safely when source or model evidence cannot support a verdict."""
     update = {
@@ -1712,7 +1791,11 @@ def mark_needs_review(
     }
     if evidence:
         update["review_evidence"] = evidence
-    _db.collection(QUEUE_COLLECTION).document(job_id).update(update)
+    if pending_only:
+        if not update_pending_owned_job(job_id, update):
+            return
+    else:
+        _db.collection(QUEUE_COLLECTION).document(job_id).update(update)
     log.warning(f"[job] {job_id} → NEEDS REVIEW: {reason}")
 
 
@@ -1914,6 +1997,9 @@ def process_job(job: dict) -> None:
     - Updates job doc with telemetry
     """
     job_id   = job["id"]
+    if not owns_rollout_job(job_id, job):
+        return
+    verify_pilot_checkout()
     filename = job.get("filename", "unknown.pdf")
     collection_id = job.get("collection_id", "OTHER")
     storage_path  = job.get("storage_path", "")
@@ -1947,6 +2033,8 @@ def process_job(job: dict) -> None:
 
         # ── 2. Content hash + idempotency check ───────────────────────────
         content_hash = compute_content_hash(local_pdf)
+        if job.get("rollout_id") and content_hash != job.get("content_hash"):
+            raise TerminalJobError("Pilot PDF hash differs from its approved queue binding.")
         _db.collection(QUEUE_COLLECTION).document(job_id).update({
             "content_hash": content_hash,
         })

@@ -182,7 +182,10 @@ export const queueManager = onRequest(
 
       snapshots.forEach((snapshot) => {
         if (!snapshot.exists) return;
+        if (!snapshot.updateTime) throw new Error("Queue snapshot lacks a concurrency precondition.");
         const data = snapshot.data() ?? {};
+        // A pilot's provider attempts and engine binding cannot be reset in UI.
+        if (data.rollout_id && action !== "dismiss") return;
         const status = data.status as string;
         const reason = data.skip_reason as string;
 
@@ -198,13 +201,13 @@ export const queueManager = onRequest(
             last_heartbeat_at: null,
             resolution_dismissed: false,
             resolution_updated_at: FieldValue.serverTimestamp(),
-          });
+          }, { lastUpdateTime: snapshot.updateTime });
           updated += 1;
         } else if (action === "dismiss" && canDismissQueueJob(data)) {
           batch.update(snapshot.ref, {
             resolution_dismissed: true,
             resolution_updated_at: FieldValue.serverTimestamp(),
-          });
+          }, { lastUpdateTime: snapshot.updateTime });
           updated += 1;
         } else if (
           action === "analyze_anyway" &&
@@ -224,7 +227,7 @@ export const queueManager = onRequest(
             bypass_tmdb: reason === "tmdb_already_produced",
             bypass_duplicate: reason === "already_complete",
             resolution_updated_at: FieldValue.serverTimestamp(),
-          });
+          }, { lastUpdateTime: snapshot.updateTime });
           updated += 1;
         }
       });

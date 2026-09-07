@@ -1,6 +1,7 @@
 # One bounded private-upload rollout proposal
 
-Prepared 2026-09-07. **Proposal only, not deployment or spending authority.**
+Prepared 2026-09-07. **Billy authorized this complete bounded rollout on
+2026-09-07. Implementation and release verification are in progress, not SHIP.**
 The hashing repair accompanying this document is a no-spend change based on
 `60794d55d3cbf59bc3753c7ea1fb861a7ef76853`. Freeze the later reviewed release SHA
 after the rollout safeguards below are implemented. Do not deploy a dirty build.
@@ -87,7 +88,7 @@ checks. That evaluation is finished. No further Cosquillitas calibration,
 replacement reading, paid judge or twenty-screenplay benchmark is part of this
 proposal. Private evidence remains in the ignored review package.
 
-## One proposed authorization envelope
+## Authorized bounded envelope
 
 - **Five existing calibration PDFs maximum**, one canary followed by four only
   after the canary passes. Proposed order: La Ciguena (canary), Terapia,
@@ -99,13 +100,13 @@ proposal. Private evidence remains in the ignored review package.
   queue IDs before processing.
 - Replaying saved V1.1 JSON is free but does not test the current V1.2 reader.
   A fresh bounded V1.2 evaluation of the same PDF is NEW paid work, permitted
-  only by the future five-script envelope. Keep the prior report as a distinct
+  only inside this five-script envelope. Keep the prior report as a distinct
   historical analysis, not a fresh result. Use the existing explicit reanalysis
   route with truthful source/engine/release identity; never change source bytes,
   invent identities or clear checkpoints to evade duplicate protection. If that
   route cannot represent the new evaluation safely, stop before dispatch.
 - **$50 maximum NEW exposure total, $10 per PDF**, including successful charges
-  and uncertain server accounting. These are proposed hard allowances, not a
+  and uncertain server accounting. These are hard maximum allowances, not a
   prediction of token cost or a claim that five reports must complete for $50.
 - The allowance is **nonrenewing**, survives process restarts and UTC midnight,
   and includes the canary. Existing settled spending remains recorded separately.
@@ -115,26 +116,27 @@ proposal. Private evidence remains in the ignored review package.
   transport attempt per stage. Receipt replay is free and preferred; no retry
   after an uncertain bill or provider rejection. A cap may prevent all stages
   from running; preserve any useful paid draft instead of buying more work.
-- One approval would cover scoped safeguards, tests, independent review,
+- Billy's approval covers scoped safeguards, tests, independent review,
   commits/pushes, reviewed merge if required by the deployment workflow, staging,
   rollback-safe production installation, the five named PDFs, live verification
   and rollback. No micro-approval between those steps. A changed privacy/security
   boundary, exhausted allowance or material invariant mismatch still stops work.
 
-This task does **not** activate that envelope. The proposed batch above is not
-yet bound to deployed request/pricing identities, so this is not a frozen quote.
+The approved source/report/audit hashes and rollback identities are recorded in
+the private ignored `benchmark-artifacts/private-rollout-20260907/manifest.json`.
+No provider dispatch is permitted until release/job/worker bindings also match.
 Before each stage, calculate the exact serialized request's conservative server
 reservation using deployed pricing, including its all-model uncertainty reserve.
 Reject it before dispatch if it does not fit both remaining limits. Do not
 silently substitute the smaller successful-usage estimate.
 
-## Small prerequisites, not another analysis engine
+## Implemented safeguards, not another analysis engine
 
-Current source shows two deployment hazards that must be closed before activation:
+The release changes close these two deployment hazards before activation:
 
 1. `daemon.py:claim_pending_job` calls `resume_waiting_for_engine_jobs`, which
    releases up to 50 waiting Coverage jobs when the global flag is enabled.
-   Add a pilot job allowlist at claim/release boundaries, rechecked in the claim
+   A pilot job allowlist applies at claim/release boundaries, rechecked in the claim
    transaction. The candidate worker must not claim unrelated V9 or Coverage
    jobs, and non-pilot workers must not claim pilot jobs. Preserve unrelated
    work; park the batch until exclusive routing ownership is proved. Use one
@@ -147,13 +149,32 @@ Current source shows two deployment hazards that must be closed before activatio
    admin-controlled queue metadata, never trust a client-supplied dollar limit.
    Checkpoint `max_cost_usd` alone is insufficient for the proxy's larger reserve.
 
+The implemented lifetime guard is deliberately stricter than refundable
+reservation accounting: each admitted request permanently consumes its maximum
+server reservation from this rollout allowance, even if actual usage is smaller
+or the provider rejects it. It counts admission attempts at the same time,
+at most three per source and fifteen total. It never refunds, expires or resets
+at midnight. This quantity is called **admitted exposure**, never actual spend;
+existing daily receipts remain the exact billing authority. It may park early.
+An unresolved marker or uncertain bill anywhere in the bound batch stops new
+admission. Missing or malformed configuration never initializes fresh counters.
+
+The fixed five-source whitelist can bind one real uploaded job first, then the
+remaining four after the canary gate. Each source may have only one bound job.
+Admin-written `rollout_enabled` and the worker's explicit job list jointly
+control eligibility. UI retry cannot reset these jobs, and stale UI mutations
+require an unchanged snapshot timestamp. Pre-claim dispositions, claim, waiter
+release and orphan recovery recheck ownership transactionally. The worker
+verifies its clean Git SHA and concurrency one before claiming pilot work.
+Initial provider rejection now stops in Needs Review without a queue retry.
+
 Scope changes to the existing daemon, typed ingest job and budget transaction,
 their focused tests, and necessary release configuration. No new agent framework,
 general orchestration service, provider, semantic validator or approval product.
 Missing engine metadata must continue to mean V9. Do not change existing pricing
 or billing semantics merely to make the pilot fit its allowance.
 
-## Execution sequence under the future single approval
+## Execution sequence under the existing approval
 
 1. **No-spend preparation.** Verify current Hosting, Functions, VPS unit/working
    directory/revision, non-secret flags, pending jobs and daily ledger read-only.
@@ -226,7 +247,8 @@ release checks and rollback-ready installation, followed by roughly one hour
 of pilot processing/observation if provider and deployment access cooperate.
 This is not a delivery guarantee; no timer overrides failed integrity checks.
 
-Billy's next decision is one complete envelope: approve the five-existing-PDF
-private rollout with $50/$10 hard exposure limits. No new files are needed. All
-ordinary implementation, test, release and verification steps then continue
-inside that authority. Until then, no deployment, activation or inference.
+No further routine approval is needed for this five-existing-PDF operation.
+Continue through the checks, exact-release installation, canary comparison and
+four-file batch inside the $50/$10 limits. A genuine failed release gate or
+integrity boundary still stops processing. Do not expand to another screenplay
+or replenish the allowance automatically.

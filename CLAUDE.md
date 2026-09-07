@@ -5,6 +5,20 @@
 
 **Last session:** 2026-09-07, existing twenty-report offline replay and corrected rollout proposal.
 
+- Billy subsequently authorized the complete five-existing-script private
+  rollout, including deployment and bounded inference: $50 total / $10 per
+  source, at most 15/3 admissions. See the updated rollout document and private
+  `benchmark-artifacts/private-rollout-20260907/manifest.json`. This is not
+  permission for the twenty-script benchmark or further Cosquillitas calls.
+- New server-owned rollout admission counters are cumulative worst-case
+  exposure, not actual spend, and never refund/reset at midnight. Existing
+  daily receipts still settle exact usage. Pilot worker routing is allowlisted,
+  transactionally ownership-checked and bound to a clean release SHA. Initial
+  provider rejection stops in Needs Review instead of retrying the queue.
+- Use `.venv/bin/python` for the Python suite. System `python3` is a different
+  interpreter and lacks PyPDF2. Run heavy browser/frontend suites separately
+  on this Mac to avoid cold-load/test timeouts caused by competing workers.
+
 - The twenty private V1.1 reports/PDFs/Billy audits are retained, not replaced.
   Opt-in `e2e/coverage-private-replay.spec.ts` exercises all twenty cached reports
   in both browser themes before/after reload. Disposable copies are Needs Review;
@@ -19,9 +33,9 @@
   Receipt-only replay of the saved review makes zero HTTP calls and zero writes.
 - `docs/COVERAGE-PRIVATE-UPLOAD-ROLLOUT.md` proposes one five-existing-PDF private
   pilot: La Ciguena, Terapia, W.I.L.L., El Arbol Negro and Diablo, with $50 total /
-  $10 per-PDF nonrenewing exposure. No new scripts are needed. This is NOT authority
-  to spend or deploy. Job isolation and server-side rollout/per-job caps still
-  need implementation before activation. The global Coverage switch can release
+  $10 per-PDF nonrenewing exposure. No new scripts are needed. The later approval
+  above authorizes this specific operation; activation still requires verified
+  isolation and server-side caps. The global Coverage switch can release
   unrelated parked jobs, so do not enable it as a supposedly isolated canary.
 
 - New daemon Coverage publications always use `needs_review`, preserving the

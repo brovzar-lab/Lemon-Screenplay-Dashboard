@@ -97,6 +97,11 @@ export interface IngestJob {
   request_kind: 'upload' | 'reanalysis';
   /** Explicit engine route. Legacy jobs without metadata are normalized to V9. */
   engine: IngestEngine;
+  /** Admin-owned private rollout binding. Never accepted from upload metadata. */
+  rollout_id?: string;
+  rollout_enabled?: boolean;
+  rollout_release_sha?: string;
+  worker_release_sha?: string;
   /** Same-batch parent upload that must finish before this revision is claimed. */
   depends_on_upload_id: string | null;
   /**
