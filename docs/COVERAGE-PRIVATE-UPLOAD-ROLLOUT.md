@@ -23,6 +23,51 @@ ledger match. The frozen request and manifest identities are unchanged, and
 receipt-only replay performs zero HTTP calls and zero checkpoint writes.
 This proves persistence behavior, not a newly successful model review or release.
 
+## Existing twenty: retained evidence and free browser replay
+
+The private `benchmark-artifacts/coverage-v1-audit-packages/01-*` through
+`20-*` packages contain twenty PDFs, twenty saved JSON reports and twenty
+`Billy_Audit.md` files. The JSONs identify themselves as **Coverage V1.1**,
+not the current bounded V1.2 reader. The approved synthesis and comparison
+ledger remain the calibration reference, not discarded work or model training.
+Ledger SHA-256:
+`1e4cdb8e37b8a0ab02c51f3f2d5a0d2a016283461cc65c45d95a0b041b96f04d`.
+
+The opt-in `e2e/coverage-private-replay.spec.ts` loads all twenty through the
+existing local analysis cache, normalizer and Coverage workspace. It checks
+each report in light and dark themes, before and after reload: full saved
+synopsis, spine/lens/strength/concern/priority sections, Needs Review status,
+disabled favorites/decision PDFs and absence of V9's Not verified label.
+The cache is seeded once, not reseeded on reload. Original report prose and
+engine version are retained; only disposable display copies receive provisional
+status and an explicit historical-report warning. Hashes of all sixty source,
+report and audit files plus the ledger are unchanged after each test.
+
+This is **local cached-report display/reload proof**, not a JSON-import UI,
+Storage upload, server persistence, PDF delivery or fresh model accuracy proof.
+There is no JSON-import control in the current Settings data-management screen.
+No production report is created or reclassified by this test. All non-loopback
+browser requests are blocked; screenshots, video, traces and private error DOM
+attachments are suppressed. Private fixtures stay Git-ignored and opt-in.
+
+Verified 2026-09-07: four browser tests passed (private twenty-report replay
+and synthetic review checks in both themes), all 1,112 frontend tests passed,
+the production build and standalone strict TypeScript check of the new browser
+test passed. Independent Specification and Standards reviews both passed.
+No Python behavior changed; the 852-test Python result above belongs to the
+preceding hashing repair, not a newly rerun Python suite in this replay task.
+
+Reproduce locally with the fixed port 3000 free:
+
+```sh
+cd /Users/quantumcode/CODE/LEMON-SCREENPLAY-DASHBOARD
+LEMON_PRIVATE_AUDIT_REPLAY=1 npx playwright test e2e/coverage-private-replay.spec.ts --workers=1 --retries=0 --reporter=line
+```
+
+Reusing these known examples gives regression evidence. It does not establish
+generalization to unseen scripts. New material can come from the later backlog;
+Billy does not need to assemble another calibration set before the private pilot.
+
 ## Product decision
 
 Use the simplified `coverage-v1.2-bounded-1` reader, not the former 17-call proof
@@ -44,11 +89,21 @@ proposal. Private evidence remains in the ignored review package.
 
 ## One proposed authorization envelope
 
-- **Five new intake PDFs maximum**, one canary followed by the remaining four
-  only after the canary passes. Billy supplies/selects this small batch when
-  approving the rollout. Exclude Cosquillitas and the locked twenty-script
-  calibration set. Freeze exact PDF hashes, filenames and eventual queue IDs
-  before processing. No paid reruns of already-analyzed duplicate bytes.
+- **Five existing calibration PDFs maximum**, one canary followed by four only
+  after the canary passes. Proposed order: La Ciguena (canary), Terapia,
+  W.I.L.L., El Arbol Negro and Diablo. These reuse the existing approved audits
+  for setup, page, chronology and factual checks. No new screenplay is required.
+  Cosquillitas remains offline-only; its completed evaluation and locked paid
+  checkpoint are not reopened. This does not unlock a paid twenty-script run.
+  Freeze exact PDF hashes, filenames, existing report/audit hashes and eventual
+  queue IDs before processing.
+- Replaying saved V1.1 JSON is free but does not test the current V1.2 reader.
+  A fresh bounded V1.2 evaluation of the same PDF is NEW paid work, permitted
+  only by the future five-script envelope. Keep the prior report as a distinct
+  historical analysis, not a fresh result. Use the existing explicit reanalysis
+  route with truthful source/engine/release identity; never change source bytes,
+  invent identities or clear checkpoints to evade duplicate protection. If that
+  route cannot represent the new evaluation safely, stop before dispatch.
 - **$50 maximum NEW exposure total, $10 per PDF**, including successful charges
   and uncertain server accounting. These are proposed hard allowances, not a
   prediction of token cost or a claim that five reports must complete for $50.
@@ -66,8 +121,8 @@ proposal. Private evidence remains in the ignored review package.
   and rollback. No micro-approval between those steps. A changed privacy/security
   boundary, exhausted allowance or material invariant mismatch still stops work.
 
-This task does **not** activate that envelope. The specific batch and its source
-hashes are not yet selected, so there is no frozen model-request quote for it.
+This task does **not** activate that envelope. The proposed batch above is not
+yet bound to deployed request/pricing identities, so this is not a frozen quote.
 Before each stage, calculate the exact serialized request's conservative server
 reservation using deployed pricing, including its all-model uncertainty reserve.
 Reject it before dispatch if it does not fit both remaining limits. Do not
@@ -122,7 +177,10 @@ or billing semantics merely to make the pilot fit its allowance.
    zero Coverage writes to `uploaded_analyses`, correct source/report pairing,
    complete readable sections, visible review findings and Needs Review status.
    Reload and reconnect to the same record. Verify no duplicated inference and
-   no unsettled new reservation. Never certify facts solely from model flags.
+   no unsettled new reservation. Compare locally with the existing Billy audit,
+   recording caught, missed and newly introduced factual issues separately from
+   taste. Do not give the model the audit answers. Never certify facts solely
+   from model flags or describe success on these known cases as an unseen test.
 5. **Four-file folder batch.** Only if the canary passes, upload the remaining
    four through the actual folder UI. Prove uploads do not wait for analysis.
    Close the browser after Storage acknowledges receipt and show processing
@@ -168,7 +226,7 @@ release checks and rollback-ready installation, followed by roughly one hour
 of pilot processing/observation if provider and deployment access cooperate.
 This is not a delivery guarantee; no timer overrides failed integrity checks.
 
-Billy's next decision is one complete envelope: approve the five-PDF private
-rollout with $50/$10 hard exposure limits and supply the five new PDFs. All
+Billy's next decision is one complete envelope: approve the five-existing-PDF
+private rollout with $50/$10 hard exposure limits. No new files are needed. All
 ordinary implementation, test, release and verification steps then continue
 inside that authority. Until then, no deployment, activation or inference.

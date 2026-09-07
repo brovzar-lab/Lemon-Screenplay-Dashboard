@@ -3,7 +3,13 @@
 ## Where Were We (WWW)
 <!-- Current continuity, not a log. Verify live deployment state separately. -->
 
-**Last session:** 2026-09-07, no-spend transport hashing repair and rollout proposal.
+**Last session:** 2026-09-07, existing twenty-report offline replay and corrected rollout proposal.
+
+- The twenty private V1.1 reports/PDFs/Billy audits are retained, not replaced.
+  Opt-in `e2e/coverage-private-replay.spec.ts` exercises all twenty cached reports
+  in both browser themes before/after reload. Disposable copies are Needs Review;
+  original file hashes and historical engine labels are preserved. This is not
+  production upload/import proof or current V1.2 factual qualification.
 
 - The shared Coverage hash helper now normalizes tuple children before JSON
   serialization. Four regressions pass, including the actual saved paid review
@@ -11,8 +17,9 @@
   verifier exception was added. All original private artifacts are unchanged.
 - Proof: 852 Python tests, 1,112 frontend tests and TypeScript/Vite build pass.
   Receipt-only replay of the saved review makes zero HTTP calls and zero writes.
-- `docs/COVERAGE-PRIVATE-UPLOAD-ROLLOUT.md` proposes one five-new-PDF private
-  pilot with $50 total / $10 per-PDF nonrenewing exposure. This is NOT authority
+- `docs/COVERAGE-PRIVATE-UPLOAD-ROLLOUT.md` proposes one five-existing-PDF private
+  pilot: La Ciguena, Terapia, W.I.L.L., El Arbol Negro and Diablo, with $50 total /
+  $10 per-PDF nonrenewing exposure. No new scripts are needed. This is NOT authority
   to spend or deploy. Job isolation and server-side rollout/per-job caps still
   need implementation before activation. The global Coverage switch can release
   unrelated parked jobs, so do not enable it as a supposedly isolated canary.
