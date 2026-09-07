@@ -35,7 +35,7 @@ function IntakePage() {
                 {t('Screenplay Upload System')}
               </h1>
               <p className="mt-4 max-w-2xl text-base leading-7 text-[var(--dsc-ink-2)] sm:text-lg">
-                {t('Bring a screenplay into the slate, verify its identity, and follow it until its evidence-checked Coverage V1.2 report is Ready.')}
+                {t('Upload screenplays, follow their progress, and read Coverage V1.2 drafts with visible uncertainty. Every new report requires human review before a production decision.')}
               </p>
             </div>
 
@@ -43,7 +43,7 @@ function IntakePage() {
               {[
                 ['01', 'File verified'],
                 ['02', 'Readers working'],
-                ['03', 'Slate ready'],
+                ['03', 'Human review'],
               ].map(([number, label], index) => (
                 <li
                   key={number}

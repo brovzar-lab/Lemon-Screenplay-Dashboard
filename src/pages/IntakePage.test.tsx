@@ -84,7 +84,8 @@ describe('Intake page', () => {
     );
     expect(screen.getByLabelText('Intake stages')).toHaveTextContent('File verified');
     expect(screen.getByLabelText('Intake stages')).toHaveTextContent('Readers working');
-    expect(screen.getByLabelText('Intake stages')).toHaveTextContent('Slate ready');
+    expect(screen.getByLabelText('Intake stages')).toHaveTextContent('Human review');
+    expect(screen.queryByText(/evidence-checked Coverage V1.2 report is Ready/)).not.toBeInTheDocument();
     expect(screen.getByTestId('upload-panel')).toHaveAttribute('data-presentation', 'intake');
     expect(screen.getByTestId('upload-panel')).toHaveAttribute('data-model', 'hybrid');
     expect(testState.liveSync).toHaveBeenCalled();

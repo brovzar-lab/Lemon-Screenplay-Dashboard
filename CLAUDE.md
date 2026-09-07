@@ -3,7 +3,20 @@
 ## Where Were We (WWW)
 <!-- Current continuity, not a log. Verify live deployment state separately. -->
 
-**Last session:** 2026-09-06, no-spend real-transport receipt repair.
+**Last session:** 2026-09-07, no-spend human-reviewed private-release gate.
+
+- New daemon Coverage publications always use `needs_review`, preserving the
+  engine's own result as `automated_status` and leaving its checkpoint intact.
+  Existing reports and V9 are unchanged. No human-approval promotion endpoint
+  was added. See `docs/COVERAGE-HUMAN-REVIEW-PRIVATE-RELEASE.md` for proof/limits.
+- The actual Intake screen is `SettingsPage` at `/settings?tab=intake`;
+  `/intake` redirects there. Do not rely only on the legacy `IntakePage` tests.
+- The one review-only evaluation remains unspent. Preflight discovered that
+  the deployed proxy reserves up to $4.150719 internally, above the quoted
+  $0.306348 successful-Haiku bound; uncertain failures can consume the reserve.
+  Do not infer authorization for that changed exposure from the old quote.
+  The original locked checkpoint and the 20-script benchmark remain locked.
+  No release deployment or worker activation occurred.
 
 - Receipt-format repair is implemented locally in `coverage_reader.py` using
   existing adapter accounting helpers. Full transport results/failure evidence

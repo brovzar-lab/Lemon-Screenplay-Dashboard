@@ -16,7 +16,8 @@ test('saved Coverage review survives reload and cannot drive a favorite or decis
       analysis_version: 'coverage_v1', status: 'needs_review',
       title: 'Synthetic Review', verdict: 'CONSIDER', confidence: 'medium',
       engine_version: 'coverage-v1.2-bounded-1', human_review_recommended: true,
-      review_reasons: ['Check the ending before making a decision.'],
+      automated_status: 'sealed', publication_policy: 'human_review_required',
+      review_reasons: ['Human review is required before using this coverage for a production decision.'],
       coverage: {
         language: 'en', synopsis: 'A completely invented screenplay for a local browser check.',
         logline: 'A synthetic protagonist faces a synthetic choice.',
@@ -31,6 +32,7 @@ test('saved Coverage review survives reload and cannot drive a favorite or decis
   }, testInfo.project.name.endsWith('-dark'));
   await page.goto('/projects/synthetic-review/coverage');
   await expect(page.getByText('Needs Review · provisional coverage')).toBeVisible();
+  await expect(page.getByText('Human review is required before using this coverage for a production decision.')).toBeVisible();
   await expect(page.getByText('Check the literal order of the two actions.')).toBeVisible();
   await expect(page.getByText('Human taste', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Favorite', exact: true })).toBeDisabled();
@@ -44,5 +46,6 @@ test('saved Coverage review survives reload and cannot drive a favorite or decis
   await expect(page.getByLabel('Choose screenplay PDFs')).toBeAttached();
   await expect(page.getByRole('button', { name: 'Choose PDF files' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Choose folder' })).toBeVisible();
+  await expect(page.getByLabel('Intake stages')).toContainText('Human review');
   await page.screenshot({ path: `test-results/intake-${testInfo.project.name}.png`, fullPage: true });
 });

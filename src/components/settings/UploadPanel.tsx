@@ -345,7 +345,7 @@ export function UploadPanel({
                 </h2>
                 <p className="mt-1 text-sm text-[var(--dsc-ink-2)]">
                   {t(selectedEngine === 'coverage_v1'
-                    ? 'A complete reading and separate fact-check. Unresolved questions stay visible in Needs Review.'
+                    ? 'A complete reading and a separate model review. Every new Coverage report stays in Needs Review for human judgment.'
                     : 'V9 remains available here only as the emergency rollback route.')}
                 </p>
               </div>
@@ -366,7 +366,7 @@ export function UploadPanel({
                     </p>
                     <p className="mt-1 text-sm text-[var(--dsc-ink-2)]">
                       {t(selectedEngine === 'coverage_v1'
-                        ? 'Ready means checked, not infallible. Human judgment remains essential.'
+                        ? 'A model review is not human approval. Read the report and its uncertainties before deciding.'
                         : 'Use only if Coverage V1.2 must be rolled back.')}
                     </p>
                   </div>
@@ -440,7 +440,7 @@ export function UploadPanel({
                 {[
                   [t('Identity'), t('Exact duplicates stop before any AI spend.')],
                   [t('Revisions'), t('Same-title drafts wait for your project decision.')],
-                  [t('Authority'), t('Coverage V1.2 runs after confirmation. Useful drafts remain available even when they need human review.')],
+                  [t('Authority'), t('Coverage V1.2 runs after confirmation. New reports remain provisional and available for human review.')],
                 ].map(([label, copy]) => (
                   <li key={label} className="grid grid-cols-[0.75rem_1fr] gap-3">
                     <span className="mt-1.5 h-2 w-2 rounded-full bg-[var(--dsc-accent)]" aria-hidden="true" />

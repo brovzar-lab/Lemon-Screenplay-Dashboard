@@ -1,7 +1,7 @@
 """Tests for the daemon's disabled-by-default coverage_v1 route.
 
 Run: python3 -m execution.test_daemon_coverage_route
-Offline: Firestore and the engine are always fakes.
+Offline: Firestore and HTTP are fakes; one integration check uses the real engine.
 """
 
 import json
@@ -23,6 +23,9 @@ import daemon  # noqa: E402
 import coverage_v1  # noqa: E402
 import coverage_reader  # noqa: E402
 import ingest_v9  # noqa: E402
+import test_cost_accounting as accounting_fixtures  # noqa: E402
+from test_coverage_v1 import SCREENPLAY_TEXT, valid_coverage  # noqa: E402
+from test_coverage_reader import review  # noqa: E402
 
 
 def sealed_report(**overrides):
@@ -102,11 +105,78 @@ class CoverageV1RouteTests(unittest.TestCase):
             self.assertTrue(daemon.is_coverage_already_reported(digest))
         verify.assert_called_once()
 
-    def test_happy_path_writes_staging_report_and_completes(self):
+    def test_real_reader_and_adapter_save_a_provisional_report_and_replay_without_http(self):
+        saved = {}
+        checkpoints = {}
+        db = MagicMock()
+        report_ref = MagicMock()
+        queue_ref = MagicMock()
+
+        def document(collection, identifier):
+            if collection == daemon.COVERAGE_V1_REPORTS_COLLECTION:
+                return report_ref
+            if collection == daemon.QUEUE_COLLECTION:
+                return queue_ref
+            reference = MagicMock()
+            reference.get.side_effect = lambda: snapshot(checkpoints.get(identifier))
+            reference.set.side_effect = lambda value: checkpoints.update({identifier: value})
+            return reference
+
+        def snapshot(value):
+            result = MagicMock(exists=value is not None)
+            result.to_dict.return_value = value
+            return result
+
+        def collection(name):
+            result = MagicMock()
+            result.document.side_effect = lambda identifier: document(name, identifier)
+            return result
+
+        db.collection.side_effect = collection
+        report_ref.get.side_effect = lambda: snapshot(saved.get('report'))
+        report_ref.create.side_effect = lambda value: saved.update(report=value)
+        outputs = [valid_coverage(), review()]
+
+        def http(_url, **request):
+            payload = request['json']
+            response = MagicMock(status_code=200)
+            response.json.return_value = {
+                'text': '', 'tool_uses': [{'name': payload['tools'][0]['name'], 'input': outputs.pop(0)}],
+                'response_id': 'msg_OFFLINE_private_release', 'model': payload['model'],
+                'stop_reason': 'tool_use',
+                'usage': accounting_fixtures.ProxyCostTelemetryTests._proxy_usage(model_id=payload['model']),
+            }
+            return accounting_fixtures.ProxyCostTelemetryTests._exact_response(response)
+
+        kwargs = job_kwargs()
+        kwargs.update(text=SCREENPLAY_TEXT, word_count=500, proxy_url='https://proxy.test')
+        with patch.object(daemon, '_db', db), patch.object(daemon, 'check_daily_budget_available'):
+            with patch('socket.socket.connect', side_effect=AssertionError('Network forbidden')):
+                with patch.object(ingest_v9.requests, 'post', side_effect=http) as post:
+                    daemon.run_coverage_v1_job(**kwargs)
+                    self.assertEqual(post.call_count, 2)
+                    stored = json.loads(saved['report']['report_json'])
+                    self.assertEqual(stored['status'], 'needs_review')
+                    self.assertEqual(stored['automated_status'], 'sealed')
+                    self.assertEqual(stored['coverage']['synopsis'], valid_coverage()['synopsis'])
+                    self.assertEqual(stored['cost']['settled_usd'], 0.000140)
+                    self.assertFalse(stored['accounting']['reservation_pending'])
+                    engine_reports = [json.loads(record['record_json'])['payload']
+                                      for record in checkpoints.values()
+                                      if record['stage'] == 'report']
+                    self.assertEqual(len(engine_reports), 1)
+                    self.assertEqual(engine_reports[0]['status'], 'sealed')
+                    self.assertEqual(queue_ref.update.call_args.args[0]['status'], 'needs_review')
+                    daemon.run_coverage_v1_job(**kwargs)
+                    self.assertEqual(post.call_count, 2)
+                    self.assertTrue(queue_ref.update.call_args.args[0]['idempotent_replay'])
+
+    def test_new_coverage_is_readable_but_requires_human_review_even_when_model_clears_it(self):
         self.doc.get.return_value.exists = False
+        original = sealed_report()
         with patch.object(
             coverage_reader, "run_coverage_v1",
-            return_value=(sealed_report(), engine_usage()),
+            return_value=(original, engine_usage()),
         ) as engine:
             daemon.run_coverage_v1_job(**job_kwargs())
 
@@ -116,7 +186,13 @@ class CoverageV1RouteTests(unittest.TestCase):
         )
         self.doc.create.assert_called_once()
         created = self.doc.create.call_args.args[0]
-        self.assertEqual(created["status"], "sealed")
+        self.assertEqual(created["status"], "needs_review")
+        saved = json.loads(created['report_json'])
+        self.assertEqual(saved['automated_status'], 'sealed')
+        self.assertEqual(saved['publication_policy'], 'human_review_required')
+        self.assertTrue(saved['human_review_recommended'])
+        self.assertIn('Human review is required before using this coverage for a production decision.', saved['review_reasons'])
+        self.assertEqual(original, sealed_report())  # Paid engine evidence is not rewritten.
         self.assertEqual(created["verdict"], "RECOMMEND")
         self.assertIn("report_json", created)
         self.assertEqual(created["cost_settled_usd"], 0.31)
@@ -124,7 +200,7 @@ class CoverageV1RouteTests(unittest.TestCase):
         self.assertEqual(created["storage_path"], "archive/el-ultimo-portero.pdf")
 
         completion = self.doc.update.call_args.args[0]
-        self.assertEqual(completion["status"], "complete")
+        self.assertEqual(completion["status"], "needs_review")
         self.assertEqual(completion["analysis_version"], "coverage_v1")
         self.assertEqual(completion["analysis_llm_call_count"], 2)
         self.assertAlmostEqual(completion["analysis_actual_cost_usd"], 0.31)
@@ -191,13 +267,7 @@ class CoverageV1RouteTests(unittest.TestCase):
         report = sealed_report()
         missing = MagicMock(exists=False)
         stored = MagicMock(exists=True)
-        stored.to_dict.return_value = {
-            "report_json": json.dumps(report),
-            "report_sha256": coverage_v1.canonical_json_hash(report),
-            "project_id": "el-ultimo-portero",
-            "version_id": ("ab" * 32) + "_1784588800123",
-            "content_hash": "ab" * 32,
-        }
+        stored.to_dict.side_effect = lambda: self.doc.create.call_args.args[0]
         self.doc.get.side_effect = [missing, stored]
         self.doc.create.side_effect = RuntimeError("lost acknowledgement")
 
@@ -213,7 +283,15 @@ class CoverageV1RouteTests(unittest.TestCase):
 
         engine.assert_called_once()
         completion = self.doc.update.call_args.args[0]
-        self.assertEqual(completion["status"], "complete")
+        self.assertEqual(completion["status"], "needs_review")
+        self.assertEqual(completion['failure_kind'], 'coverage_v1_unsealed_report')
+        self.doc.get.side_effect = None
+        self.doc.get.return_value = stored
+        with patch.object(coverage_reader, 'run_coverage_v1') as replay_engine:
+            daemon.run_coverage_v1_job(**job_kwargs())
+        replay_engine.assert_not_called()
+        self.assertTrue(self.doc.update.call_args.args[0]['idempotent_replay'])
+        self.assertEqual(self.doc.update.call_args.args[0]['status'], 'needs_review')
 
     def test_unverified_report_write_stops_after_paid_work(self):
         missing = MagicMock(exists=False)

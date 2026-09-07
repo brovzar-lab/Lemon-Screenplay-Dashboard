@@ -175,7 +175,7 @@ function IntakeTab({ onOpenAnalysis }: { onOpenAnalysis: (projectId: string) => 
           </li>
           <li>
             <strong>03</strong>
-            <span>{t('Slate ready')}</span>
+            <span>{t('Human review')}</span>
           </li>
         </ol>
       </div>

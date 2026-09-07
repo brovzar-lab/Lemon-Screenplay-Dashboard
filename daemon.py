@@ -1334,6 +1334,19 @@ def run_coverage_v1_job(
         mark_failed(job_id, e, attempt_count)
         return
 
+    # Private release: model checks are evidence, not human approval. Preserve
+    # the engine/checkpoint result and publish a separate, readable review copy.
+    report = {
+        **report,
+        "automated_status": report["status"],
+        "publication_policy": "human_review_required",
+        "status": "needs_review",
+        "human_review_recommended": True,
+        "review_reasons": list(dict.fromkeys([
+            *report.get("review_reasons", []),
+            "Human review is required before using this coverage for a production decision.",
+        ])),
+    }
     report_sha256 = coverage_v1.canonical_json_hash(report)
     report_wrapper = {
         "report_json": json.dumps(report, ensure_ascii=False, sort_keys=True),

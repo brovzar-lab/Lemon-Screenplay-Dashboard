@@ -80,7 +80,7 @@ export function CoverageReportPanel({ screenplay }: { screenplay: Screenplay }) 
           <strong className="mb-1 block">{t('Human review recommended')}</strong>
           <ul className="list-disc pl-5">
             {screenplay.reviewReasons.map((reason) => (
-              <li key={reason}>{reason}</li>
+              <li key={reason}>{t(reason)}</li>
             ))}
           </ul>
         </div>
