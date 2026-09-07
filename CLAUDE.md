@@ -3,7 +3,19 @@
 ## Where Were We (WWW)
 <!-- Current continuity, not a log. Verify live deployment state separately. -->
 
-**Last session:** 2026-09-07, no-spend human-reviewed private-release gate.
+**Last session:** 2026-09-07, no-spend transport hashing repair and rollout proposal.
+
+- The shared Coverage hash helper now normalizes tuple children before JSON
+  serialization. Four regressions pass, including the actual saved paid review
+  in a temporary store. Existing bad wrappers remain rejected; no migration or
+  verifier exception was added. All original private artifacts are unchanged.
+- Proof: 852 Python tests, 1,112 frontend tests and TypeScript/Vite build pass.
+  Receipt-only replay of the saved review makes zero HTTP calls and zero writes.
+- `docs/COVERAGE-PRIVATE-UPLOAD-ROLLOUT.md` proposes one five-new-PDF private
+  pilot with $50 total / $10 per-PDF nonrenewing exposure. This is NOT authority
+  to spend or deploy. Job isolation and server-side rollout/per-job caps still
+  need implementation before activation. The global Coverage switch can release
+  unrelated parked jobs, so do not enable it as a supposedly isolated canary.
 
 - New daemon Coverage publications always use `needs_review`, preserving the
   engine's own result as `automated_status` and leaving its checkpoint intact.
@@ -11,12 +23,12 @@
   was added. See `docs/COVERAGE-HUMAN-REVIEW-PRIVATE-RELEASE.md` for proof/limits.
 - The actual Intake screen is `SettingsPage` at `/settings?tab=intake`;
   `/intake` redirects there. Do not rely only on the legacy `IntakePage` tests.
-- The one review-only evaluation remains unspent. Preflight discovered that
-  the deployed proxy reserves up to $4.150719 internally, above the quoted
-  $0.306348 successful-Haiku bound; uncertain failures can consume the reserve.
-  Do not infer authorization for that changed exposure from the old quote.
-  The original locked checkpoint and the 20-script benchmark remain locked.
-  No release deployment or worker activation occurred.
+- Billy separately approved the $4.150719 internal exposure; the one review
+  settled at $0.086491 with no retry and no remaining new reservation. It failed
+  the Richie and chronology accuracy gates. No more calibration is authorized.
+  Private result: `benchmark-artifacts/cosquillitas-review-only-aae1ac6/EVALUATION-RESULT.md`.
+  The original reading checkpoint and the 20-script benchmark remain locked.
+  No release deployment or worker activation occurred. Review remains advisory.
 
 - Receipt-format repair is implemented locally in `coverage_reader.py` using
   existing adapter accounting helpers. Full transport results/failure evidence
@@ -35,8 +47,8 @@
   accounting format. Server charge $0.356658 settled; local $1.094012
   reservation remains untouched. No second call or production change occurred.
 - The complete raw draft is saved privately. Independent comparison found
-  repeated existing-evidence and climax-order errors. No paid review ran and
-  nothing was published Ready. See `docs/COSQUILLITAS-BOUNDED-PILOT.md` for
+  repeated existing-evidence and climax-order errors. The later separate paid
+  review did not catch them; nothing was published Ready. See `docs/COSQUILLITAS-BOUNDED-PILOT.md` for
   exact evidence, the no-network reproduction and the next no-spend repair.
 - Do not rerun the pilot, clear its reservation, or treat the prior $5 envelope
   as permission for another attempt. A future separately authorized review-only

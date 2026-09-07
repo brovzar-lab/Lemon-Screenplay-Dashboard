@@ -371,7 +371,7 @@ def load_lens_cards(
     return "\n\n---\n\n".join(sections)
 
 
-# ── Canonical hashing (identical semantics to ingest_v9) ─────────────────────
+# ── Canonical hashing (JSON-value semantics match ingest_v9) ────────────────
 
 def canonical_json_hash(value: Any) -> str:
     import hashlib
@@ -379,7 +379,8 @@ def canonical_json_hash(value: Any) -> str:
     def normalize(item: Any) -> Any:
         if isinstance(item, float) and item.is_integer():
             return int(item)
-        if isinstance(item, list):
+        # JSON persists transport tuples as arrays; normalize their children too.
+        if isinstance(item, (list, tuple)):
             return [normalize(child) for child in item]
         if isinstance(item, dict):
             return {key: normalize(child) for key, child in item.items()}
