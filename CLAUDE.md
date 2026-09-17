@@ -41,7 +41,9 @@ Rules for the **dashboard frontend** (React/Vite code under `src/`):
 
 If a dashboard feature requires auth or persistent storage, use the **Paperclip API** instead.
 
-**Exception — Agent server-side Firestore writes:** `GOOGLE_APPLICATION_CREDENTIALS_JSON` IS configured in the agent environment (project: `gen-lang-client-0882654423`). Agents (such as Research Specialist) may write research data directly to Firestore via the REST API using this service account credential. This is NOT prohibited by the above rules, which apply only to the React/Vite dashboard source code. Confirmed working as of 2026-08-12 ([LEMA-8449](/LEMA/issues/LEMA-8449)).
+**Exception — Agent server-side Firestore writes:** `GOOGLE_APPLICATION_CREDENTIALS_JSON` (project: `gen-lang-client-0882654423`) is configured **per-agent**, not studio-wide: do not assume an agent has it. Agents with server-side Firestore access may write research/coverage/dev-tracking data directly via the REST API using this service account credential. This is NOT prohibited by the above rules, which apply only to the React/Vite dashboard source code.
+
+As of 2026-09-17, confirmed configured: Coverage Analyst, Head of Development, Marketing Intelligence, Research Specialist ([LEMA-10439](/LEMA/issues/LEMA-10439)). IP Scout Ninja was scoped for this credential in the original rollout ([LEMA-700](/LEMA/issues/LEMA-700)) but is not currently configured (known gap, not yet actioned). Before relying on this for any agent, verify with `GET /api/agents/{agentId}` rather than trusting this list, which will go stale.
 
 ## 4. Data Fetching
 
